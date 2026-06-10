@@ -97,6 +97,14 @@ select {
   transition: border-color 0.2s;
 }
 select:focus { border-color: rgba(194,157,102,0.5); }
+.sort-dir-btn {
+  height: 30px; width: 32px; border-radius: var(--radius-sm);
+  font-size: 14px; font-weight: 700; cursor: pointer;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border-light); color: var(--text);
+  transition: all 0.2s; line-height: 1;
+}
+.sort-dir-btn:hover { background: rgba(255,255,255,0.1); border-color: var(--gold); }
 .prod-sub-tabs { display: inline-flex; gap: 2px; margin-left: 4px; }
 .sub-tab {
   height: 30px; padding: 0 14px; border-radius: var(--radius-sm);
@@ -441,9 +449,13 @@ input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-colo
       </select>
       <select id="sort-by" onchange="renderProducts()">
         <option value="totalPings">依銷售坪數</option>
-        <option value="inventoryCost">依庫存成本</option>
+        <option value="inventoryCost">依庫存金額</option>
+        <option value="stockPing">依庫存坪數</option>
         <option value="daysSinceLastSale">依停滯天數</option>
+        <option value="lastSaleDate">依上次銷售日</option>
+        <option value="saleCount">依銷售頻率</option>
       </select>
+      <button class="sort-dir-btn" id="sort-dir-btn" onclick="toggleSortDir()">↓</button>
       <span class="prod-sub-tabs" id="prod-sub-tabs">
         <button class="sub-tab active" id="sub-sleeper" onclick="switchProdTab('sleeper')">睡美人</button>
         <button class="sub-tab" id="sub-normal" onclick="switchProdTab('normal')">正常品</button>
@@ -744,6 +756,12 @@ function fmtNum(n) { return isNaN(n) ? '0萬' : (n / 10000).toFixed(1) + '萬'; 
 
 var currentTab = 'bonus';
 var currentProdTab = 'sleeper';
+var sortDir = -1;
+function toggleSortDir() {
+  sortDir = sortDir === -1 ? 1 : -1;
+  document.getElementById('sort-dir-btn').textContent = sortDir === -1 ? '↓' : '↑';
+  renderProducts();
+}
 window._sleeperData = null;
 window._normalData = null;
 window._disconProducts = null;
@@ -811,13 +829,25 @@ function renderProducts() {
   });
 
   list = list.slice().sort(function(a, b) {
-    if (sortBy === 'inventoryCost') return b.inventoryCost - a.inventoryCost;
-    if (sortBy === 'daysSinceLastSale') {
+    var cmp = 0;
+    if (sortBy === 'inventoryCost') cmp = a.inventoryCost - b.inventoryCost;
+    else if (sortBy === 'stockPing') cmp = a.stockPing - b.stockPing;
+    else if (sortBy === 'lastSaleDate') {
+      var da = a.daysSinceLastSale === null ? -1 : a.daysSinceLastSale;
+      var db = b.daysSinceLastSale === null ? -1 : b.daysSinceLastSale;
+      cmp = da - db;
+    } else if (sortBy === 'saleCount') {
+      var ca = (a.buyers && a.buyers.length) || 0;
+      var cb = (b.buyers && b.buyers.length) || 0;
+      cmp = ca - cb;
+    } else if (sortBy === 'daysSinceLastSale') {
       var da = a.daysSinceLastSale === null ? 99999 : a.daysSinceLastSale;
       var db = b.daysSinceLastSale === null ? 99999 : b.daysSinceLastSale;
-      return db - da;
+      cmp = da - db;
+    } else {
+      cmp = a.totalPings - b.totalPings;
     }
-    return b.totalPings - a.totalPings;
+    return cmp * sortDir;
   });
 
   var totalCost = list.reduce(function(s, p) { return s + p.inventoryCost; }, 0);
@@ -1014,13 +1044,13 @@ function renderDashboard(d) {
   html += '</div></div>';
 
   // 前 10 大客戶
-  if (d.topCustomers && d.topCustomers.length) {
+    if (d.topCustomers && d.topCustomers.length) {
     html += '<div class="dash-section"><div class="dash-title">前 10 大客戶（銷售金額）</div><div class="rank-list">';
     d.topCustomers.forEach(function(c, i) {
-      html += '<div class="rank-row"><span class="rank-num">' + (i+1) + '</span><span class="rank-name">' + c.name + ' <span style="font-size:11px;color:var(--purple)">' + c.series + '</span></span><span class="rank-amt">' + c.totalWan + '萬 <span style="font-size:11px;color:var(--gold)">' + c.pct + '%</span></span></div>';
+      html += '<div class="rank-row" style="cursor:pointer" onclick="showCustomerDetail(\'' + c.fullName.replace(/'/g, "\\'") + '\')"><span class="rank-num">' + (i+1) + '</span><span class="rank-name">' + c.name + ' <span style="font-size:11px;color:var(--purple)">' + c.series + '</span></span><span class="rank-amt">' + c.totalWan + '萬 <span style="font-size:11px;color:var(--gold)">' + c.pct + '%</span></span></div>';
     });
     html += '</div></div>';
-  }
+    }
 
   // 前 10 大產品
   if (d.topProducts && d.topProducts.length) {
@@ -1050,6 +1080,34 @@ function renderDashboard(d) {
 
   document.getElementById('main-content').innerHTML = html;
 }
+
+function showCustomerDetail(customer) {
+  showLoading(true);
+  var year = currentYear;
+  apiGet('customer-detail', { customer: customer, year: year }, function(res) {
+    showLoading(false);
+    if (!res.success || !res.data.length) { toast('無此客戶資料'); return; }
+    var html = '<div style="padding:8px 0 14px;font-size:13px;color:var(--text2)">共 ' + res.data.length + ' 筆交易</div>' +
+      '<div class="table-wrap" style="max-height:400px;overflow-y:auto"><table class="detail-table"><thead><tr>' +
+      '<th>日期</th><th>業務</th><th>編號</th><th>系列</th><th class="text-right">數量</th><th class="text-right">金額</th><th>備註</th>' +
+      '</tr></thead><tbody>';
+    res.data.forEach(function(r) {
+      html += '<tr>' +
+        '<td>' + r.date + '</td>' +
+        '<td>' + r.sales + '</td>' +
+        '<td class="text-purple" style="font-size:11px">' + r.sku + '</td>' +
+        '<td style="font-size:11px">' + r.series + '</td>' +
+        '<td class="text-right">' + r.qty + '</td>' +
+        '<td class="text-right text-gold">' + fmt(r.amt) + '</td>' +
+        '<td style="font-size:11px;color:var(--text2)">' + (r.note || '') + '</td></tr>';
+    });
+    html += '</tbody></table></div>';
+    document.getElementById('modal-title').textContent = '客戶明細 — ' + customer;
+    document.getElementById('modal-body').innerHTML = html;
+    document.getElementById('modal-detail').classList.remove('hidden');
+  }, function(err) { showLoading(false); toast('查詢失敗: ' + err); });
+}
+
 </script>
 </body>
 </html>

@@ -798,10 +798,11 @@ class SleeperService
             arsort($data['series']);
             $topSeries = key($data['series']);
             $top10cust[] = [
-                'name'   => mb_substr($name, 0, 2, 'UTF-8'),
-                'series' => $topSeries ?: '',
+                'name'     => mb_substr($name, 0, 2, 'UTF-8'),
+                'fullName' => $name,
+                'series'   => $topSeries ?: '',
                 'totalWan' => round($data['total'] / 10000, 1),
-                'pct'    => $totalAmt > 0 ? round($data['total'] / $totalAmt * 100, 1) : 0
+                'pct'      => $totalAmt > 0 ? round($data['total'] / $totalAmt * 100, 1) : 0
             ];
         }
 
@@ -857,6 +858,58 @@ class SleeperService
         ];
     }
 
+    public function getCustomerDetail($customer, $year = null)
+    {
+        $seriesMap = $this->getSeriesMap();
+        $raw = $this->gs->readSheet(SALES_SHEET);
+        if (count($raw) < 2) return ['success' => true, 'data' => []];
+
+        $h = $raw[0];
+        $idxDate  = $this->findHeader($h, ['日期','單據日期','銷貨日期']);
+        $idxSales = $this->findHeader($h, ['負責業務','業務','業務員','負責人']);
+        $idxCust  = $this->findHeader($h, ['客戶名稱','客戶']);
+        $idxCode  = $this->findHeader($h, ['產品編號','編號','品碼','序號']);
+        $idxQty   = $this->findHeader($h, ['數量','片數']);
+        $idxAmt   = $this->findHeader($h, ['金額','銷額','銷售金額','成交金額','小計','總計']);
+        $idxNote  = $this->findHeader($h, ['備註','說明','案名','專案','工地']);
+        if ($idxCust === -1 || $idxDate === -1 || $idxCode === -1) return ['success' => true, 'data' => []];
+
+        $results = [];
+        for ($i = 1; $i < count($raw); $i++) {
+            $row = $raw[$i];
+            $custName = trim($this->getVal($row, $idxCust));
+            if (strpos($custName, $customer) !== 0) continue;
+
+            $d = $this->parseDate($this->getVal($row, $idxDate));
+            if (!$d) continue;
+            if ($year !== null && $d->format('Y') != $year) continue;
+
+            $note = trim($this->getVal($row, $idxNote));
+            if (strpos($note, '樣品') !== false || strpos($note, '扣帶') !== false) continue;
+
+            $sku = $this->cleanSku($this->getVal($row, $idxCode));
+            $qty = $this->optFloat($this->getVal($row, $idxQty));
+            $amt = $qty > 0 ? $this->optFloat($this->getVal($row, $idxAmt)) : 0;
+            if (!$sku || $qty == 0) continue;
+
+            $results[] = [
+                'date'   => $d->format('Y/m/d'),
+                'month'  => $d->format('Y/m'),
+                'sales'  => $idxSales !== -1 ? trim($this->getVal($row, $idxSales)) : '',
+                'cust'   => $custName,
+                'sku'    => $sku,
+                'series' => isset($seriesMap[$sku]) ? $seriesMap[$sku] : '',
+                'qty'    => $qty,
+                'amt'    => round($amt),
+                'note'   => $note
+            ];
+        }
+
+        usort($results, function($a, $b) { return strcmp($a['date'], $b['date']); });
+
+        return ['success' => true, 'data' => $results];
+    }
+
     public function getSleeperProductOverview()
     {
         $configRes = $this->getSleeperConfig();
@@ -895,13 +948,15 @@ class SleeperService
                 $cust = trim($this->getVal($raw[$i], $idxCust));
 
                 if (!isset($salesStats[$sku])) {
-                    $salesStats[$sku] = ['lastDate' => null, 'totalPings' => 0, 'buyerMap' => []];
+                    $salesStats[$sku] = ['lastDate' => null, 'totalPings' => 0, 'count' => 0, 'buyerMap' => []];
                 }
                 $s = &$salesStats[$sku];
+                $s['count']++;
                 if (!$s['lastDate'] || $d > $s['lastDate']) $s['lastDate'] = $d;
                 $s['totalPings'] += $pings;
                 if (!isset($s['buyerMap'][$cust])) $s['buyerMap'][$cust] = 0;
                 $s['buyerMap'][$cust] += $pings;
+            }
             }
         }
 
@@ -942,6 +997,7 @@ class SleeperService
                 'stockPing' => round($stockPing * 10) / 10,
                 'inventoryCost' => $inventoryCost,
                 'totalPings' => $totalPings,
+                'saleCount' => $stats ? $stats['count'] : 0,
                 'daysSinceLastSale' => $daysSinceLastSale,
                 'lastSaleStr' => $lastSaleStr,
                 'buyers' => $buyers
@@ -1019,9 +1075,10 @@ class SleeperService
                 $cust = trim($this->getVal($raw[$i], $idxCust));
 
                 if (!isset($salesStats[$sku])) {
-                    $salesStats[$sku] = ['lastDate' => null, 'totalPings' => 0, 'buyerMap' => []];
+                    $salesStats[$sku] = ['lastDate' => null, 'totalPings' => 0, 'count' => 0, 'buyerMap' => []];
                 }
                 $s = &$salesStats[$sku];
+                $s['count']++;
                 if (!$s['lastDate'] || $d > $s['lastDate']) $s['lastDate'] = $d;
                 $s['totalPings'] += $pings;
                 if (!isset($s['buyerMap'][$cust])) $s['buyerMap'][$cust] = 0;
@@ -1065,6 +1122,7 @@ class SleeperService
                 'stockPing' => round($stockPing * 10) / 10,
                 'inventoryCost' => $inventoryCost,
                 'totalPings' => $totalPings,
+                'saleCount' => $stats ? $stats['count'] : 0,
                 'daysSinceLastSale' => $daysSinceLastSale,
                 'lastSaleStr' => $lastSaleStr,
                 'buyers' => $buyers,
@@ -1138,9 +1196,10 @@ class SleeperService
                 $pings = $qty / $perPing;
                 $cust = trim($this->getVal($raw[$i], $idxCust));
                 if (!isset($salesStats[$sku])) {
-                    $salesStats[$sku] = ['lastDate' => null, 'totalPings' => 0, 'buyerMap' => []];
+                    $salesStats[$sku] = ['lastDate' => null, 'totalPings' => 0, 'count' => 0, 'buyerMap' => []];
                 }
                 $s = &$salesStats[$sku];
+                $s['count']++;
                 if (!$s['lastDate'] || $d > $s['lastDate']) $s['lastDate'] = $d;
                 $s['totalPings'] += $pings;
                 if (!isset($s['buyerMap'][$cust])) $s['buyerMap'][$cust] = 0;
@@ -1181,6 +1240,7 @@ class SleeperService
                 'stockPing' => round($stockPing * 10) / 10,
                 'inventoryCost' => $inventoryCost,
                 'totalPings' => $totalPings,
+                'saleCount' => $stats ? $stats['count'] : 0,
                 'daysSinceLastSale' => $daysSinceLastSale,
                 'lastSaleStr' => $lastSaleStr,
                 'buyers' => $buyers
@@ -1325,6 +1385,13 @@ try {
             } catch (Exception $e) {
                 echo json_encode(['success' => false, 'msg' => 'year-summary 錯誤: ' . $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
             }
+            break;
+
+        case 'customer-detail':
+            $customer = $_GET['customer'] ?? '';
+            $year = isset($_GET['year']) ? (int)$_GET['year'] : null;
+            $res = $svc->getCustomerDetail($customer, $year);
+            echo json_encode($res);
             break;
 
         case 'products':
