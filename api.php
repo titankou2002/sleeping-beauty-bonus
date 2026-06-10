@@ -216,7 +216,7 @@ class SleeperService
             $pH = $priceData[0];
             $pCode = $this->findHeader($pH, ['編號','產品編號']);
             $pSleeper = $this->findHeader($pH, ['睡美人']);
-            $pCost = $this->findHeader($pH, ['成本','單片成本','成本價','單價']);
+            $pCost = $this->findHeader($pH, ['成本','單片成本','成本價']);
             $pSeries = $this->findHeader($pH, ['中文系列','系列']);
             if ($pCode !== -1 && $pSleeper !== -1) {
                 for ($i = 1; $i < count($priceData); $i++) {
@@ -909,7 +909,7 @@ class SleeperService
         $pCode  = $this->findHeader($pH, ['編號','產品編號']);
         $pDisc  = $this->findHeader($pH, ['不續辦']);
         $pSer   = $this->findHeader($pH, ['中文系列','系列']);
-        $pCost  = $this->findHeader($pH, ['成本','單片成本','成本價','單價']);
+        $pCost  = $this->findHeader($pH, ['成本','單片成本','成本價']);
         $pPerPing = $this->findHeader($pH, ['片/坪']);
         $pImg   = $this->findHeader($pH, ['單片連結網址','單片圖','圖片網址','單片網址','圖片連結']);
         if ($pCode === -1 || $pDisc === -1) return ['success' => true, 'data' => []];
@@ -1026,7 +1026,7 @@ class SleeperService
         $pSleeper = $this->findHeader($pH, ['睡美人']);
         $pDisc    = $this->findHeader($pH, ['不續辦']);
         $pSer     = $this->findHeader($pH, ['中文系列','系列']);
-        $pCost    = $this->findHeader($pH, ['成本','單片成本','成本價','單價']);
+        $pCost    = $this->findHeader($pH, ['成本','單片成本','成本價']);
         $pPerPing = $this->findHeader($pH, ['片/坪']);
         if ($pCode === -1) return ['success' => true, 'data' => []];
 
