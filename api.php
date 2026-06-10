@@ -329,6 +329,25 @@ class SleeperService
         return $map;
     }
 
+    private function getSleeperCostMap()
+    {
+        $data = $this->gs->readSheet(SLEEPER_SHEET);
+        if (count($data) < 2) return [];
+
+        $h = $data[0];
+        $idxSku  = $this->findHeader($h, ['編號','產品編號','品號']);
+        $idxCost = $this->findHeader($h, ['成本','單片成本','成本價']);
+        if ($idxSku === -1 || $idxCost === -1) return [];
+
+        $map = [];
+        for ($i = 1; $i < count($data); $i++) {
+            $sku = $this->cleanSku($this->getVal($data[$i], $idxSku));
+            if (!$sku) continue;
+            $map[$sku] = $this->optFloat($this->getVal($data[$i], $idxCost));
+        }
+        return $map;
+    }
+
     public function getSleeperSalesByMonth($year, $month)
     {
         $configRes = $this->getSleeperConfig();
@@ -929,6 +948,14 @@ class SleeperService
             ];
         }
 
+        $sleeperCosts = $this->getSleeperCostMap();
+        foreach ($disconMap as $sku => &$info) {
+            if (isset($sleeperCosts[$sku]) && $sleeperCosts[$sku] > 0) {
+                $info['cost'] = $sleeperCosts[$sku];
+            }
+        }
+        unset($info);
+
         $stockMap = $this->getStockMap();
         $raw = $this->gs->readSheet(SALES_SHEET);
         $h = isset($raw[0]) ? $raw[0] : [];
@@ -1044,6 +1071,14 @@ class SleeperService
                 'perPing' => $pPerPing !== -1 ? ($this->optFloat($this->getVal($row, $pPerPing)) ?: 36) : 36
             ];
         }
+
+        $sleeperCosts = $this->getSleeperCostMap();
+        foreach ($normMap as $sku => &$info) {
+            if (isset($sleeperCosts[$sku]) && $sleeperCosts[$sku] > 0) {
+                $info['cost'] = $sleeperCosts[$sku];
+            }
+        }
+        unset($info);
 
         $stockMap = $this->getStockMap();
         $raw = $this->gs->readSheet(SALES_SHEET);
