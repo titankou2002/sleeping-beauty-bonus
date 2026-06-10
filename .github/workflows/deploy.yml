@@ -28,3 +28,4 @@ jobs:
             .gitignore
             .github/**
             src/**
+          delete: false
