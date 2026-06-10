@@ -2,7 +2,7 @@
   "name": "elite/sleeping-beauty-bonus",
   "description": "睡美人戰情室 - PHP 版",
   "require": {
-    "google/apiclient": "^2.15"
+    "firebase/php-jwt": "^6.0"
   },
   "autoload": {
     "psr-4": {
