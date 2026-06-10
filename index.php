@@ -5,9 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>睡美人戰情室</title>
   <link rel="icon" href="favicon.png" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@600;700;800;900&family=Noto+Sans+TC:wght@600;700;800;900&display=swap" rel="stylesheet">
   <style>
 :root {
-  --bg: #000000;
+  --bg: #0a0a0a;
   --surface: #0a0a0a;
   --surface2: rgba(255,255,255,0.06);
   --border: rgba(255,255,255,0.12);
@@ -26,7 +29,7 @@
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Noto Sans TC", "Microsoft JhengHei", sans-serif;
   min-height: 100vh;
 }
 .app { display: flex; flex-direction: column; min-height: 100vh; }
@@ -320,7 +323,7 @@ input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-colo
       </select>
       <button class="btn btn-primary" onclick="loadData()">查詢</button>
       <button class="btn btn-ghost" onclick="recalcAll()">重新計算</button>
-      <button class="btn btn-accent hidden" id="btn-save" onclick="saveEdits()">💾 儲存修改</button>
+      <button class="btn btn-accent hidden" id="btn-save" onclick="saveEdits()">儲存修改</button>
     </div>
 
     <div class="ctrl-bar hidden" id="ctrl-products">
@@ -376,7 +379,8 @@ function showLoading(show) {
 function toast(msg, isError) {
   var t = document.createElement('div');
   t.textContent = msg;
-  t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#000;border:2px solid ' + (isError ? '#ef4444' : 'var(--gold)') + ';color:#fff;padding:14px 28px;border-radius:10px;font-weight:700;z-index:1000;box-shadow:0 0 15px rgba(194,157,102,0.3);cursor:pointer;max-width:90vw;text-align:center;line-height:1.4;';
+var bg = isError ? '#ef4444' : '#0a0a0a';
+  t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:' + bg + ';border:2px solid ' + (isError ? '#ef4444' : 'var(--gold)') + ';color:#fff;padding:14px 28px;border-radius:10px;font-weight:700;z-index:1000;box-shadow:0 0 15px rgba(194,157,102,0.3);cursor:pointer;max-width:90vw;text-align:center;line-height:1.4;';
   t.onclick = function() { t.remove(); };
   document.body.appendChild(t);
   setTimeout(function(){ t.remove(); }, isError ? 12000 : 5000);
@@ -689,15 +693,15 @@ function renderProducts() {
   list.forEach(function(p) {
     var frozenClass, frozenText;
     if (p.daysSinceLastSale === null) {
-      frozenClass = 'frozen-dead'; frozenText = '⚠️ 從未銷售';
+      frozenClass = 'frozen-dead'; frozenText = '從未銷售';
     } else if (p.daysSinceLastSale > 365) {
-      frozenClass = 'frozen-dead'; frozenText = '🧊 ' + p.daysSinceLastSale + ' 天未售';
+      frozenClass = 'frozen-dead'; frozenText = p.daysSinceLastSale + ' 天未售';
     } else if (p.daysSinceLastSale > 180) {
-      frozenClass = 'frozen-cold'; frozenText = '❄️ ' + p.daysSinceLastSale + ' 天未售';
+      frozenClass = 'frozen-cold'; frozenText = p.daysSinceLastSale + ' 天未售';
     } else if (p.daysSinceLastSale > 90) {
-      frozenClass = 'frozen-warm'; frozenText = '🔸 ' + p.daysSinceLastSale + ' 天未售';
+      frozenClass = 'frozen-warm'; frozenText = p.daysSinceLastSale + ' 天未售';
     } else {
-      frozenClass = 'frozen-hot'; frozenText = '✅ ' + p.daysSinceLastSale + ' 天前';
+      frozenClass = 'frozen-hot'; frozenText = p.daysSinceLastSale + ' 天前';
     }
 
     var buyerHtml = '';
@@ -752,7 +756,7 @@ function renderDiscontinued() {
   var totalCost = list.reduce(function(s, p) { return s + p.inventoryCost; }, 0);
   var totalPings = list.reduce(function(s, p) { return s + p.totalPings; }, 0);
   var neverSold = list.filter(function(p) { return p.daysSinceLastSale === null; }).length;
-  var html = '<div class="dash-section" id="discon-section"><div class="dash-title">🚫 不續辦產品 — 銷售狀況</div>' +
+  var html = '<div class="dash-section" id="discon-section"><div class="dash-title">不續辦產品 — 銷售狀況</div>' +
     '<div class="kpi-row" style="margin-bottom:16px">' +
     '<div class="kpi-card kpi-blue"><div class="label">產品數</div><div class="value">' + list.length + '</div><div class="sub">支 SKU</div></div>' +
     '<div class="kpi-card kpi-gold"><div class="label">庫存佔用成本</div><div class="value">' + fmt(totalCost) + '</div><div class="sub">元</div></div>' +
@@ -762,15 +766,15 @@ function renderDiscontinued() {
   list.forEach(function(p) {
     var frozenClass, frozenText;
     if (p.daysSinceLastSale === null) {
-      frozenClass = 'frozen-dead'; frozenText = '⚠️ 從未銷售';
+      frozenClass = 'frozen-dead'; frozenText = '從未銷售';
     } else if (p.daysSinceLastSale > 365) {
-      frozenClass = 'frozen-dead'; frozenText = '🧊 ' + p.daysSinceLastSale + ' 天未售';
+      frozenClass = 'frozen-dead'; frozenText = p.daysSinceLastSale + ' 天未售';
     } else if (p.daysSinceLastSale > 180) {
-      frozenClass = 'frozen-cold'; frozenText = '❄️ ' + p.daysSinceLastSale + ' 天未售';
+      frozenClass = 'frozen-cold'; frozenText = p.daysSinceLastSale + ' 天未售';
     } else if (p.daysSinceLastSale > 90) {
-      frozenClass = 'frozen-warm'; frozenText = '🔸 ' + p.daysSinceLastSale + ' 天未售';
+      frozenClass = 'frozen-warm'; frozenText = p.daysSinceLastSale + ' 天未售';
     } else {
-      frozenClass = 'frozen-hot'; frozenText = '✅ ' + p.daysSinceLastSale + ' 天前';
+      frozenClass = 'frozen-hot'; frozenText = p.daysSinceLastSale + ' 天前';
     }
     var buyerHtml = '';
     if (p.buyers && p.buyers.length > 0) {
@@ -780,7 +784,7 @@ function renderDiscontinued() {
         }).join('') + '</div></div>';
     }
     html += '<div class="product-card">' +
-      '<div class="prod-grade"><div class="grade-badge" style="font-size:12px;background:rgba(239,68,68,0.12);color:#ef4444;border:1px solid rgba(239,68,68,0.25)">🚫</div></div>' +
+      '<div class="prod-grade"><div class="grade-badge" style="font-size:11px;background:rgba(239,68,68,0.12);color:#ef4444;border:1px solid rgba(239,68,68,0.25)">D/C</div></div>' +
       '<div class="prod-info">' +
       '<div class="prod-title">' + (p.series || '未分類') + '</div>' +
       '<div class="prod-sku">' + p.sku + '</div>' +
@@ -859,7 +863,7 @@ function renderDashboard(d) {
 
   // 前 10 大客戶
   if (d.topCustomers && d.topCustomers.length) {
-    html += '<div class="dash-section"><div class="dash-title">🏆 前 10 大客戶（銷售金額）</div><div class="rank-list">';
+    html += '<div class="dash-section"><div class="dash-title">前 10 大客戶（銷售金額）</div><div class="rank-list">';
     d.topCustomers.forEach(function(c, i) {
       html += '<div class="rank-row"><span class="rank-num">' + (i+1) + '</span><span class="rank-name">' + c.name + ' <span style="font-size:11px;color:var(--purple)">' + c.series + '</span></span><span class="rank-amt">' + c.totalWan + '萬 <span style="font-size:11px;color:var(--gold)">' + c.pct + '%</span></span></div>';
     });
@@ -868,7 +872,7 @@ function renderDashboard(d) {
 
   // 前 10 大產品
   if (d.topProducts && d.topProducts.length) {
-    html += '<div class="dash-section"><div class="dash-title">🏆 前 10 大產品（系列 + 編號 + 金額）</div><div class="rank-list">';
+    html += '<div class="dash-section"><div class="dash-title">前 10 大產品（系列 + 編號 + 金額）</div><div class="rank-list">';
     d.topProducts.forEach(function(p, i) {
       html += '<div class="rank-row"><span class="rank-num">' + (i+1) + '</span><span class="rank-name">' + p.series + ' <span class="text-purple" style="font-size:11px">' + p.sku + '</span></span><span class="rank-amt">' + fmt(Math.round(p.amt)) + '</span></div>';
     });
@@ -877,12 +881,12 @@ function renderDashboard(d) {
 
   // 不續辦統計
   if (d.discontStats) {
-    html += '<div class="dash-section"><div class="dash-title">🚫 不續辦產品</div>';
+    html += '<div class="dash-section"><div class="dash-title">不續辦產品</div>';
     html += '<div class="kpi-row" style="margin-bottom:12px">' +
       '<div class="kpi-card kpi-blue"><div class="label">不續辦品項</div><div class="value">' + (d.discontStats.discCount || 0) + '</div><div class="sub">支 SKU</div></div>' +
     '</div>';
     if (d.discontStats.missingSleeper && d.discontStats.missingSleeper.length) {
-      html += '<div style="padding:12px;background:rgba(194,157,102,0.08);border-radius:10px;font-size:12px;color:var(--gold)">⚠️ 編號價目表標記為「睡美人」但睡美人工作表缺少的 SKU (' + d.discontStats.missingSleeper.length + ' 支)：' +
+      html += '<div style="padding:12px;background:rgba(194,157,102,0.08);border-radius:10px;font-size:12px;color:var(--gold)">編號價目表標記為「睡美人」但睡美人工作表缺少的 SKU (' + d.discontStats.missingSleeper.length + ' 支)：' +
         d.discontStats.missingSleeper.slice(0, 5).map(function(s) { return s.sku + '(' + s.series + ')'; }).join('、') +
         (d.discontStats.missingSleeper.length > 5 ? '…等' + d.discontStats.missingSleeper.length + ' 支' : '') +
       '</div>';
@@ -890,7 +894,7 @@ function renderDashboard(d) {
     html += '</div>';
   }
 
-  html += '<div class="dash-hint">💡 選擇月份後按「查詢」查看明細，或切換「產品總覽」</div>';
+  html += '<div class="dash-hint">選擇月份後按「查詢」查看明細，或切換「產品總覽」</div>';
 
   document.getElementById('main-content').innerHTML = html;
 }
