@@ -666,8 +666,9 @@ class SleeperService
         $months = [];
         $grandTotal = 0;
         $peopleTotal = [];
-        $custTotals = [];
+        $custData = [];
         $prodTotals = [];
+        $totalAmt = 0;
 
         if (count($data) > 1) {
             $h = $data[0];
@@ -708,8 +709,11 @@ class SleeperService
                 $grandTotal += $bonus;
 
                 if ($cust && $amt) {
-                    if (!isset($custTotals[$cust])) $custTotals[$cust] = 0;
-                    $custTotals[$cust] += abs($amt);
+                    if (!isset($custData[$cust])) $custData[$cust] = ['total' => 0, 'series' => []];
+                    $custData[$cust]['total'] += abs($amt);
+                    if (!isset($custData[$cust]['series'][$series])) $custData[$cust]['series'][$series] = 0;
+                    $custData[$cust]['series'][$series] += abs($amt);
+                    $totalAmt += abs($amt);
                 }
                 if ($sku && $amt) {
                     $key = $sku . '|' . $series;
@@ -734,11 +738,18 @@ class SleeperService
         }
 
         $top10cust = [];
-        arsort($custTotals);
+        uasort($custData, function($a, $b) { return $b['total'] - $a['total']; });
         $ci = 0;
-        foreach ($custTotals as $name => $total) {
+        foreach ($custData as $name => $data) {
             if ($ci++ >= 10) break;
-            $top10cust[] = ['name' => $name, 'total' => round($total)];
+            arsort($data['series']);
+            $topSeries = key($data['series']);
+            $top10cust[] = [
+                'name'   => mb_substr($name, 0, 2, 'UTF-8'),
+                'series' => $topSeries ?: '',
+                'totalWan' => round($data['total'] / 10000, 1),
+                'pct'    => $totalAmt > 0 ? round($data['total'] / $totalAmt * 100, 1) : 0
+            ];
         }
 
         $top10prod = [];
@@ -875,6 +886,119 @@ class SleeperService
                 'grade' => $slp['grade'],
                 'costPerPiece' => $slp['cost'],
                 'perPing' => $meta['perPing'],
+                'stockPing' => round($stockPing * 10) / 10,
+                'inventoryCost' => $inventoryCost,
+                'totalPings' => $totalPings,
+                'daysSinceLastSale' => $daysSinceLastSale,
+                'lastSaleStr' => $lastSaleStr,
+                'buyers' => $buyers
+            ];
+        }
+
+        usort($products, function($a, $b) { return $b['totalPings'] <=> $a['totalPings']; });
+
+        return ['success' => true, 'data' => $products];
+    }
+
+    public function getDiscontinuedProductOverview()
+    {
+        $pData = $this->gs->readSheet(PRICE_SHEET);
+        if (count($pData) < 2) return ['success' => true, 'data' => []];
+
+        $pH = $pData[0];
+        $pCode  = $this->findHeader($pH, ['編號','產品編號']);
+        $pDisc  = $this->findHeader($pH, ['不續辦']);
+        $pSer   = $this->findHeader($pH, ['中文系列','系列']);
+        $pCost  = $this->findHeader($pH, ['成本','單片成本','成本價','單價']);
+        $pPerPing = $this->findHeader($pH, ['片/坪']);
+        if ($pCode === -1 || $pDisc === -1) return ['success' => true, 'data' => []];
+
+        $disconMap = [];
+        for ($i = 1; $i < count($pData); $i++) {
+            $row = $pData[$i];
+            $sku = $this->cleanSku($this->getVal($row, $pCode));
+            if (!$sku) continue;
+            if (trim($this->getVal($row, $pDisc)) === '') continue;
+            $meta['series']  = $pSer !== -1 ? trim($this->getVal($row, $pSer)) : '';
+            $disconMap[$sku] = [
+                'series'  => $meta['series'],
+                'cost'    => $pCost !== -1 ? $this->optFloat($this->getVal($row, $pCost)) : 0,
+                'perPing' => $pPerPing !== -1 ? ($this->optFloat($this->getVal($row, $pPerPing)) ?: 36) : 36
+            ];
+        }
+
+        $stockMap = $this->getStockMap();
+        $raw = $this->gs->readSheet(SALES_SHEET);
+        $h = isset($raw[0]) ? $raw[0] : [];
+        $idxCode = $this->findHeader($h, ['產品編號','編號']);
+        $idxDate = $this->findHeader($h, ['日期','單據日期']);
+        $idxQty  = $this->findHeader($h, ['數量','片數']);
+        $idxCust = $this->findHeader($h, ['客戶名稱','客戶']);
+        $idxNote = $this->findHeader($h, ['備註']);
+
+        $salesStats = [];
+        if ($idxCode !== -1 && $idxDate !== -1) {
+            for ($i = 1; $i < count($raw); $i++) {
+                $sku = $this->cleanSku($this->getVal($raw[$i], $idxCode));
+                if (!$sku || !isset($disconMap[$sku])) continue;
+
+                $note = trim($this->getVal($raw[$i], $idxNote));
+                if (strpos($note, '樣品') !== false || strpos($note, '扣帶') !== false) continue;
+
+                $qty = $this->optFloat($this->getVal($raw[$i], $idxQty));
+                if ($qty <= 0) continue;
+
+                $d = $this->parseDate($this->getVal($raw[$i], $idxDate));
+                if (!$d) continue;
+
+                $perPing = $disconMap[$sku]['perPing'] ?: 36;
+                $pings = $qty / $perPing;
+                $cust = trim($this->getVal($raw[$i], $idxCust));
+
+                if (!isset($salesStats[$sku])) {
+                    $salesStats[$sku] = ['lastDate' => null, 'totalPings' => 0, 'buyerMap' => []];
+                }
+                $s = &$salesStats[$sku];
+                if (!$s['lastDate'] || $d > $s['lastDate']) $s['lastDate'] = $d;
+                $s['totalPings'] += $pings;
+                if (!isset($s['buyerMap'][$cust])) $s['buyerMap'][$cust] = 0;
+                $s['buyerMap'][$cust] += $pings;
+            }
+        }
+
+        $now = new DateTime();
+        $products = [];
+        foreach ($disconMap as $sku => $info) {
+            $stockPing = isset($stockMap[$sku]) ? $stockMap[$sku] : 0;
+            $costPerPing = $info['cost'] * ($info['perPing'] ?: 36);
+            $inventoryCost = round($stockPing * $costPerPing);
+            $stats = isset($salesStats[$sku]) ? $salesStats[$sku] : null;
+
+            $daysSinceLastSale = null;
+            $lastSaleStr = '從未銷售';
+            if ($stats && $stats['lastDate']) {
+                $daysSinceLastSale = (int)$now->diff($stats['lastDate'])->days;
+                $lastSaleStr = $stats['lastDate']->format('Y/m');
+            }
+
+            $totalPings = $stats ? round($stats['totalPings'] * 10) / 10 : 0;
+            $buyers = [];
+            if ($stats) {
+                $sorted = $stats['buyerMap'];
+                arsort($sorted);
+                $i = 0;
+                foreach ($sorted as $name => $pings) {
+                    if ($i++ >= 5) break;
+                    $buyers[] = ['name' => $name, 'pings' => round($pings * 10) / 10];
+                }
+            }
+
+            $products[] = [
+                'sku' => $sku,
+                'series' => $info['series'],
+                'grade' => '',
+                'costPerPiece' => $info['cost'],
+                'perPing' => $info['perPing'],
                 'stockPing' => round($stockPing * 10) / 10,
                 'inventoryCost' => $inventoryCost,
                 'totalPings' => $totalPings,
@@ -1026,6 +1150,11 @@ try {
 
         case 'products':
             $res = $svc->getSleeperProductOverview();
+            echo json_encode($res);
+            break;
+
+        case 'discontinued-products':
+            $res = $svc->getDiscontinuedProductOverview();
             echo json_encode($res);
             break;
 

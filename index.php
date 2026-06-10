@@ -16,7 +16,8 @@
   --gold: #c29d66;
   --gold-soft: rgba(194,157,102,0.12);
   --gold-glow: rgba(194,157,102,0.25);
-  --green: #22c55e;
+  --purple: #a78bfa;
+  --purple-soft: rgba(167,139,250,0.15);
   --red: #ef4444;
   --orange: #f97316;
   --blue: #3b82f6;
@@ -164,6 +165,7 @@ select {
 .text-right  { text-align: right; }
 .text-center { text-align: center; }
 .text-gold   { color: var(--gold); }
+.text-purple { color: var(--purple); }
 .text-green  { color: var(--green); }
 .text-red    { color: var(--red); }
 .text-purple { color: #a78bfa; }
@@ -739,6 +741,63 @@ function loadDashboard() {
   apiGet('year-summary', { year: year }, function(res) {
     if (res.success) renderDashboard(res.data);
   });
+  apiGet('discontinued-products', {}, function(res) {
+    if (res.success) window._disconProducts = res.data;
+    if (window._disconProducts && window._disconProducts.length) renderDiscontinued();
+  });
+}
+
+function renderDiscontinued() {
+  var list = window._disconProducts || [];
+  var totalCost = list.reduce(function(s, p) { return s + p.inventoryCost; }, 0);
+  var totalPings = list.reduce(function(s, p) { return s + p.totalPings; }, 0);
+  var neverSold = list.filter(function(p) { return p.daysSinceLastSale === null; }).length;
+  var html = '<div class="dash-section" id="discon-section"><div class="dash-title">🚫 不續辦產品 — 銷售狀況</div>' +
+    '<div class="kpi-row" style="margin-bottom:16px">' +
+    '<div class="kpi-card kpi-blue"><div class="label">產品數</div><div class="value">' + list.length + '</div><div class="sub">支 SKU</div></div>' +
+    '<div class="kpi-card kpi-gold"><div class="label">庫存佔用成本</div><div class="value">' + fmt(totalCost) + '</div><div class="sub">元</div></div>' +
+    '<div class="kpi-card kpi-green"><div class="label">歷史銷售</div><div class="value">' + Math.round(totalPings) + '</div><div class="sub">坪</div></div>' +
+    '<div class="kpi-card" style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;text-align:center"><div class="label" style="font-size:11px;color:var(--text2);font-weight:700;margin-bottom:6px">從未銷售</div><div class="value" style="font-size:26px;font-weight:900;color:var(--red)">' + neverSold + '</div><div class="sub" style="font-size:11px;color:var(--text2);margin-top:4px">支</div></div>' +
+    '</div><div class="product-list">';
+  list.forEach(function(p) {
+    var frozenClass, frozenText;
+    if (p.daysSinceLastSale === null) {
+      frozenClass = 'frozen-dead'; frozenText = '⚠️ 從未銷售';
+    } else if (p.daysSinceLastSale > 365) {
+      frozenClass = 'frozen-dead'; frozenText = '🧊 ' + p.daysSinceLastSale + ' 天未售';
+    } else if (p.daysSinceLastSale > 180) {
+      frozenClass = 'frozen-cold'; frozenText = '❄️ ' + p.daysSinceLastSale + ' 天未售';
+    } else if (p.daysSinceLastSale > 90) {
+      frozenClass = 'frozen-warm'; frozenText = '🔸 ' + p.daysSinceLastSale + ' 天未售';
+    } else {
+      frozenClass = 'frozen-hot'; frozenText = '✅ ' + p.daysSinceLastSale + ' 天前';
+    }
+    var buyerHtml = '';
+    if (p.buyers && p.buyers.length > 0) {
+      buyerHtml = '<div class="prod-buyers"><div class="ps-label">歷史買家</div><div class="buyer-chips">' +
+        p.buyers.map(function(b) {
+          return '<span class="buyer-chip">' + b.name + ' ' + b.pings + '坪</span>';
+        }).join('') + '</div></div>';
+    }
+    html += '<div class="product-card">' +
+      '<div class="prod-info" style="width:100%">' +
+      '<div class="prod-title">' + (p.series || '未分類') + '</div>' +
+      '<div class="prod-sku">' + p.sku + '</div>' +
+      '<div class="prod-stats">' +
+      '<div class="prod-stat"><div class="ps-label">歷史銷售</div><div class="ps-value">' + p.totalPings + ' 坪</div></div>' +
+      '<div class="prod-stat"><div class="ps-label">庫存</div><div class="ps-value">' + p.stockPing + ' 坪</div></div>' +
+      '<div class="prod-stat"><div class="ps-label">成本/片</div><div class="ps-value text-gold">$' + p.costPerPiece + '</div></div>' +
+      '<div class="prod-stat"><div class="ps-label">最後銷售</div><div class="ps-value">' + p.lastSaleStr + '</div></div>' +
+      '</div>' + buyerHtml +
+      '</div>' +
+      '<div class="prod-right">' +
+      '<div class="label" style="font-size:11px;color:var(--text2);font-weight:700;margin-bottom:4px">庫存佔用成本</div>' +
+      '<div class="prod-cost">' + fmt(p.inventoryCost) + '</div>' +
+      '<div class="prod-frozen ' + frozenClass + '">' + frozenText + '</div>' +
+      '</div></div>';
+  });
+  html += '</div></div>';
+  document.getElementById('main-content').insertAdjacentHTML('beforeend', html);
 }
 
 function renderDashboard(d) {
@@ -801,7 +860,7 @@ function renderDashboard(d) {
   if (d.topCustomers && d.topCustomers.length) {
     html += '<div class="dash-section"><div class="dash-title">🏆 前 10 大客戶（銷售金額）</div><div class="rank-list">';
     d.topCustomers.forEach(function(c, i) {
-      html += '<div class="rank-row"><span class="rank-num">' + (i+1) + '</span><span class="rank-name">' + c.name + '</span><span class="rank-amt">' + fmt(c.total) + '</span></div>';
+      html += '<div class="rank-row"><span class="rank-num">' + (i+1) + '</span><span class="rank-name">' + c.name + ' <span style="font-size:11px;color:var(--purple)">' + c.series + '</span></span><span class="rank-amt">' + c.totalWan + '萬 <span style="font-size:11px;color:var(--gold)">' + c.pct + '%</span></span></div>';
     });
     html += '</div></div>';
   }
