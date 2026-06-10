@@ -617,7 +617,7 @@ function renderSummary(data, year, month, salesFilter) {
       '<div class="table-wrap"><table class="detail-table"><thead><tr>' +
         '<th>客戶</th><th>編號</th><th>系列</th>' +
         '<th class="text-right">片數</th><th class="text-right">單價</th>' +
-        '<th class="text-right">金額</th><th class="text-center">等級</th>' +
+        '<th class="text-right">成本</th><th class="text-right">金額</th><th class="text-center">等級</th>' +
         '<th class="text-center">倍數</th><th class="text-right">業績金額</th>' +
         '<th class="text-center">全出清</th><th>備註</th>' +
       '</tr></thead><tbody>';
@@ -638,6 +638,7 @@ function renderSummary(data, year, month, salesFilter) {
         '<td style="font-size:11px;">' + (r['系列'] || '') + '</td>' +
         '<td class="text-right"><input type="number" step="1" class="ed-input" id="' + prefix + '_qty" value="' + qty + '" onchange="onEditChange(' + rowIdx + ')"></td>' +
         '<td class="text-right"><input type="number" step="0.01" class="ed-input" id="' + prefix + '_price" value="' + price + '" onchange="onEditChange(' + rowIdx + ')"></td>' +
+        '<td class="text-right text-gold">$' + (parseFloat(r['成本']) || 0) + '</td>' +
         '<td class="text-right" id="' + prefix + '_amt">' + fmtNum(amt) + '</td>' +
         '<td class="text-center">' + (r['等級'] || '') + '</td>' +
         '<td class="text-center"><input type="number" step="0.1" class="ed-input ed-input-sm" id="' + prefix + '_mult" value="' + mult + '" onchange="onEditChange(' + rowIdx + ')"></td>' +
