@@ -1,10 +1,9 @@
 <?php
 namespace App;
 
-use Firebase\JWT\JWT;
-
 /**
- * 直接用 REST API 讀寫 Google Sheets，不吃 google/apiclient 肥套件
+ * 用 REST API 直接讀寫 Google Sheets（不吃任何外部套件）
+ * 使用 Service Account JWT 認證
  */
 class GoogleSheetsClient
 {
@@ -17,6 +16,36 @@ class GoogleSheetsClient
         $this->ssId = $ssId ?: SS_ID_MAIN;
     }
 
+    public function readSheet(string $sheetName): array
+    {
+        $range = urlencode("'{$sheetName}'!A:ZZ");
+        $url = "https://sheets.googleapis.com/v4/spreadsheets/{$this->ssId}/values/{$range}";
+        $res = $this->api('GET', $url);
+        return $res['values'] ?? [];
+    }
+
+    public function writeRows(string $sheetName, int $startRow, array $rows): void
+    {
+        $range = urlencode("'{$sheetName}'!A{$startRow}");
+        $url = "https://sheets.googleapis.com/v4/spreadsheets/{$this->ssId}/values/{$range}";
+        $this->api('PUT', $url, [
+            'values' => $rows,
+            'majorDimension' => 'ROWS'
+        ]);
+    }
+
+    public function appendRows(string $sheetName, array $rows): void
+    {
+        $range = urlencode("'{$sheetName}'!A:A");
+        $url = "https://sheets.googleapis.com/v4/spreadsheets/{$this->ssId}/values/{$range}:append?valueInputOption=USER_ENTERED";
+        $this->api('POST', $url, [
+            'values' => $rows,
+            'majorDimension' => 'ROWS'
+        ]);
+    }
+
+    // ─── Private ───
+
     private function getAccessToken(): string
     {
         if ($this->accessToken && microtime(true) < $this->tokenExpires) {
@@ -24,23 +53,26 @@ class GoogleSheetsClient
         }
 
         $sa = json_decode(file_get_contents(SERVICE_ACCOUNT_FILE), true);
-
         $now = time();
-        $payload = [
+
+        $header = self::base64url(json_encode(['alg' => 'RS256', 'typ' => 'JWT']));
+        $payload = self::base64url(json_encode([
             'iss'   => $sa['client_email'],
             'sub'   => $sa['client_email'],
             'scope' => 'https://www.googleapis.com/auth/spreadsheets',
             'aud'   => 'https://oauth2.googleapis.com/token',
             'exp'   => $now + 3600,
             'iat'   => $now
-        ];
+        ]));
 
-        $jwt = JWT::encode($payload, $sa['private_key'], 'RS256');
+        $signature = '';
+        openssl_sign("{$header}.{$payload}", $signature, $sa['private_key'], 'sha256WithRSAEncryption');
+        $jwt = "{$header}.{$payload}." . self::base64url($signature);
 
         $ch = curl_init('https://oauth2.googleapis.com/token');
         curl_setopt_array($ch, [
-            CURLOPT_POST       => true,
-            CURLOPT_POSTFIELDS => http_build_query([
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => http_build_query([
                 'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
                 'assertion'  => $jwt
             ]),
@@ -91,31 +123,8 @@ class GoogleSheetsClient
         return json_decode($resp, true) ?: [];
     }
 
-    public function readSheet(string $sheetName): array
+    private static function base64url(string $data): string
     {
-        $range = urlencode("'{$sheetName}'!A:ZZ");
-        $url = "https://sheets.googleapis.com/v4/spreadsheets/{$this->ssId}/values/{$range}";
-        $res = $this->api('GET', $url);
-        return $res['values'] ?? [];
-    }
-
-    public function writeRows(string $sheetName, int $startRow, array $rows): void
-    {
-        $range = urlencode("'{$sheetName}'!A{$startRow}");
-        $url = "https://sheets.googleapis.com/v4/spreadsheets/{$this->ssId}/values/{$range}";
-        $this->api('PUT', $url, [
-            'values' => $rows,
-            'majorDimension' => 'ROWS'
-        ]);
-    }
-
-    public function appendRows(string $sheetName, array $rows): void
-    {
-        $range = urlencode("'{$sheetName}'!A:A");
-        $url = "https://sheets.googleapis.com/v4/spreadsheets/{$this->ssId}/values/{$range}:append?valueInputOption=USER_ENTERED";
-        $this->api('POST', $url, [
-            'values' => $rows,
-            'majorDimension' => 'ROWS'
-        ]);
+        return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
     }
 }
