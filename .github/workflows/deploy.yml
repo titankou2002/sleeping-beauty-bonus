@@ -27,3 +27,4 @@ jobs:
             .git/**
             .gitignore
             .github/**
+            src/**
