@@ -208,6 +208,30 @@ class SleeperService
                 'cost'  => $this->optFloat($idx['cost'] !== -1 ? $this->getVal($row, $idx['cost']) : 0)
             ];
         }
+
+        $priceData = $this->gs->readSheet(PRICE_SHEET);
+        if (count($priceData) > 1) {
+            $pH = $priceData[0];
+            $pCode = $this->findHeader($pH, ['編號','產品編號']);
+            $pSleeper = $this->findHeader($pH, ['睡美人']);
+            $pCost = $this->findHeader($pH, ['成本','單片成本','成本價','單價']);
+            $pSeries = $this->findHeader($pH, ['中文系列','系列']);
+            if ($pCode !== -1 && $pSleeper !== -1) {
+                for ($i = 1; $i < count($priceData); $i++) {
+                    $row = $priceData[$i];
+                    $sku = $this->cleanSku($this->getVal($row, $pCode));
+                    if (!$sku) continue;
+                    $mark = trim($this->getVal($row, $pSleeper));
+                    if ($mark !== '' && !isset($map[$sku])) {
+                        $map[$sku] = [
+                            'grade' => 'S',
+                            'cost'  => $pCost !== -1 ? $this->optFloat($this->getVal($row, $pCost)) : 0
+                        ];
+                    }
+                }
+            }
+        }
+
         return ['success' => true, 'data' => $map];
     }
 
