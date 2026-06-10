@@ -62,6 +62,12 @@ try {
             echo json_encode($res);
             break;
 
+        case 'year-summary':
+            $year  = (int)($_GET['year'] ?? date('Y'));
+            $res = $svc->getYearSummary($year);
+            echo json_encode($res);
+            break;
+
         case 'products':
             $res = $svc->getSleeperProductOverview();
             echo json_encode($res);

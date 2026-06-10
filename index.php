@@ -219,6 +219,36 @@ select {
 .ed-input-sm { width: 52px; text-align: center; }
 .ed-input-wide { width: 100px; text-align: left; }
 input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: var(--gold); }
+.dash-section { background: var(--surface2); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 16px; }
+.dash-title { font-size: 13px; font-weight: 900; color: var(--gold); margin-bottom: 16px; letter-spacing: 1px; }
+.dash-hint { text-align: center; color: var(--text2); font-size: 13px; margin-top: 24px; padding: 20px; }
+
+.bar-chart { display: flex; gap: 0; height: 200px; }
+.bar-y-axis { display: flex; flex-direction: column; justify-content: space-between; padding-right: 8px; min-width: 60px; text-align: right; }
+.bar-y-label { font-size: 10px; color: var(--text2); font-weight: 700; }
+.bar-area { flex: 1; display: flex; align-items: flex-end; gap: 6px; height: 100%; }
+.bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; }
+.bar-stack { width: 100%; max-width: 40px; border-radius: 6px 6px 0 0; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; min-height: 4px; background: rgba(255,255,255,0.05); }
+.bar-seg { width: 100%; transition: height 0.3s; cursor: pointer; }
+.bar-seg:first-child { border-radius: 6px 6px 0 0; }
+.bar-label { font-size: 10px; color: var(--text2); font-weight: 700; margin-top: 6px; }
+
+.person-grid { display: flex; flex-direction: column; gap: 10px; }
+.person-card { display: grid; grid-template-columns: 100px 1fr 120px; align-items: center; gap: 12px; }
+.pc-name { font-size: 14px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+.pc-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.pc-bar-wrap { height: 20px; background: rgba(255,255,255,0.05); border-radius: 10px; overflow: hidden; }
+.pc-bar { height: 100%; border-radius: 10px; transition: width 0.5s; }
+.pc-nums { display: flex; align-items: center; justify-content: space-between; }
+.pc-amt { font-size: 14px; font-weight: 800; color: var(--gold); }
+.pc-pct { font-size: 12px; font-weight: 700; color: var(--text2); }
+
+@media (max-width: 768px) {
+  .person-card { grid-template-columns: 80px 1fr 90px; gap: 8px; }
+  .pc-name { font-size: 12px; }
+  .pc-amt { font-size: 12px; }
+  .bar-chart { height: 150px; }
+}
 .modal-overlay {
   position: fixed; inset: 0; z-index: 200;
   background: rgba(0,0,0,0.8); backdrop-filter: blur(6px);
@@ -304,13 +334,7 @@ input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-colo
       <span>處理中...</span>
     </div>
 
-    <main class="main" id="main-content">
-      <div class="welcome">
-        <h2>睡美人業績獎金試算</h2>
-        <p>選擇月份後點擊「查詢」，「片數/單價/倍數」可直接在表格修改並按「儲存修改」寫回 Sheet。</p>
-        <p class="hint">💡 小姐可直接去 Google Sheet 的「睡美人獎金試算」分頁編輯所有數值</p>
-      </div>
-    </main>
+    <main class="main" id="main-content"></main>
   </div>
 
   <div id="modal-detail" class="modal-overlay hidden" onclick="closeDetail()">
@@ -328,9 +352,11 @@ const API_BASE = 'api.php';
 
 var currentMonth = new Date().getMonth();
 var currentYear = new Date().getFullYear();
+var DASHBOARD_COLORS = ['#c29d66','#22c55e','#3b82f6','#ef4444','#a855f7','#f97316','#ec4899','#14b8a6'];
 
 document.getElementById('filter-month').value = currentMonth;
 document.getElementById('filter-year').value = currentYear;
+loadDashboard();
 loadSalesList();
 
 function showLoading(show) {
@@ -694,6 +720,72 @@ function renderProducts() {
     '</div>';
   });
   html += '</div>';
+
+  document.getElementById('main-content').innerHTML = html;
+}
+
+// ─── Dashboard ───
+function loadDashboard() {
+  var year = currentYear;
+  apiGet('year-summary', { year: year }, function(res) {
+    if (res.success) renderDashboard(res.data);
+  });
+}
+
+function renderDashboard(d) {
+  var months = d.months;
+  var grandTotal = d.grandTotal;
+  var peopleTotal = d.peopleTotal;
+  var target = d.target;
+  var rate = Math.round(grandTotal / target * 10000) / 100;
+  var names = Object.keys(peopleTotal).sort(function(a, b) { return peopleTotal[b] - peopleTotal[a]; });
+  var colorMap = {};
+  names.forEach(function(n, i) { colorMap[n] = DASHBOARD_COLORS[i % DASHBOARD_COLORS.length]; });
+
+  var html = '<div class="kpi-row">' +
+    '<div class="kpi-card kpi-gold"><div class="label">年度業績總計</div><div class="value">' + fmt(grandTotal) + '</div><div class="sub">元（含倍數）</div></div>' +
+    '<div class="kpi-card' + (rate >= 100 ? ' kpi-green' : '') + '"><div class="label">目標 300 萬</div><div class="value" style="color:' + (rate >= 100 ? '#22c55e' : '#c29d66') + '">' + rate + '%</div><div class="sub">達成率</div></div>' +
+    '<div class="kpi-card kpi-blue"><div class="label">月份</div><div class="value">' + (months.length ? months[months.length-1].month : '-') + '</div><div class="sub">已過月數</div></div>' +
+    '<div class="kpi-card" style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;text-align:center"><div class="label" style="font-size:10px;color:var(--text2);font-weight:800;letter-spacing:1px;margin-bottom:6px;text-transform:uppercase">目標差距</div><div class="value" style="font-size:22px;font-weight:900;color:' + (target - grandTotal > 0 ? '#ef4444' : '#22c55e') + '">' + fmt(Math.max(0, target - grandTotal)) + '</div><div class="sub" style="font-size:11px;color:var(--text2);margin-top:4px">' + (target - grandTotal > 0 ? '尚差' : '已達成') + '</div></div>' +
+    '</div>';
+
+  // 長條圖
+  var maxTotal = d.maxMonthTotal || 1;
+  var barChartHtml = '<div class="dash-section"><div class="dash-title">逐月業績長條圖</div><div class="bar-chart"><div class="bar-y-axis">';
+  var ySteps = [0, 25, 50, 75, 100];
+  for (var yi = ySteps.length - 1; yi >= 0; yi--) {
+    barChartHtml += '<div class="bar-y-label">' + fmtNum(Math.round(maxTotal * ySteps[yi] / 100)) + '</div>';
+  }
+  barChartHtml += '</div><div class="bar-area">';
+  months.forEach(function(m) {
+    var pct = m.total / maxTotal * 100;
+    barChartHtml += '<div class="bar-col"><div class="bar-stack" style="height:' + Math.max(pct, 2) + '%">';
+    var sortedPeople = Object.keys(m.people).sort(function(a, b) { return m.people[b] - m.people[a]; });
+    sortedPeople.forEach(function(n) {
+      var segPct = m.total > 0 ? m.people[n] / m.total * 100 : 0;
+      barChartHtml += '<div class="bar-seg" style="height:' + segPct + '%;background:' + colorMap[n] + '" title="' + n + ': ' + fmt(m.people[n]) + '"></div>';
+    });
+    barChartHtml += '</div><div class="bar-label">' + m.month + '月</div></div>';
+  });
+  barChartHtml += '</div></div></div>';
+
+  html += barChartHtml;
+
+  // 業務佔比
+  html += '<div class="dash-section"><div class="dash-title">業務佔比</div><div class="person-grid">';
+  names.forEach(function(n) {
+    var amt = peopleTotal[n];
+    var pct = grandTotal > 0 ? Math.round(amt / grandTotal * 10000) / 100 : 0;
+    var barW = grandTotal > 0 ? Math.round(amt / grandTotal * 100) : 0;
+    html += '<div class="person-card">' +
+      '<div class="pc-name"><span class="pc-dot" style="background:' + colorMap[n] + '"></span>' + n + '</div>' +
+      '<div class="pc-bar-wrap"><div class="pc-bar" style="width:' + barW + '%;background:' + colorMap[n] + '"></div></div>' +
+      '<div class="pc-nums"><span class="pc-amt">' + fmt(amt) + '</span><span class="pc-pct">' + pct + '%</span></div>' +
+    '</div>';
+  });
+  html += '</div></div>';
+
+  html += '<div class="dash-hint">💡 選擇月份後按「查詢」查看明細，或切換「產品總覽」</div>';
 
   document.getElementById('main-content').innerHTML = html;
 }

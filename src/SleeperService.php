@@ -464,6 +464,50 @@ class SleeperService
         return ['success' => true, 'data' => ['people' => $people, 'grand' => $grand]];
     }
 
+    public function getYearSummary($year)
+    {
+        $currentMonth = (int)date('n');
+        $months = [];
+        $grandTotal = 0;
+        $peopleTotal = [];
+
+        for ($m = 1; $m <= $currentMonth; $m++) {
+            $res = $this->getBonusSummary($year, $m - 1);
+            if (!$res['success']) continue;
+
+            $monthData = [
+                'month' => $m,
+                'total' => $res['data']['grand']['totalBonus'],
+                'people' => []
+            ];
+            foreach ($res['data']['people'] as $p) {
+                $monthData['people'][$p['salesName']] = $p['totalBonus'];
+                if (!isset($peopleTotal[$p['salesName']])) $peopleTotal[$p['salesName']] = 0;
+                $peopleTotal[$p['salesName']] += $p['totalBonus'];
+            }
+            $months[] = $monthData;
+            $grandTotal += $res['data']['grand']['totalBonus'];
+        }
+
+        $maxMonthTotal = 0;
+        foreach ($months as $m) {
+            if ($m['total'] > $maxMonthTotal) $maxMonthTotal = $m['total'];
+        }
+
+        return [
+            'success' => true,
+            'data' => [
+                'year' => $year,
+                'currentMonth' => $currentMonth,
+                'months' => $months,
+                'grandTotal' => $grandTotal,
+                'peopleTotal' => $peopleTotal,
+                'target' => 3000000,
+                'maxMonthTotal' => $maxMonthTotal
+            ]
+        ];
+    }
+
     public function getSleeperProductOverview()
     {
         $configRes = $this->getSleeperConfig();
