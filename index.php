@@ -560,6 +560,10 @@ var _changedRows = {};
 function shortCust(name) {
   return String(name || '').trim().slice(0, 2);
 }
+function driveUrlToDirect(url) {
+  var m = url.match(/\/file\/d\/([^\/]+)/);
+  return m ? 'https://drive.google.com/uc?export=view&id=' + m[1] : url;
+}
 
 function onEditChange(rowIdx) {
   var prefix = 'ed_' + rowIdx;
@@ -800,7 +804,7 @@ function renderProducts() {
     if (p.buyers && p.buyers.length > 0) {
       buyerHtml = '<div class="prod-buyers"><div class="ps-label">歷史買家</div><div class="buyer-chips">' +
         p.buyers.map(function(b) {
-          return '<span class="buyer-chip">' + b.name + ' ' + b.pings + '坪</span>';
+          return '<span class="buyer-chip">' + shortCust(b.name) + ' ' + b.pings + '坪</span>';
         }).join('') + '</div></div>';
     }
 
@@ -872,12 +876,12 @@ function renderDiscontinued() {
     if (p.buyers && p.buyers.length > 0) {
       buyerHtml = '<div class="prod-buyers"><div class="ps-label">歷史買家</div><div class="buyer-chips">' +
         p.buyers.map(function(b) {
-          return '<span class="buyer-chip">' + b.name + ' ' + b.pings + '坪</span>';
+          return '<span class="buyer-chip">' + shortCust(b.name) + ' ' + b.pings + '坪</span>';
         }).join('') + '</div></div>';
     }
     html += '<div class="product-card">' +
       '<div class="prod-grade">' +
-      (p.imageUrl ? '<img src="' + p.imageUrl + '" alt="" style="width:60px;height:60px;object-fit:contain;border-radius:8px;background:rgba(255,255,255,0.04);border:1px solid var(--border-light);margin-bottom:6px" onerror="this.style.display=\'none\'">' : '') +
+      (p.imageUrl ? '<img src="' + driveUrlToDirect(p.imageUrl) + '" alt="" style="width:60px;height:60px;object-fit:contain;border-radius:8px;background:rgba(255,255,255,0.04);border:1px solid var(--border-light);margin-bottom:6px" onerror="this.style.display=\'none\'">' : '') +
       '<div class="grade-badge" style="font-size:11px;background:rgba(239,68,68,0.12);color:#ef4444;border:1px solid rgba(239,68,68,0.25)">D/C</div></div>' +
       '<div class="prod-info">' +
       '<div class="prod-title">' + (p.series || '未分類') + '</div>' +
