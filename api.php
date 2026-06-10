@@ -957,7 +957,6 @@ class SleeperService
                 if (!isset($s['buyerMap'][$cust])) $s['buyerMap'][$cust] = 0;
                 $s['buyerMap'][$cust] += $pings;
             }
-            }
         }
 
         $now = new DateTime();
