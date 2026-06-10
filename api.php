@@ -176,6 +176,8 @@ class GoogleSheetsClient
 // ====== SleeperService ======
 class SleeperService
 {
+    private static $salesMerge = ['薛佶姈' => '高弘治'];
+
     private $gs;
 
     public function __construct($gs)
@@ -610,7 +612,7 @@ class SleeperService
         $groups = [];
 
         foreach ($rows as $r) {
-            $name = $r['業務'] ?: '未指定';
+            $name = isset(self::$salesMerge[$r['業務']]) ? self::$salesMerge[$r['業務']] : ($r['業務'] ?: '未指定');
             if (!isset($groups[$name])) {
                 $groups[$name] = [
                     'salesName' => $name, 'count' => 0,
@@ -684,7 +686,8 @@ class SleeperService
                 if (strpos($monthVal, $yearStr) !== 0) continue;
 
                 $mNum = (int)substr($monthVal, 5, 2);
-                $sales = trim($this->getVal($r, $salesIdx));
+                $salesRaw = trim($this->getVal($r, $salesIdx));
+                $sales = isset(self::$salesMerge[$salesRaw]) ? self::$salesMerge[$salesRaw] : $salesRaw;
                 $cust  = trim($this->getVal($r, $custIdx));
                 $sku   = trim($this->getVal($r, $skuIdx));
                 $series= trim($this->getVal($r, $seriesIdx));
