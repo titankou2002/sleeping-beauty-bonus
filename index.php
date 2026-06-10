@@ -97,6 +97,20 @@ select {
   transition: border-color 0.2s;
 }
 select:focus { border-color: rgba(194,157,102,0.5); }
+.prod-sub-tabs { display: inline-flex; gap: 2px; margin-left: 4px; }
+.sub-tab {
+  height: 30px; padding: 0 14px; border-radius: var(--radius-sm);
+  font-size: 12px; font-weight: 700; letter-spacing: 0.5px;
+  cursor: pointer; border: 1px solid transparent;
+  background: transparent; color: var(--text2);
+  transition: all 0.2s;
+}
+.sub-tab:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+.sub-tab.active {
+  background: rgba(167,139,250,0.12);
+  border-color: rgba(167,139,250,0.35);
+  color: var(--purple);
+}
 .btn {
   padding: 0 16px; border: none; transition: all 0.2s;
 }
@@ -430,6 +444,11 @@ input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-colo
         <option value="inventoryCost">依庫存成本</option>
         <option value="daysSinceLastSale">依停滯天數</option>
       </select>
+      <span class="prod-sub-tabs" id="prod-sub-tabs">
+        <button class="sub-tab active" id="sub-sleeper" onclick="switchProdTab('sleeper')">睡美人</button>
+        <button class="sub-tab" id="sub-normal" onclick="switchProdTab('normal')">正常品</button>
+        <button class="sub-tab" id="sub-discontinued" onclick="switchProdTab('discontinued')">不續辦</button>
+      </span>
       <button class="btn btn-primary" onclick="loadProducts()">載入產品</button>
     </div>
 
@@ -724,6 +743,10 @@ function fmt(n) { n = n || 0; return (n / 10000).toFixed(1) + '萬'; }
 function fmtNum(n) { return isNaN(n) ? '0萬' : (n / 10000).toFixed(1) + '萬'; }
 
 var currentTab = 'bonus';
+var currentProdTab = 'sleeper';
+window._sleeperData = null;
+window._normalData = null;
+window._disconProducts = null;
 function switchTab(tab) {
   currentTab = tab;
   document.getElementById('tab-bonus').classList.toggle('active', tab === 'bonus');
@@ -731,36 +754,60 @@ function switchTab(tab) {
   document.getElementById('ctrl-bonus').classList.toggle('hidden', tab !== 'bonus');
   document.getElementById('ctrl-products').classList.toggle('hidden', tab === 'bonus');
   if (tab === 'products') {
-    if (!window._productsData) loadProducts();
+    var el = document.getElementById('filter-grade');
+    el.style.display = currentProdTab === 'sleeper' ? '' : 'none';
+    if (!window._sleeperData) loadProducts();
     else renderProducts();
   }
 }
-
-window._productsData = null;
+function switchProdTab(tab) {
+  currentProdTab = tab;
+  document.getElementById('sub-sleeper').classList.toggle('active', tab === 'sleeper');
+  document.getElementById('sub-normal').classList.toggle('active', tab === 'normal');
+  document.getElementById('sub-discontinued').classList.toggle('active', tab === 'discontinued');
+  document.getElementById('filter-grade').style.display = tab === 'sleeper' ? '' : 'none';
+  renderProducts();
+}
 
 function loadProducts() {
   showLoading(true);
-  apiGet('products', {}, function(res) {
-    showLoading(false);
-    if (!res.success) {
-      document.getElementById('main-content').innerHTML = '<div class="welcome"><p style="color:var(--red)">❌ ' + res.msg + '</p></div>';
-      return;
-    }
-    window._productsData = res.data;
-    renderProducts();
-  }, function(err) {
-    showLoading(false);
-    toast('載入失敗: ' + err);
-  });
+  var total = 3, loaded = 0, failed = false;
+  function checkDone() {
+    loaded++;
+    if (loaded === total) { showLoading(false); if (!failed) renderProducts(); }
+  }
+  apiGet('products', function(res) {
+    if (res.success) window._sleeperData = res.data;
+    else failed = true;
+    checkDone();
+  }, function() { failed = true; checkDone(); });
+  apiGet('normal-products', function(res) {
+    if (res.success) window._normalData = res.data;
+    else failed = true;
+    checkDone();
+  }, function() { failed = true; checkDone(); });
+  apiGet('discontinued-products', function(res) {
+    if (res.success) window._disconProducts = res.data;
+    else failed = true;
+    checkDone();
+  }, function() { failed = true; checkDone(); });
 }
 
 function renderProducts() {
-  if (!window._productsData) return;
+  var data;
+  var subtitle;
+  if (currentProdTab === 'sleeper') { data = window._sleeperData; subtitle = '睡美人'; }
+  else if (currentProdTab === 'normal') { data = window._normalData; subtitle = '正常品'; }
+  else { data = window._disconProducts; subtitle = '不續辦'; }
+
+  if (!data) { document.getElementById('main-content').innerHTML = '<div class="welcome" style="padding:40px;text-align:center;color:var(--text2)">載入中...</div>'; return; }
+
   var gradeFilter = document.getElementById('filter-grade').value;
   var sortBy = document.getElementById('sort-by').value;
 
-  var list = window._productsData.filter(function(p) {
-    return (!gradeFilter || p.grade === gradeFilter) && p.stockPing >= 3;
+  var list = data.filter(function(p) {
+    if (currentProdTab === 'sleeper' && gradeFilter && p.grade !== gradeFilter) return false;
+    return p.stockPing >= 3;
   });
 
   list = list.slice().sort(function(a, b) {
@@ -779,7 +826,7 @@ function renderProducts() {
   var frozen = list.filter(function(p) { return p.daysSinceLastSale !== null && p.daysSinceLastSale > 180; }).length;
 
   var html = '<div class="kpi-row">' +
-    '<div class="kpi-card kpi-blue"><div class="label">產品數</div><div class="value">' + list.length + '</div><div class="sub">睡美人 SKU</div></div>' +
+    '<div class="kpi-card kpi-blue"><div class="label">產品數</div><div class="value">' + list.length + '</div><div class="sub">' + subtitle + ' SKU</div></div>' +
     '<div class="kpi-card kpi-gold"><div class="label">庫存佔用成本</div><div class="value">' + fmt(totalCost) + '</div><div class="sub">元</div></div>' +
     '<div class="kpi-card kpi-green"><div class="label">歷史銷售</div><div class="value">' + Math.round(totalPings) + '</div><div class="sub">坪</div></div>' +
     '<div class="kpi-card" style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;text-align:center"><div class="label" style="font-size:11px;color:var(--text2);font-weight:700;margin-bottom:6px">停滯 180天+</div><div class="value" style="font-size:26px;font-weight:900;color:var(--red)">' + (frozen + neverSold) + '</div><div class="sub" style="font-size:11px;color:var(--text2);margin-top:4px">支</div></div>' +
@@ -808,8 +855,9 @@ function renderProducts() {
         }).join('') + '</div></div>';
     }
 
+    var gradeHtml = p.grade ? '<div class="grade-badge grade-' + p.grade + '">' + p.grade + '</div>' : '';
     html += '<div class="product-card">' +
-      '<div class="prod-grade"><div class="grade-badge grade-' + p.grade + '">' + p.grade + '</div>' +
+      '<div class="prod-grade">' + gradeHtml +
         '<div style="font-size:11px;color:var(--text2);margin-top:6px">' + p.perPing + '片/坪</div>' +
       '</div>' +
       '<div class="prod-info">' +
@@ -846,7 +894,10 @@ function loadDashboard() {
     if (window._disconProducts && window._disconProducts.length) renderDiscontinued();
   });
   apiGet('products', {}, function(res) {
-    if (res.success) window._productsData = res.data;
+    if (res.success) window._sleeperData = res.data;
+  });
+  apiGet('normal-products', {}, function(res) {
+    if (res.success) window._normalData = res.data;
   });
 }
 
