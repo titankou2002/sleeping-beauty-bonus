@@ -1,30 +1,26 @@
 <?php
 namespace App;
 
-/**
- * 用 REST API 直接讀寫 Google Sheets（不吃任何外部套件）
- * 使用 Service Account JWT 認證
- */
 class GoogleSheetsClient
 {
-    private string $ssId;
-    private ?string $accessToken = null;
-    private float $tokenExpires = 0;
+    private $ssId;
+    private $accessToken = null;
+    private $tokenExpires = 0;
 
-    public function __construct(string $ssId = null)
+    public function __construct($ssId = null)
     {
         $this->ssId = $ssId ?: SS_ID_MAIN;
     }
 
-    public function readSheet(string $sheetName): array
+    public function readSheet($sheetName)
     {
         $range = urlencode("'{$sheetName}'!A:ZZ");
         $url = "https://sheets.googleapis.com/v4/spreadsheets/{$this->ssId}/values/{$range}";
         $res = $this->api('GET', $url);
-        return $res['values'] ?? [];
+        return isset($res['values']) ? $res['values'] : [];
     }
 
-    public function writeRows(string $sheetName, int $startRow, array $rows): void
+    public function writeRows($sheetName, $startRow, $rows)
     {
         $range = urlencode("'{$sheetName}'!A{$startRow}");
         $url = "https://sheets.googleapis.com/v4/spreadsheets/{$this->ssId}/values/{$range}";
@@ -34,7 +30,7 @@ class GoogleSheetsClient
         ]);
     }
 
-    public function appendRows(string $sheetName, array $rows): void
+    public function appendRows($sheetName, $rows)
     {
         $range = urlencode("'{$sheetName}'!A:A");
         $url = "https://sheets.googleapis.com/v4/spreadsheets/{$this->ssId}/values/{$range}:append?valueInputOption=USER_ENTERED";
@@ -44,9 +40,7 @@ class GoogleSheetsClient
         ]);
     }
 
-    // ─── Private ───
-
-    private function getAccessToken(): string
+    private function getAccessToken()
     {
         if ($this->accessToken && microtime(true) < $this->tokenExpires) {
             return $this->accessToken;
@@ -93,7 +87,7 @@ class GoogleSheetsClient
         return $this->accessToken;
     }
 
-    private function api(string $method, string $url, array $body = null): array
+    private function api($method, $url, $body = null)
     {
         $token = $this->getAccessToken();
         $ch = curl_init($url);
@@ -120,10 +114,11 @@ class GoogleSheetsClient
             throw new \RuntimeException("Google Sheets API 錯誤 (HTTP {$httpCode}): {$resp}");
         }
 
-        return json_decode($resp, true) ?: [];
+        $result = json_decode($resp, true);
+        return $result ?: [];
     }
 
-    private static function base64url(string $data): string
+    private static function base64url($data)
     {
         return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
     }

@@ -9,15 +9,14 @@ class SleeperService
         '全出清','備註','資料來源'
     ];
 
-    private GoogleSheetsClient $gs;
+    private $gs;
 
-    public function __construct(GoogleSheetsClient $gs)
+    public function __construct($gs)
     {
         $this->gs = $gs;
     }
 
-    // ─── 讀取睡美人設定（等級 + 成本 per SKU） ───
-    public function getSleeperConfig(): array
+    public function getSleeperConfig()
     {
         $data = $this->gs->readSheet(SLEEPER_SHEET);
         if (count($data) < 2) return ['success' => false, 'msg' => '睡美人工作表無資料'];
@@ -35,18 +34,17 @@ class SleeperService
         $map = [];
         for ($i = 1; $i < count($data); $i++) {
             $row = $data[$i];
-            $sku = $this->cleanSku($row[$idx['sku']] ?? '');
+            $sku = $this->cleanSku($this->getVal($row, $idx['sku']));
             if (!$sku) continue;
             $map[$sku] = [
-                'grade' => strtoupper(trim($row[$idx['grade']] ?? '')),
-                'cost'  => $this->optFloat($idx['cost'] !== -1 ? ($row[$idx['cost']] ?? 0) : 0)
+                'grade' => strtoupper(trim($this->getVal($row, $idx['grade']))),
+                'cost'  => $this->optFloat($idx['cost'] !== -1 ? $this->getVal($row, $idx['cost']) : 0)
             ];
         }
         return ['success' => true, 'data' => $map];
     }
 
-    // ─── 等級倍數計算 ───
-    public function calcMultiplier(string $grade, float $margin, float $priceCostRatio, bool $isFullClearance): int|float
+    public function calcMultiplier($grade, $margin, $priceCostRatio, $isFullClearance)
     {
         $g = strtoupper(trim($grade));
 
@@ -74,8 +72,7 @@ class SleeperService
         return 1;
     }
 
-    // ─── 讀編號價目表（系列名稱） ───
-    public function getSeriesMap(): array
+    public function getSeriesMap()
     {
         $data = $this->gs->readSheet(PRICE_SHEET);
         if (count($data) < 2) return [];
@@ -89,15 +86,14 @@ class SleeperService
 
         $map = [];
         for ($i = 1; $i < count($data); $i++) {
-            $sku = $this->cleanSku($data[$i][$idxSku] ?? '');
+            $sku = $this->cleanSku($this->getVal($data[$i], $idxSku));
             if (!$sku) continue;
-            $map[$sku] = trim($data[$i][$idxSeriesCn !== -1 ? $idxSeriesCn : $idxSeriesEn] ?? '') ?: '一般';
+            $map[$sku] = trim($this->getVal($data[$i], $idxSeriesCn !== -1 ? $idxSeriesCn : $idxSeriesEn)) ?: '一般';
         }
         return $map;
     }
 
-    // ─── 讀庫存表 ───
-    public function getStockMap(): array
+    public function getStockMap()
     {
         $data = $this->gs->readSheet(STOCK_SHEET);
         if (count($data) < 2) return [];
@@ -109,16 +105,15 @@ class SleeperService
 
         $map = [];
         for ($i = 1; $i < count($data); $i++) {
-            $sku = $this->cleanSku($data[$i][$idxCode] ?? '');
+            $sku = $this->cleanSku($this->getVal($data[$i], $idxCode));
             if (!$sku) continue;
-            $ping = $idxStock !== -1 ? $this->optFloat($data[$i][$idxStock] ?? 0) : 0;
-            $map[$sku] = ($map[$sku] ?? 0) + $ping;
+            $ping = $idxStock !== -1 ? $this->optFloat($this->getVal($data[$i], $idxStock)) : 0;
+            $map[$sku] = isset($map[$sku]) ? $map[$sku] + $ping : $ping;
         }
         return $map;
     }
 
-    // ─── 讀編號價目表（含片/坪） ───
-    public function getMetaMap(): array
+    public function getMetaMap()
     {
         $data = $this->gs->readSheet(PRICE_SHEET);
         if (count($data) < 2) return [];
@@ -131,18 +126,17 @@ class SleeperService
 
         $map = [];
         for ($i = 1; $i < count($data); $i++) {
-            $sku = $this->cleanSku($data[$i][$idxCode] ?? '');
+            $sku = $this->cleanSku($this->getVal($data[$i], $idxCode));
             if (!$sku) continue;
             $map[$sku] = [
-                'series'  => $idxSeries !== -1 ? trim($data[$i][$idxSeries] ?? '') : '',
-                'perPing' => $idxPerPing !== -1 ? ($this->optFloat($data[$i][$idxPerPing] ?? 0) ?: 36) : 36
+                'series'  => $idxSeries !== -1 ? trim($this->getVal($data[$i], $idxSeries)) : '',
+                'perPing' => $idxPerPing !== -1 ? ($this->optFloat($this->getVal($data[$i], $idxPerPing)) ?: 36) : 36
             ];
         }
         return $map;
     }
 
-    // ─── 從經銷銷售報表讀取指定月份的睡美人銷貨 ───
-    public function getSleeperSalesByMonth(int $year, int $month): array
+    public function getSleeperSalesByMonth($year, $month)
     {
         $configRes = $this->getSleeperConfig();
         if (!$configRes['success']) return $configRes;
@@ -169,20 +163,20 @@ class SleeperService
         $results = [];
         for ($i = 1; $i < count($raw); $i++) {
             $row = $raw[$i];
-            $d = $this->parseDate($row[$idx['date']] ?? null);
+            $d = $this->parseDate($this->getVal($row, $idx['date']));
             if (!$d) continue;
             if ($d->format('Y') != $year || $d->format('n') != $month + 1) continue;
 
-            $custName = trim($row[$idx['cust']] ?? '');
-            $note = trim($row[$idx['note']] ?? '');
-            if (str_contains($custName, '樣品') || str_contains($note, '樣品') || str_contains($note, '扣帶')) continue;
+            $custName = trim($this->getVal($row, $idx['cust']));
+            $note = trim($this->getVal($row, $idx['note']));
+            if (strpos($custName, '樣品') !== false || strpos($note, '樣品') !== false || strpos($note, '扣帶') !== false) continue;
 
-            $code = $this->cleanSku($row[$idx['code']] ?? '');
+            $code = $this->cleanSku($this->getVal($row, $idx['code']));
             if (!$code || !isset($sleeperMap[$code])) continue;
 
             $sleeper = $sleeperMap[$code];
-            $qty = $this->optFloat($row[$idx['qty']] ?? 0);
-            $amt = $this->optFloat($row[$idx['amt']] ?? 0);
+            $qty = $this->optFloat($this->getVal($row, $idx['qty']));
+            $amt = $this->optFloat($this->getVal($row, $idx['amt']));
             if ($qty == 0 || $amt == 0) continue;
 
             $unitPrice = $qty > 0 ? $amt / $qty : 0;
@@ -192,11 +186,11 @@ class SleeperService
             $multiplier = $this->calcMultiplier($sleeper['grade'], $margin, $priceCostRatio, false);
 
             $results[] = [
-                'salesName'  => trim($row[$idx['sales']] ?? ''),
+                'salesName'  => trim($this->getVal($row, $idx['sales'])),
                 'month'      => sprintf('%d/%02d', $year, $month + 1),
                 'cust'       => $custName,
                 'sku'        => $code,
-                'series'     => $seriesMap[$code] ?? '一般',
+                'series'     => isset($seriesMap[$code]) ? $seriesMap[$code] : '一般',
                 'qty'        => $qty,
                 'unitPrice'  => round($unitPrice, 2),
                 'amt'        => round($amt),
@@ -213,24 +207,21 @@ class SleeperService
         return ['success' => true, 'data' => $results];
     }
 
-    // ─── 寫入「睡美人獎金試算」 ───
-    public function syncTrialSheet(int $year, int $month): array
+    public function syncTrialSheet($year, $month)
     {
         $res = $this->getSleeperSalesByMonth($year, $month);
         if (!$res['success']) return $res;
         $newData = $res['data'];
 
-        // 確保試算表存在並有表頭
         $this->ensureTrialSheet();
 
-        // 讀取現有資料
         $existing = $this->gs->readSheet(TRIAL_SHEET);
         $existingIds = [];
         if (count($existing) > 1) {
-            $idCol = array_search('識別碼', $existing[0] ?? []);
+            $idCol = array_search('識別碼', $existing[0]);
             if ($idCol !== false) {
                 for ($i = 1; $i < count($existing); $i++) {
-                    $id = trim($existing[$i][$idCol] ?? '');
+                    $id = trim($this->getVal($existing[$i], $idCol));
                     if ($id) $existingIds[$id] = true;
                 }
             }
@@ -240,14 +231,14 @@ class SleeperService
         $seqCount = [];
         foreach ($newData as $d) {
             $key = $d['salesName'] . '|' . $d['month'] . '|' . $d['cust'] . '|' . $d['sku'];
-            $seqCount[$key] = ($seqCount[$key] ?? 0) + 1;
+            $seqCount[$key] = isset($seqCount[$key]) ? $seqCount[$key] + 1 : 1;
             $rowId = $d['salesName'] . '|' . $d['month'] . '|' . $d['cust'] . '|' . $d['sku'] . '|' . $seqCount[$key];
             if (isset($existingIds[$rowId])) continue;
 
             $rowsToAdd[] = [
                 $rowId,
                 $d['salesName'],
-                sprintf("'%s", $d['month']),  // 強制純文字
+                "'" . $d['month'],
                 $d['cust'],
                 $d['sku'],
                 $d['series'],
@@ -272,8 +263,7 @@ class SleeperService
         return ['success' => true, 'added' => count($rowsToAdd), 'total' => count($newData)];
     }
 
-    // ─── 重新計算試算表 ───
-    public function recalcTrialSheet(): array
+    public function recalcTrialSheet()
     {
         $data = $this->gs->readSheet(TRIAL_SHEET);
         if (count($data) < 2) return ['success' => true, 'count' => 0];
@@ -291,23 +281,23 @@ class SleeperService
             'grade'     => array_search('等級', $h)
         ];
 
-        // 檢查必要欄位
-        if (in_array(false, $cols, true) || in_array(-1, $cols, true)) {
+        if ($cols['margin'] === false || $cols['multiplier'] === false || $cols['bonus'] === false) {
             return ['success' => false, 'msg' => '試算表欄位不完整'];
         }
 
-        $marginVals = $multVals = $bonusVals = [];
+        $marginVals = []; $multVals = []; $bonusVals = [];
         for ($i = 1; $i < count($data); $i++) {
             $row = $data[$i];
-            $qty = $this->optFloat($row[$cols['qty']] ?? 0);
-            $unitPrice = $this->optFloat($row[$cols['price']] ?? 0);
-            $amt = $this->optFloat($row[$cols['amt']] ?? 0) ?: ($qty * $unitPrice);
-            $cost = $this->optFloat($row[$cols['cost']] ?? 0);
+            $qty = $this->optFloat($this->getVal($row, $cols['qty']));
+            $unitPrice = $this->optFloat($this->getVal($row, $cols['price']));
+            $amt = $this->optFloat($this->getVal($row, $cols['amt']));
+            if ($amt == 0) $amt = $qty * $unitPrice;
+            $cost = $this->optFloat($this->getVal($row, $cols['cost']));
             $totalCost = $cost * $qty;
             $margin = $amt > 0 ? round(($amt - $totalCost) / $amt * 10000) / 100 : 0;
-            $grade = strtoupper(trim($row[$cols['grade']] ?? ''));
+            $grade = strtoupper(trim($this->getVal($row, $cols['grade'])));
             $priceCostRatio = $cost > 0 ? $unitPrice / $cost : 1;
-            $isFullClearance = (trim($row[$cols['clearance']] ?? '') === '是');
+            $isFullClearance = (trim($this->getVal($row, $cols['clearance'])) === '是');
             $autoMult = $this->calcMultiplier($grade, $margin / 100, $priceCostRatio, $isFullClearance);
 
             $marginVals[] = [$margin . '%'];
@@ -317,17 +307,15 @@ class SleeperService
 
         $count = count($marginVals);
         if ($count > 0) {
-            $startRow = 2; // 第 1 行是表頭
-            $this->gs->writeRows(TRIAL_SHEET, $startRow, $this->padToColumn($marginVals, $cols['margin'] + 1));
-            $this->gs->writeRows(TRIAL_SHEET, $startRow, $this->padToColumn($multVals, $cols['multiplier'] + 1));
-            $this->gs->writeRows(TRIAL_SHEET, $startRow, $this->padToColumn($bonusVals, $cols['bonus'] + 1));
+            $this->gs->writeRows(TRIAL_SHEET, 2, $this->padToColumn($marginVals, $cols['margin'] + 1));
+            $this->gs->writeRows(TRIAL_SHEET, 2, $this->padToColumn($multVals, $cols['multiplier'] + 1));
+            $this->gs->writeRows(TRIAL_SHEET, 2, $this->padToColumn($bonusVals, $cols['bonus'] + 1));
         }
 
         return ['success' => true, 'count' => $count];
     }
 
-    // ─── 前端用：讀取獎金試算 ───
-    public function readTrialSheet(?int $year, ?int $month, string $salesName = ''): array
+    public function readTrialSheet($year, $month, $salesName = '')
     {
         $data = $this->gs->readSheet(TRIAL_SHEET);
         if (count($data) < 2) return ['success' => true, 'data' => []];
@@ -341,19 +329,17 @@ class SleeperService
             $row = $data[$i];
             $r = [];
             foreach ($h as $j => $col) {
-                $r[$col] = trim($row[$j] ?? '');
+                $r[$col] = trim($this->getVal($row, $j));
             }
             $r['_rowIdx'] = $i + 1;
 
-            // 月份處理：可能是 "'2026/06" 純文字
-            $monthStr = $r['月份'];
-            $monthStr = ltrim($monthStr, "'");
+            $monthStr = ltrim($r['月份'], "'");
 
             if ($year !== null && $month !== null) {
-                $expectedMonth = sprintf('%d/%02d', $year, $month + 1);
-                if ($monthStr !== $expectedMonth) continue;
+                $expected = sprintf('%d/%02d', $year, $month + 1);
+                if ($monthStr !== $expected) continue;
             } elseif ($year !== null) {
-                if (!str_starts_with($monthStr, (string)$year)) continue;
+                if (strpos($monthStr, (string)$year) !== 0) continue;
             }
 
             if ($salesName && $r['業務'] !== $salesName) continue;
@@ -363,15 +349,16 @@ class SleeperService
             $qty = $this->optFloat($r['片數']);
             $totalCost = $cost * $qty;
             $margin = $amt > 0 ? round(($amt - $totalCost) / $amt * 10000) / 100 : 0;
-            $multiplier = $this->optFloat($r['倍數']) ?: 1;
+            $mult = $this->optFloat($r['倍數']);
+            if ($mult == 0) $mult = 1;
 
             $r['_amt'] = $amt;
             $r['_cost'] = $cost;
             $r['_qty'] = $qty;
             $r['_totalCost'] = $totalCost;
             $r['_margin'] = $margin;
-            $r['_multiplier'] = $multiplier;
-            $r['_bonus'] = round($amt * $multiplier);
+            $r['_multiplier'] = $mult;
+            $r['_bonus'] = round($amt * $mult);
 
             $results[] = $r;
         }
@@ -379,8 +366,7 @@ class SleeperService
         return ['success' => true, 'data' => $results];
     }
 
-    // ─── 各業務獎金統計 ───
-    public function getBonusSummary(?int $year, ?int $month): array
+    public function getBonusSummary($year, $month)
     {
         $res = $this->readTrialSheet($year, $month);
         if (!$res['success']) return $res;
@@ -397,12 +383,11 @@ class SleeperService
                     'totalBonus' => 0, 'details' => []
                 ];
             }
-            $g = &$groups[$name];
-            $g['count']++;
-            $g['totalAmt'] += $r['_amt'];
-            $g['totalCost'] += $r['_totalCost'];
-            $g['totalBonus'] += $r['_bonus'];
-            $g['details'][] = $r;
+            $groups[$name]['count']++;
+            $groups[$name]['totalAmt'] += $r['_amt'];
+            $groups[$name]['totalCost'] += $r['_totalCost'];
+            $groups[$name]['totalBonus'] += $r['_bonus'];
+            $groups[$name]['details'][] = $r;
         }
 
         $people = [];
@@ -420,13 +405,13 @@ class SleeperService
                 'details'   => $g['details']
             ];
         }
-        usort($people, fn($a, $b) => $b['totalBonus'] - $a['totalBonus']);
+        usort($people, function($a, $b) { return $b['totalBonus'] - $a['totalBonus']; });
 
         $grand = [
-            'count'      => array_sum(array_column($people, 'count')),
-            'totalAmt'   => array_sum(array_column($people, 'totalAmt')),
-            'totalCost'  => array_sum(array_column($people, 'totalCost')),
-            'totalBonus' => array_sum(array_column($people, 'totalBonus'))
+            'count'      => array_sum(array_map(function($p) { return $p['count']; }, $people)),
+            'totalAmt'   => array_sum(array_map(function($p) { return $p['totalAmt']; }, $people)),
+            'totalCost'  => array_sum(array_map(function($p) { return $p['totalCost']; }, $people)),
+            'totalBonus' => array_sum(array_map(function($p) { return $p['totalBonus']; }, $people))
         ];
         $grand['margin'] = $grand['totalAmt'] > 0
             ? round(($grand['totalAmt'] - $grand['totalCost']) / $grand['totalAmt'] * 10000) / 100
@@ -435,8 +420,7 @@ class SleeperService
         return ['success' => true, 'data' => ['people' => $people, 'grand' => $grand]];
     }
 
-    // ─── 產品總覽 ───
-    public function getSleeperProductOverview(): array
+    public function getSleeperProductOverview()
     {
         $configRes = $this->getSleeperConfig();
         if (!$configRes['success']) return $configRes;
@@ -445,9 +429,8 @@ class SleeperService
         $stockMap = $this->getStockMap();
         $metaMap = $this->getMetaMap();
 
-        // 從銷售報表統計
         $raw = $this->gs->readSheet(SALES_SHEET);
-        $h = $raw[0] ?? [];
+        $h = isset($raw[0]) ? $raw[0] : [];
         $idxCode = $this->findHeader($h, ['產品編號','編號']);
         $idxDate = $this->findHeader($h, ['日期','單據日期']);
         $idxQty  = $this->findHeader($h, ['數量','片數']);
@@ -457,22 +440,22 @@ class SleeperService
         $salesStats = [];
         if ($idxCode !== -1 && $idxDate !== -1) {
             for ($i = 1; $i < count($raw); $i++) {
-                $sku = $this->cleanSku($raw[$i][$idxCode] ?? '');
+                $sku = $this->cleanSku($this->getVal($raw[$i], $idxCode));
                 if (!$sku || !isset($sleeperMap[$sku])) continue;
 
-                $note = trim($raw[$i][$idxNote] ?? '');
-                if (str_contains($note, '樣品') || str_contains($note, '扣帶')) continue;
+                $note = trim($this->getVal($raw[$i], $idxNote));
+                if (strpos($note, '樣品') !== false || strpos($note, '扣帶') !== false) continue;
 
-                $qty = $this->optFloat($raw[$i][$idxQty] ?? 0);
+                $qty = $this->optFloat($this->getVal($raw[$i], $idxQty));
                 if ($qty <= 0) continue;
 
-                $d = $this->parseDate($raw[$i][$idxDate] ?? null);
+                $d = $this->parseDate($this->getVal($raw[$i], $idxDate));
                 if (!$d) continue;
 
-                $meta = $metaMap[$sku] ?? ['series' => '', 'perPing' => 36];
+                $meta = isset($metaMap[$sku]) ? $metaMap[$sku] : ['series' => '', 'perPing' => 36];
                 $perPing = $meta['perPing'] ?: 36;
                 $pings = $qty / $perPing;
-                $cust = trim($raw[$i][$idxCust] ?? '');
+                $cust = trim($this->getVal($raw[$i], $idxCust));
 
                 if (!isset($salesStats[$sku])) {
                     $salesStats[$sku] = ['lastDate' => null, 'totalPings' => 0, 'buyerMap' => []];
@@ -480,18 +463,19 @@ class SleeperService
                 $s = &$salesStats[$sku];
                 if (!$s['lastDate'] || $d > $s['lastDate']) $s['lastDate'] = $d;
                 $s['totalPings'] += $pings;
-                $s['buyerMap'][$cust] = ($s['buyerMap'][$cust] ?? 0) + $pings;
+                if (!isset($s['buyerMap'][$cust])) $s['buyerMap'][$cust] = 0;
+                $s['buyerMap'][$cust] += $pings;
             }
         }
 
         $now = new \DateTime();
         $products = [];
         foreach ($sleeperMap as $sku => $slp) {
-            $meta = $metaMap[$sku] ?? ['series' => '', 'perPing' => 36];
-            $stockPing = $stockMap[$sku] ?? 0;
+            $meta = isset($metaMap[$sku]) ? $metaMap[$sku] : ['series' => '', 'perPing' => 36];
+            $stockPing = isset($stockMap[$sku]) ? $stockMap[$sku] : 0;
             $costPerPing = $slp['cost'] * ($meta['perPing'] ?: 36);
             $inventoryCost = round($stockPing * $costPerPing);
-            $stats = $salesStats[$sku] ?? null;
+            $stats = isset($salesStats[$sku]) ? $salesStats[$sku] : null;
 
             $daysSinceLastSale = null;
             $lastSaleStr = '從未銷售';
@@ -527,13 +511,12 @@ class SleeperService
             ];
         }
 
-        usort($products, fn($a, $b) => $b['totalPings'] <=> $a['totalPings']);
+        usort($products, function($a, $b) { return $b['totalPings'] <=> $a['totalPings']; });
 
         return ['success' => true, 'data' => $products];
     }
 
-    // ─── 確保試算表存在 ───
-    private function ensureTrialSheet(): void
+    private function ensureTrialSheet()
     {
         $data = $this->gs->readSheet(TRIAL_SHEET);
         if (count($data) === 0) {
@@ -541,13 +524,12 @@ class SleeperService
         }
     }
 
-    // ─── 工具方法 ───
-    private function cleanSku($v): string
+    private function cleanSku($v)
     {
-        return strtoupper(preg_replace('/[\s\-]/', '', trim($v ?? '')));
+        return strtoupper(preg_replace('/[\s\-]/', '', trim($v)));
     }
 
-    private function optFloat($v): float
+    private function optFloat($v)
     {
         if ($v instanceof \DateTime) return 0;
         $s = preg_replace('/[^0-9.\-]/', '', (string)$v);
@@ -555,12 +537,11 @@ class SleeperService
         return is_finite($n) ? $n : 0;
     }
 
-    private function parseDate($v): ?\DateTime
+    private function parseDate($v)
     {
         if (!$v) return null;
         if ($v instanceof \DateTime) return $v;
         if (is_numeric($v) && $v > 40000) {
-            // Google Sheets serial date number
             $dt = new \DateTime();
             $dt->setDate(1899, 12, 30);
             $dt->modify('+' . (int)$v . ' days');
@@ -568,13 +549,11 @@ class SleeperService
         }
         $str = trim((string)$v);
 
-        // YYYY/MM/DD or YY/MM/DD
         if (preg_match('/^0*(\d{2,4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})/', $str, $m)) {
             $y = (int)$m[1];
             if ($y < 1000) $y += 1911;
             return new \DateTime(sprintf('%04d-%02d-%02d', $y, (int)$m[2], (int)$m[3]));
         }
-        // YYYY/MM
         if (preg_match('/^0*(\d{2,4})[\/\-\.](\d{1,2})$/', $str, $m)) {
             $y = (int)$m[1];
             if ($y < 1000) $y += 1911;
@@ -583,10 +562,13 @@ class SleeperService
         return null;
     }
 
-    private function findHeader(array $headers, array $candidates): int
+    private function findHeader($headers, $candidates)
     {
-        $clean = array_map(fn($h) => preg_replace('/[\s\x{FEFF}"()（）]/u', '', trim($h)), $headers);
-
+        if (!$headers || count($headers) === 0) return -1;
+        $clean = [];
+        foreach ($headers as $h) {
+            $clean[] = preg_replace('/[\s\x{FEFF}"()（）]/u', '', trim($h));
+        }
         foreach ($candidates as $cand) {
             $target = preg_replace('/[\s"()（）]/u', '', $cand);
             $idx = array_search($target, $clean);
@@ -595,13 +577,18 @@ class SleeperService
         foreach ($candidates as $cand) {
             $target = preg_replace('/[\s"()（）]/u', '', $cand);
             foreach ($clean as $i => $c) {
-                if (str_contains($c, $target)) return $i;
+                if (strpos($c, $target) !== false) return $i;
             }
         }
         return -1;
     }
 
-    private function padToColumn(array $data, int $colIndex): array
+    private function getVal($row, $idx)
+    {
+        return isset($row[$idx]) ? $row[$idx] : '';
+    }
+
+    private function padToColumn($data, $colIndex)
     {
         $result = [];
         foreach ($data as $row) {
