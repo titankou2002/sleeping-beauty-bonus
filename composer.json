@@ -1,0 +1,12 @@
+{
+  "name": "elite/sleeping-beauty-bonus",
+  "description": "睡美人戰情室 - PHP 版",
+  "require": {
+    "google/apiclient": "^2.15"
+  },
+  "autoload": {
+    "psr-4": {
+      "App\\": "src/"
+    }
+  }
+}

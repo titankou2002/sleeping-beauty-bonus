@@ -1,0 +1,7 @@
+RewriteEngine On
+RewriteBase /
+
+# 如果檔案或目錄存在，直接存取
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^api/(.*)$ api.php?action=$1 [L,QSA]
