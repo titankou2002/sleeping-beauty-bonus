@@ -475,18 +475,21 @@ class SleeperService
             $res = $this->getBonusSummary($year, $m - 1);
             if (!$res['success']) continue;
 
+            $monthBonus = isset($res['data']['grand']['totalBonus']) ? $res['data']['grand']['totalBonus'] : 0;
             $monthData = [
                 'month' => $m,
-                'total' => $res['data']['grand']['totalBonus'],
+                'total' => $monthBonus,
                 'people' => []
             ];
-            foreach ($res['data']['people'] as $p) {
-                $monthData['people'][$p['salesName']] = $p['totalBonus'];
-                if (!isset($peopleTotal[$p['salesName']])) $peopleTotal[$p['salesName']] = 0;
-                $peopleTotal[$p['salesName']] += $p['totalBonus'];
+            if (isset($res['data']['people'])) {
+                foreach ($res['data']['people'] as $p) {
+                    $monthData['people'][$p['salesName']] = $p['totalBonus'];
+                    if (!isset($peopleTotal[$p['salesName']])) $peopleTotal[$p['salesName']] = 0;
+                    $peopleTotal[$p['salesName']] += $p['totalBonus'];
+                }
             }
             $months[] = $monthData;
-            $grandTotal += $res['data']['grand']['totalBonus'];
+            $grandTotal += $monthBonus;
         }
 
         $maxMonthTotal = 0;
@@ -539,85 +542,49 @@ class SleeperService
             $topProducts = array_slice($prodTotals, 0, 10);
         }
 
-        // 不續辦統計
-        $discontStats = ['total' => 0, 'products' => []];
-        {
+        // 不續辦統計（簡化版，只讀編號價目表，不動銷貨報表避免超時）
+        $discontStats = ['total' => 0, 'products' => [], 'missingSleeper' => []];
+        try {
             $pData = $this->gs->readSheet(PRICE_SHEET);
-            $pH = $pData[0];
-            $pIdxCode = $this->findHeader($pH, ['編號','產品編號']);
-            $pIdxDisc = $this->findHeader($pH, ['不續辦']);
-            $pIdxSeries = $this->findHeader($pH, ['中文系列','系列']);
-            $pIdxSleeper = $this->findHeader($pH, ['睡美人']);
+            if (count($pData) > 1) {
+                $pH = $pData[0];
+                $pIdxCode = $this->findHeader($pH, ['編號','產品編號']);
+                $pIdxDisc = $this->findHeader($pH, ['不續辦']);
+                $pIdxSleeper = $this->findHeader($pH, ['睡美人']);
+                $pIdxSeries = $this->findHeader($pH, ['中文系列','系列']);
 
-            $discSkus = [];
-            $sleeperSkus = [];
+                $discSkus = [];
+                $sleeperSkus = [];
 
-            if ($pIdxCode !== -1) {
-                for ($i = 1; $i < count($pData); $i++) {
-                    $row = $pData[$i];
-                    $sku = $this->cleanSku($this->getVal($row, $pIdxCode));
-                    if (!$sku) continue;
-                    $series = $pIdxSeries !== -1 ? trim($this->getVal($row, $pIdxSeries)) : '';
-                    if ($pIdxDisc !== -1 && trim($this->getVal($row, $pIdxDisc)) !== '') {
-                        $discSkus[$sku] = $series;
-                    }
-                    if ($pIdxSleeper !== -1 && trim($this->getVal($row, $pIdxSleeper)) !== '') {
-                        $sleeperSkus[$sku] = $series;
+                if ($pIdxCode !== -1) {
+                    for ($i = 1; $i < count($pData); $i++) {
+                        $row = $pData[$i];
+                        $sku = $this->cleanSku($this->getVal($row, $pIdxCode));
+                        if (!$sku) continue;
+                        $series = $pIdxSeries !== -1 ? trim($this->getVal($row, $pIdxSeries)) : '';
+                        if ($pIdxDisc !== -1 && trim($this->getVal($row, $pIdxDisc)) !== '') {
+                            $discSkus[$sku] = $series;
+                        }
+                        if ($pIdxSleeper !== -1 && trim($this->getVal($row, $pIdxSleeper)) !== '') {
+                            $sleeperSkus[$sku] = $series;
+                        }
                     }
                 }
-            }
 
-            $mappedSleeperFromPrice = $sleeperSkus;
-
-            // 從銷貨報表掃不續辦產品
-            $raw = $this->gs->readSheet(SALES_SHEET);
-            if (count($raw) > 1 && $pIdxCode !== -1) {
-                $h = $raw[0];
-                $idxDate = $this->findHeader($h, ['日期','單據日期']);
-                $idxCode = $this->findHeader($h, ['產品編號','編號']);
-                $idxAmt  = $this->findHeader($h, ['金額','銷額','銷售金額']);
-                $idxQty  = $this->findHeader($h, ['數量','片數']);
-                $idxCust = $this->findHeader($h, ['客戶名稱','客戶']);
-
-                $discProdTotals = [];
-                for ($i = 1; $i < count($raw); $i++) {
-                    $row = $raw[$i];
-                    $d = $this->parseDate($this->getVal($row, $idxDate));
-                    if (!$d || (int)$d->format('Y') !== $year) continue;
-
-                    $sku = $this->cleanSku($this->getVal($row, $idxCode));
-                    if (!$sku || !isset($discSkus[$sku])) continue;
-
-                    $qty = $this->optFloat($this->getVal($row, $idxQty));
-                    if ($qty <= 0) continue;
-
-                    $amt = abs($this->optFloat($this->getVal($row, $idxAmt)));
-                    $cust = trim($this->getVal($row, $idxCust));
-                    $series = $discSkus[$sku];
-
-                    $discontStats['total'] += $amt;
-
-                    $key = $sku . '|' . $series;
-                    if (!isset($discProdTotals[$key])) {
-                        $discProdTotals[$key] = ['sku' => $sku, 'series' => $series, 'amt' => 0];
+                // 補充缺失的睡美人 SKU
+                $sleeperConfig = $this->getSleeperConfig();
+                $existingSleeperSkus = $sleeperConfig['success'] ? array_keys($sleeperConfig['data']) : [];
+                $missingSleeper = [];
+                foreach ($sleeperSkus as $sku => $series) {
+                    if (!in_array($sku, $existingSleeperSkus)) {
+                        $missingSleeper[] = ['sku' => $sku, 'series' => $series];
                     }
-                    $discProdTotals[$key]['amt'] += $amt;
                 }
-
-                usort($discProdTotals, function($a, $b) { return $b['amt'] - $a['amt']; });
-                $discontStats['products'] = $discProdTotals;
+                $discontStats['missingSleeper'] = $missingSleeper;
+                $discontStats['discCount'] = count($discSkus);
             }
-
-            // 補充缺失的睡美人 SKU（沒有在睡美人表但有睡美人標記）
-            $sleeperConfig = $this->getSleeperConfig();
-            $existingSleeperSkus = $sleeperConfig['success'] ? array_keys($sleeperConfig['data']) : [];
-            $missingSleeper = [];
-            foreach ($mappedSleeperFromPrice as $sku => $series) {
-                if (!in_array($sku, $existingSleeperSkus)) {
-                    $missingSleeper[] = ['sku' => $sku, 'series' => $series];
-                }
-            }
-            $discontStats['missingSleeper'] = $missingSleeper;
+        } catch (\Exception $e) {
+            $discontStats['error'] = $e->getMessage();
         }
 
         return [

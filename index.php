@@ -371,12 +371,13 @@ function showLoading(show) {
   document.getElementById('loading').classList.toggle('hidden', !show);
 }
 
-function toast(msg) {
+function toast(msg, isError) {
   var t = document.createElement('div');
   t.textContent = msg;
-  t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#000;border:2px solid var(--gold);color:#fff;padding:12px 24px;border-radius:8px;font-weight:700;z-index:1000;box-shadow:0 0 15px rgba(194,157,102,0.3);';
+  t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#000;border:2px solid ' + (isError ? '#ef4444' : 'var(--gold)') + ';color:#fff;padding:14px 28px;border-radius:10px;font-weight:700;z-index:1000;box-shadow:0 0 15px rgba(194,157,102,0.3);cursor:pointer;max-width:90vw;text-align:center;line-height:1.4;';
+  t.onclick = function() { t.remove(); };
   document.body.appendChild(t);
-  setTimeout(function(){ t.remove(); }, 2500);
+  setTimeout(function(){ t.remove(); }, isError ? 12000 : 5000);
 }
 
 function apiGet(action, params, onSuccess, onFail) {
@@ -816,23 +817,14 @@ function renderDashboard(d) {
 
   // 不續辦統計
   if (d.discontStats) {
-    html += '<div class="dash-section"><div class="dash-title">🚫 不續辦產品銷售統計</div>';
+    html += '<div class="dash-section"><div class="dash-title">🚫 不續辦產品</div>';
     html += '<div class="kpi-row" style="margin-bottom:12px">' +
-      '<div class="kpi-card kpi-gold"><div class="label">不續辦總銷售</div><div class="value">' + fmt(Math.round(d.discontStats.total)) + '</div><div class="sub">元（年度）</div></div>' +
-      '<div class="kpi-card kpi-blue"><div class="label">品項數</div><div class="value">' + d.discontStats.products.length + '</div><div class="sub">支 SKU</div></div>' +
+      '<div class="kpi-card kpi-blue"><div class="label">不續辦品項</div><div class="value">' + (d.discontStats.discCount || 0) + '</div><div class="sub">支 SKU</div></div>' +
     '</div>';
-    if (d.discontStats.products.length) {
-      html += '<div class="rank-list">';
-      d.discontStats.products.slice(0, 10).forEach(function(p, i) {
-        html += '<div class="rank-row"><span class="rank-num">' + (i+1) + '</span><span class="rank-name">' + p.series + ' <span class="text-purple" style="font-size:11px">' + p.sku + '</span></span><span class="rank-amt">' + fmt(Math.round(p.amt)) + '</span></div>';
-      });
-      html += '</div>';
-    }
     if (d.discontStats.missingSleeper && d.discontStats.missingSleeper.length) {
-      html += '<div style="margin-top:12px;padding:12px;background:rgba(194,157,102,0.08);border-radius:10px;font-size:12px;color:var(--gold)">⚠️ 編號價目表標記為「睡美人」但睡美人工作表缺少的 SKU (' + d.discontStats.missingSleeper.length + ' 支)：' +
+      html += '<div style="padding:12px;background:rgba(194,157,102,0.08);border-radius:10px;font-size:12px;color:var(--gold)">⚠️ 編號價目表標記為「睡美人」但睡美人工作表缺少的 SKU (' + d.discontStats.missingSleeper.length + ' 支)：' +
         d.discontStats.missingSleeper.slice(0, 5).map(function(s) { return s.sku + '(' + s.series + ')'; }).join('、') +
         (d.discontStats.missingSleeper.length > 5 ? '…等' + d.discontStats.missingSleeper.length + ' 支' : '') +
-        '，已自動以 S 級計。' +
       '</div>';
     }
     html += '</div>';
