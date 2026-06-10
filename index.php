@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>睡美人戰情室</title>
+  <link rel="icon" href="favicon.png" type="image/png">
   <style>
 :root {
   --bg: #000000;
@@ -40,6 +41,7 @@ body {
   height: 56px;
   display: flex; align-items: center; gap: 24px;
 }
+.top-logo { height: 28px; width: auto; flex-shrink: 0; }
 .logo {
   font-size: 16px; font-weight: 900; letter-spacing: 2px;
   color: var(--gold);
@@ -240,6 +242,7 @@ select {
   <div class="app">
     <header class="topbar">
       <div class="topbar-inner">
+        <img src="logo.svg" alt="eliTile" class="top-logo">
         <h1 class="logo">睡美人戰情室</h1>
         <div class="tab-bar">
           <button class="tab-btn active" id="tab-bonus" onclick="switchTab('bonus')">獎金試算</button>
