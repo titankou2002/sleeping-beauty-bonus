@@ -389,9 +389,23 @@ function loadData() {
 
   showLoading(true);
   apiGet('summary', { year: year, month: month }, function(res) {
-    showLoading(false);
-    if (res.success) renderSummary(res.data, year, month, sales);
-    else document.getElementById('main-content').innerHTML = '<div class="welcome"><p style="color:var(--red)">❌ ' + res.msg + '</p></div>';
+    if (res.success && !res.data.people.length) {
+      toast('該月份尚無資料，正在自動從銷貨拉取...');
+      apiPost('sync', { year: year, month: month }, function(syncRes) {
+        apiGet('summary', { year: year, month: month }, function(res2) {
+          showLoading(false);
+          if (res2.success) renderSummary(res2.data, year, month, sales);
+          else document.getElementById('main-content').innerHTML = '<div class="welcome"><p style="color:var(--red)">❌ ' + res2.msg + '</p></div>';
+        });
+      }, function(err) {
+        showLoading(false);
+        toast('自動拉取失敗: ' + err);
+      });
+    } else {
+      showLoading(false);
+      if (res.success) renderSummary(res.data, year, month, sales);
+      else document.getElementById('main-content').innerHTML = '<div class="welcome"><p style="color:var(--red)">❌ ' + res.msg + '</p></div>';
+    }
   }, function(err) {
     showLoading(false);
     toast('連線失敗: ' + err);
