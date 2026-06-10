@@ -219,6 +219,21 @@ class SleeperService
             $pCost = $this->findHeader($pH, ['成本','單片成本','成本價']);
             $pSeries = $this->findHeader($pH, ['中文系列','系列']);
             if ($pCode !== -1 && $pSleeper !== -1) {
+                // Overlay: price sheet cost takes priority over sleeper sheet cost
+                $priceCosts = [];
+                for ($pi = 0; $pi < count($priceData); $pi++) {
+                    if ($pi === 0) continue;
+                    $rsku = $this->cleanSku($this->getVal($priceData[$pi], $pCode));
+                    if (!$rsku) continue;
+                    $priceCosts[$rsku] = $pCost !== -1 ? $this->optFloat($this->getVal($priceData[$pi], $pCost)) : 0;
+                }
+                foreach ($map as $sku => &$m) {
+                    if (isset($priceCosts[$sku]) && $priceCosts[$sku] > 0) {
+                        $m['cost'] = $priceCosts[$sku];
+                    }
+                }
+                unset($m);
+                // Add products marked 睡美人 in price sheet but not in sleeper sheet
                 for ($i = 1; $i < count($priceData); $i++) {
                     $row = $priceData[$i];
                     $sku = $this->cleanSku($this->getVal($row, $pCode));
@@ -342,6 +357,25 @@ class SleeperService
         $map = [];
         for ($i = 1; $i < count($data); $i++) {
             $sku = $this->cleanSku($this->getVal($data[$i], $idxSku));
+            if (!$sku) continue;
+            $map[$sku] = $this->optFloat($this->getVal($data[$i], $idxCost));
+        }
+        return $map;
+    }
+
+    private function getPriceCostMap()
+    {
+        $data = $this->gs->readSheet(PRICE_SHEET);
+        if (count($data) < 2) return [];
+
+        $h = $data[0];
+        $idxCode = $this->findHeader($h, ['編號','產品編號']);
+        $idxCost = $this->findHeader($h, ['成本','單片成本','成本價']);
+        if ($idxCode === -1 || $idxCost === -1) return [];
+
+        $map = [];
+        for ($i = 1; $i < count($data); $i++) {
+            $sku = $this->cleanSku($this->getVal($data[$i], $idxCode));
             if (!$sku) continue;
             $map[$sku] = $this->optFloat($this->getVal($data[$i], $idxCost));
         }
@@ -950,7 +984,7 @@ class SleeperService
 
         $sleeperCosts = $this->getSleeperCostMap();
         foreach ($disconMap as $sku => &$info) {
-            if (isset($sleeperCosts[$sku]) && $sleeperCosts[$sku] > 0) {
+            if ($info['cost'] <= 0 && isset($sleeperCosts[$sku]) && $sleeperCosts[$sku] > 0) {
                 $info['cost'] = $sleeperCosts[$sku];
             }
         }
@@ -1074,7 +1108,7 @@ class SleeperService
 
         $sleeperCosts = $this->getSleeperCostMap();
         foreach ($normMap as $sku => &$info) {
-            if (isset($sleeperCosts[$sku]) && $sleeperCosts[$sku] > 0) {
+            if ($info['cost'] <= 0 && isset($sleeperCosts[$sku]) && $sleeperCosts[$sku] > 0) {
                 $info['cost'] = $sleeperCosts[$sku];
             }
         }
