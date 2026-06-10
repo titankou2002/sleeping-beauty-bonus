@@ -845,6 +845,9 @@ function loadDashboard() {
     if (res.success) window._disconProducts = res.data;
     if (window._disconProducts && window._disconProducts.length) renderDiscontinued();
   });
+  apiGet('products', {}, function(res) {
+    if (res.success) window._productsData = res.data;
+  });
 }
 
 function renderDiscontinued() {
