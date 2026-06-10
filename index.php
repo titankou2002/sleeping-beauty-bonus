@@ -760,7 +760,7 @@ function renderProducts() {
   var sortBy = document.getElementById('sort-by').value;
 
   var list = window._productsData.filter(function(p) {
-    return !gradeFilter || p.grade === gradeFilter;
+    return (!gradeFilter || p.grade === gradeFilter) && p.stockPing >= 3;
   });
 
   list = list.slice().sort(function(a, b) {
