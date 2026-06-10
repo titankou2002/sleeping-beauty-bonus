@@ -911,6 +911,7 @@ class SleeperService
         $pSer   = $this->findHeader($pH, ['中文系列','系列']);
         $pCost  = $this->findHeader($pH, ['成本','單片成本','成本價','單價']);
         $pPerPing = $this->findHeader($pH, ['片/坪']);
+        $pImg   = $this->findHeader($pH, ['單片連結網址','單片圖','圖片網址','單片網址','圖片連結']);
         if ($pCode === -1 || $pDisc === -1) return ['success' => true, 'data' => []];
 
         $disconMap = [];
@@ -921,9 +922,10 @@ class SleeperService
             if (trim($this->getVal($row, $pDisc)) === '') continue;
             $meta['series']  = $pSer !== -1 ? trim($this->getVal($row, $pSer)) : '';
             $disconMap[$sku] = [
-                'series'  => $meta['series'],
-                'cost'    => $pCost !== -1 ? $this->optFloat($this->getVal($row, $pCost)) : 0,
-                'perPing' => $pPerPing !== -1 ? ($this->optFloat($this->getVal($row, $pPerPing)) ?: 36) : 36
+                'series'   => $meta['series'],
+                'cost'     => $pCost !== -1 ? $this->optFloat($this->getVal($row, $pCost)) : 0,
+                'perPing'  => $pPerPing !== -1 ? ($this->optFloat($this->getVal($row, $pPerPing)) ?: 36) : 36,
+                'imageUrl' => $pImg !== -1 ? trim($this->getVal($row, $pImg)) : ''
             ];
         }
 
@@ -1004,7 +1006,8 @@ class SleeperService
                 'totalPings' => $totalPings,
                 'daysSinceLastSale' => $daysSinceLastSale,
                 'lastSaleStr' => $lastSaleStr,
-                'buyers' => $buyers
+                'buyers' => $buyers,
+                'imageUrl' => $info['imageUrl']
             ];
         }
 

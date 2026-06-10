@@ -715,8 +715,8 @@ function recalcAll() {
   });
 }
 
-function fmt(n) { return (n || 0).toLocaleString(); }
-function fmtNum(n) { return isNaN(n) ? '0' : Math.round(n).toLocaleString(); }
+function fmt(n) { n = n || 0; return (n / 10000).toFixed(1) + '萬'; }
+function fmtNum(n) { return isNaN(n) ? '0萬' : (n / 10000).toFixed(1) + '萬'; }
 
 var currentTab = 'bonus';
 function switchTab(tab) {
@@ -875,7 +875,9 @@ function renderDiscontinued() {
         }).join('') + '</div></div>';
     }
     html += '<div class="product-card">' +
-      '<div class="prod-grade"><div class="grade-badge" style="font-size:11px;background:rgba(239,68,68,0.12);color:#ef4444;border:1px solid rgba(239,68,68,0.25)">D/C</div></div>' +
+      '<div class="prod-grade">' +
+      (p.imageUrl ? '<img src="' + p.imageUrl + '" alt="" style="width:60px;height:60px;object-fit:contain;border-radius:8px;background:rgba(255,255,255,0.04);border:1px solid var(--border-light);margin-bottom:6px" onerror="this.style.display=\'none\'">' : '') +
+      '<div class="grade-badge" style="font-size:11px;background:rgba(239,68,68,0.12);color:#ef4444;border:1px solid rgba(239,68,68,0.25)">D/C</div></div>' +
       '<div class="prod-info">' +
       '<div class="prod-title">' + (p.series || '未分類') + '</div>' +
       '<div class="prod-sku">' + p.sku + '</div>' +
