@@ -1,7 +1,7 @@
 <?php
-require_once __DIR__ . '/../config.php';
-require_once __DIR__ . '/../src/GoogleSheetsClient.php';
-require_once __DIR__ . '/../src/SleeperService.php';
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/src/GoogleSheetsClient.php';
+require_once __DIR__ . '/src/SleeperService.php';
 
 use App\GoogleSheetsClient;
 use App\SleeperService;
