@@ -75,6 +75,17 @@ try {
             echo json_encode($res);
             break;
 
+        case 'update-row':
+            $rowIdx    = (int)($_POST['rowIdx'] ?? 0);
+            $qty       = (float)($_POST['qty'] ?? 0);
+            $unitPrice = (float)($_POST['unitPrice'] ?? 0);
+            $multiplier = (float)($_POST['multiplier'] ?? 0);
+            $clearance = $_POST['clearance'] ?? '';
+            $note      = $_POST['note'] ?? '';
+            $res = $svc->updateTrialRow($rowIdx, $qty, $unitPrice, $multiplier, $clearance, $note);
+            echo json_encode($res);
+            break;
+
         default:
             http_response_code(400);
             echo json_encode(['success' => false, 'msg' => '未知 action: ' . $action]);

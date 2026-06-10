@@ -208,6 +208,17 @@ select {
 .frozen-warm { color: var(--gold); }
 .frozen-cold { color: var(--orange); }
 .frozen-dead { color: var(--red); }
+.ed-input {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.15);
+  color: #fff; border-radius: 6px; padding: 4px 6px;
+  font-size: 13px; font-weight: 700; text-align: right;
+  width: 72px; outline: none;
+}
+.ed-input:focus { border-color: var(--gold); }
+.ed-input-sm { width: 52px; text-align: center; }
+.ed-input-wide { width: 100px; text-align: left; }
+input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: var(--gold); }
 .modal-overlay {
   position: fixed; inset: 0; z-index: 200;
   background: rgba(0,0,0,0.8); backdrop-filter: blur(6px);
@@ -268,8 +279,8 @@ select {
         <option value="">全部業務</option>
       </select>
       <button class="btn btn-primary" onclick="loadData()">查詢</button>
-      <button class="btn btn-accent" onclick="pullData()">從銷貨拉取</button>
       <button class="btn btn-ghost" onclick="recalcAll()">重新計算</button>
+      <button class="btn btn-accent hidden" id="btn-save" onclick="saveEdits()">💾 儲存修改</button>
     </div>
 
     <div class="ctrl-bar hidden" id="ctrl-products">
@@ -296,7 +307,7 @@ select {
     <main class="main" id="main-content">
       <div class="welcome">
         <h2>睡美人業績獎金試算</h2>
-        <p>選擇月份後點擊「查詢」，或先點「從銷貨拉取」將經銷報表的睡美人資料匯入試算表。</p>
+        <p>選擇月份後點擊「查詢」，「片數/單價/倍數」可直接在表格修改並按「儲存修改」寫回 Sheet。</p>
         <p class="hint">💡 小姐可直接去 Google Sheet 的「睡美人獎金試算」分頁編輯所有數值</p>
       </div>
     </main>
@@ -412,11 +423,33 @@ function loadData() {
   });
 }
 
+var _changedRows = {};
+
 function shortCust(name) {
   return String(name || '').trim().slice(0, 2);
 }
 
+function onEditChange(rowIdx) {
+  var prefix = 'ed_' + rowIdx;
+  var qty = parseFloat(document.getElementById(prefix + '_qty').value) || 0;
+  var price = parseFloat(document.getElementById(prefix + '_price').value) || 0;
+  var mult = parseFloat(document.getElementById(prefix + '_mult').value) || 1;
+  var clearance = document.getElementById(prefix + '_clear').checked ? '是' : '';
+
+  var amt = qty * price;
+  document.getElementById(prefix + '_amt').textContent = fmtNum(amt);
+  document.getElementById(prefix + '_bonus').textContent = fmtNum(Math.round(amt * mult));
+
+  _changedRows[rowIdx] = {
+    qty: qty, unitPrice: price, multiplier: mult,
+    clearance: clearance, note: document.getElementById(prefix + '_note').value
+  };
+  document.getElementById('btn-save').classList.remove('hidden');
+}
+
 function renderSummary(data, year, month, salesFilter) {
+  _changedRows = {};
+  document.getElementById('btn-save').classList.add('hidden');
   var container = document.getElementById('main-content');
   var people = data.people;
   var grand = data.grand;
@@ -426,61 +459,94 @@ function renderSummary(data, year, month, salesFilter) {
   }
 
   if (people.length === 0) {
-    container.innerHTML = '<div class="welcome"><h2>暫無資料</h2><p>該月份尚無睡美人銷貨紀錄，請先點擊「從銷貨拉取」匯入資料。</p></div>';
+    container.innerHTML = '<div class="welcome"><h2>暫無資料</h2><p>該月份尚無睡美人銷貨紀錄。</p></div>';
     return;
   }
 
   var totalPerf = people.reduce(function(s, p) { return s + p.totalBonus; }, 0);
 
-  var html = '<div class="kpi-row">' +
+  var kpiHtml = '<div class="kpi-row">' +
     '<div class="kpi-card kpi-blue"><div class="label">總筆數</div><div class="value">' + grand.count + '</div><div class="sub">筆交易</div></div>' +
     '<div class="kpi-card kpi-gold"><div class="label">原始金額</div><div class="value">' + fmt(grand.totalAmt) + '</div><div class="sub">元</div></div>' +
     '<div class="kpi-card kpi-green"><div class="label">毛利率</div><div class="value">' + grand.margin + '%</div><div class="sub">平均</div></div>' +
     '<div class="kpi-card kpi-purple"><div class="label">業績金額合計</div><div class="value">' + fmt(totalPerf) + '</div><div class="sub">元（含倍數）</div></div>' +
     '</div>';
 
+  var tableHtml = '';
   people.forEach(function(p) {
-    var personPerf = p.totalBonus;
     var mColor = p.margin > 15 ? 'text-green' : (p.margin > 0 ? 'text-gold' : 'text-red');
 
-    html += '<div class="person-section">' +
+    tableHtml += '<div class="person-section">' +
       '<div class="person-section-header">' +
         '<span class="person-name">' + p.salesName + '</span>' +
-        '<span class="person-perf">業績 <strong>' + fmt(personPerf) + '</strong> 元</span>' +
+        '<span class="person-perf">業績 <strong id="perf_' + p.salesName + '">' + fmt(p.totalBonus) + '</strong> 元</span>' +
         '<span class="' + mColor + '" style="font-size:13px;font-weight:700;">毛利率 ' + p.margin + '%</span>' +
       '</div>' +
       '<div class="table-wrap"><table class="detail-table"><thead><tr>' +
         '<th>客戶</th><th>編號</th><th>系列</th>' +
         '<th class="text-right">片數</th><th class="text-right">單價</th>' +
-        '<th class="text-right">原始金額</th><th class="text-center">毛利率</th>' +
-        '<th class="text-center">等級</th><th class="text-center">倍數</th>' +
-        '<th class="text-right text-gold">業績金額</th>' +
+        '<th class="text-right">金額</th><th class="text-center">等級</th>' +
+        '<th class="text-center">倍數</th><th class="text-right">業績金額</th>' +
+        '<th class="text-center">全出清</th><th>備註</th>' +
       '</tr></thead><tbody>';
 
     p.details.forEach(function(r) {
-      var m = parseFloat(r['毛利率']);
-      var mClass = m > 15 ? 'text-green' : (m > 0 ? 'text-gold' : 'text-red');
+      var rowIdx = r._rowIdx;
+      var prefix = 'ed_' + rowIdx;
+      var qty = parseFloat(r['片數']) || 0;
+      var price = parseFloat(r['單價']) || 0;
       var mult = parseFloat(r['倍數']) || 1;
-      var amt = parseFloat(r['金額']) || 0;
+      var amt = qty * price;
       var perf = Math.round(amt * mult);
-      html += '<tr>' +
+      var cleared = (r['全出清'] === '是');
+
+      tableHtml += '<tr>' +
         '<td>' + shortCust(r['客戶']) + '</td>' +
-        '<td class="text-purple">' + (r['編號'] || '') + '</td>' +
-        '<td>' + (r['系列'] || '') + '</td>' +
-        '<td class="text-right">' + (r['片數'] || '0') + '</td>' +
-        '<td class="text-right">' + fmtNum(parseFloat(r['單價'])) + '</td>' +
-        '<td class="text-right">' + fmtNum(amt) + '</td>' +
-        '<td class="text-center ' + mClass + '">' + r['毛利率'] + '</td>' +
+        '<td class="text-purple" style="font-size:11px;">' + (r['編號'] || '') + '</td>' +
+        '<td style="font-size:11px;">' + (r['系列'] || '') + '</td>' +
+        '<td class="text-right"><input type="number" step="1" class="ed-input" id="' + prefix + '_qty" value="' + qty + '" onchange="onEditChange(' + rowIdx + ')"></td>' +
+        '<td class="text-right"><input type="number" step="0.01" class="ed-input" id="' + prefix + '_price" value="' + price + '" onchange="onEditChange(' + rowIdx + ')"></td>' +
+        '<td class="text-right" id="' + prefix + '_amt">' + fmtNum(amt) + '</td>' +
         '<td class="text-center">' + (r['等級'] || '') + '</td>' +
-        '<td class="text-center text-gold">' + mult + '</td>' +
-        '<td class="text-right text-gold" style="font-weight:800;">' + fmtNum(perf) + '</td>' +
+        '<td class="text-center"><input type="number" step="0.1" class="ed-input ed-input-sm" id="' + prefix + '_mult" value="' + mult + '" onchange="onEditChange(' + rowIdx + ')"></td>' +
+        '<td class="text-right text-gold" id="' + prefix + '_bonus" style="font-weight:800;">' + fmtNum(perf) + '</td>' +
+        '<td class="text-center"><input type="checkbox" id="' + prefix + '_clear" onchange="onEditChange(' + rowIdx + ')"' + (cleared ? ' checked' : '') + '></td>' +
+        '<td><input type="text" class="ed-input ed-input-wide" id="' + prefix + '_note" value="' + (r['備註'] || '').replace(/"/g, '&quot;') + '" onchange="onEditChange(' + rowIdx + ')"></td>' +
       '</tr>';
     });
 
-    html += '</tbody></table></div></div>';
+    tableHtml += '</tbody></table></div></div>';
   });
 
-  container.innerHTML = html;
+  container.innerHTML = kpiHtml + tableHtml;
+}
+
+function saveEdits() {
+  var keys = Object.keys(_changedRows);
+  if (!keys.length) { toast('沒有修改'); return; }
+  showLoading(true);
+  var done = 0, fails = 0;
+  keys.forEach(function(rowIdx) {
+    var d = _changedRows[rowIdx];
+    var formData = new URLSearchParams();
+    formData.append('rowIdx', rowIdx);
+    formData.append('qty', d.qty);
+    formData.append('unitPrice', d.unitPrice);
+    formData.append('multiplier', d.multiplier);
+    formData.append('clearance', d.clearance);
+    formData.append('note', d.note);
+    fetch(API_BASE + '?action=update-row', { method: 'POST', body: formData })
+      .then(function(r) { return r.json(); })
+      .then(function(res) {
+        done++;
+        if (!res.success) fails++;
+        if (done === keys.length) {
+          showLoading(false);
+          if (fails) toast('儲存完成，' + fails + ' 筆失敗');
+          else { toast('已儲存 ' + keys.length + ' 筆修改'); _changedRows = {}; document.getElementById('btn-save').classList.add('hidden'); loadData(); }
+        }
+      });
+  });
 }
 
 function pullData() {

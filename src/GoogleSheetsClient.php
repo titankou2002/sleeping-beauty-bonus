@@ -40,6 +40,39 @@ class GoogleSheetsClient
         ]);
     }
 
+    public function updateCell($sheetName, $row, $col, $value)
+    {
+        $colLetter = $this->colIndexToLetter($col);
+        $range = urlencode("'{$sheetName}'!{$colLetter}{$row}");
+        $url = "https://sheets.googleapis.com/v4/spreadsheets/{$this->ssId}/values/{$range}";
+        $this->api('PUT', $url, [
+            'values' => [[$value]],
+            'majorDimension' => 'ROWS'
+        ]);
+    }
+
+    public function updateRowRange($sheetName, $row, $colStart, $values)
+    {
+        $colLetter = $this->colIndexToLetter($colStart);
+        $colEnd = $this->colIndexToLetter($colStart + count($values) - 1);
+        $range = urlencode("'{$sheetName}'!{$colLetter}{$row}:{$colEnd}{$row}");
+        $url = "https://sheets.googleapis.com/v4/spreadsheets/{$this->ssId}/values/{$range}";
+        $this->api('PUT', $url, [
+            'values' => [$values],
+            'majorDimension' => 'ROWS'
+        ]);
+    }
+
+    private function colIndexToLetter($i)
+    {
+        $letters = '';
+        while ($i >= 0) {
+            $letters = chr(65 + ($i % 26)) . $letters;
+            $i = (int)($i / 26) - 1;
+        }
+        return $letters;
+    }
+
     private function getAccessToken()
     {
         if ($this->accessToken && microtime(true) < $this->tokenExpires) {

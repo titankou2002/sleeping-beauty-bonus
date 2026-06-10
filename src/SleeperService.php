@@ -315,6 +315,50 @@ class SleeperService
         return ['success' => true, 'count' => $count];
     }
 
+    public function updateTrialRow($rowIdx, $qty, $unitPrice, $multiplier, $clearance, $note)
+    {
+        $amt = round($qty * $unitPrice);
+        $data = $this->gs->readSheet(TRIAL_SHEET);
+        if ($rowIdx < 2 || $rowIdx > count($data)) {
+            return ['success' => false, 'msg' => '行號無效'];
+        }
+
+        $row = $data[$rowIdx - 1];
+        $h = $data[0];
+        $cols = [
+            'qty'       => array_search('片數', $h),
+            'price'     => array_search('單價', $h),
+            'amt'       => array_search('金額', $h),
+            'cost'      => array_search('成本', $h),
+            'margin'    => array_search('毛利率', $h),
+            'multiplier'=> array_search('倍數', $h),
+            'bonus'     => array_search('獎金', $h),
+            'clearance' => array_search('全出清', $h),
+            'grade'     => array_search('等級', $h),
+            'note'      => array_search('備註', $h)
+        ];
+
+        $cost = $this->optFloat($this->getVal($row, $cols['cost']));
+        $totalCost = $cost * $qty;
+        $grade = strtoupper(trim($this->getVal($row, $cols['grade'])));
+        $priceCostRatio = $cost > 0 ? $unitPrice / $cost : 1;
+        $isFullClearance = ($clearance === '是');
+        $margin = $amt > 0 ? round(($amt - $totalCost) / $amt * 10000) / 100 : 0;
+        $autoMult = $multiplier ?: $this->calcMultiplier($grade, $margin / 100, $priceCostRatio, $isFullClearance);
+        $bonus = round($amt * $autoMult);
+
+        $this->gs->updateCell(TRIAL_SHEET, $rowIdx, $cols['qty'], $qty);
+        $this->gs->updateCell(TRIAL_SHEET, $rowIdx, $cols['price'], $unitPrice);
+        $this->gs->updateCell(TRIAL_SHEET, $rowIdx, $cols['amt'], $amt);
+        $this->gs->updateCell(TRIAL_SHEET, $rowIdx, $cols['margin'], $margin . '%');
+        $this->gs->updateCell(TRIAL_SHEET, $rowIdx, $cols['multiplier'], $autoMult);
+        $this->gs->updateCell(TRIAL_SHEET, $rowIdx, $cols['bonus'], $bonus);
+        $this->gs->updateCell(TRIAL_SHEET, $rowIdx, $cols['clearance'], $clearance ?: '');
+        $this->gs->updateCell(TRIAL_SHEET, $rowIdx, $cols['note'], $note);
+
+        return ['success' => true, 'rowIdx' => $rowIdx];
+    }
+
     public function readTrialSheet($year, $month, $salesName = '')
     {
         $data = $this->gs->readSheet(TRIAL_SHEET);
