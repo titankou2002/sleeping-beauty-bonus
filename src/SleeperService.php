@@ -494,6 +494,132 @@ class SleeperService
             if ($m['total'] > $maxMonthTotal) $maxMonthTotal = $m['total'];
         }
 
+        // 前 10 大客戶 & 產品
+        $topCustomers = [];
+        $topProducts = [];
+        $trialData = $this->gs->readSheet(TRIAL_SHEET);
+        if (count($trialData) > 1) {
+            $th = $trialData[0];
+            $tcMonth = array_search('月份', $th);
+            $tcCust  = array_search('客戶', $th);
+            $tcSku   = array_search('編號', $th);
+            $tcSeries= array_search('系列', $th);
+            $tcAmt   = array_search('金額', $th);
+            $yearStr = (string)$year;
+
+            $custTotals = [];
+            $prodTotals = [];
+            for ($i = 1; $i < count($trialData); $i++) {
+                $row = $trialData[$i];
+                $monthVal = ltrim(trim($this->getVal($row, $tcMonth)), "'");
+                if (strpos($monthVal, $yearStr) !== 0) continue;
+
+                $cust = trim($this->getVal($row, $tcCust));
+                $sku = trim($this->getVal($row, $tcSku));
+                $series = trim($this->getVal($row, $tcSeries));
+                $amt = $this->optFloat($this->getVal($row, $tcAmt));
+
+                if ($cust && $amt) {
+                    if (!isset($custTotals[$cust])) $custTotals[$cust] = 0;
+                    $custTotals[$cust] += abs($amt);
+                }
+                if ($sku && $amt) {
+                    $key = $sku . '|' . $series;
+                    if (!isset($prodTotals[$key])) $prodTotals[$key] = ['sku' => $sku, 'series' => $series, 'amt' => 0];
+                    $prodTotals[$key]['amt'] += abs($amt);
+                }
+            }
+            arsort($custTotals);
+            $i = 0;
+            foreach ($custTotals as $name => $total) {
+                if ($i++ >= 10) break;
+                $topCustomers[] = ['name' => $name, 'total' => round($total)];
+            }
+            usort($prodTotals, function($a, $b) { return $b['amt'] - $a['amt']; });
+            $topProducts = array_slice($prodTotals, 0, 10);
+        }
+
+        // 不續辦統計
+        $discontStats = ['total' => 0, 'products' => []];
+        {
+            $pData = $this->gs->readSheet(PRICE_SHEET);
+            $pH = $pData[0];
+            $pIdxCode = $this->findHeader($pH, ['編號','產品編號']);
+            $pIdxDisc = $this->findHeader($pH, ['不續辦']);
+            $pIdxSeries = $this->findHeader($pH, ['中文系列','系列']);
+            $pIdxSleeper = $this->findHeader($pH, ['睡美人']);
+
+            $discSkus = [];
+            $sleeperSkus = [];
+
+            if ($pIdxCode !== -1) {
+                for ($i = 1; $i < count($pData); $i++) {
+                    $row = $pData[$i];
+                    $sku = $this->cleanSku($this->getVal($row, $pIdxCode));
+                    if (!$sku) continue;
+                    $series = $pIdxSeries !== -1 ? trim($this->getVal($row, $pIdxSeries)) : '';
+                    if ($pIdxDisc !== -1 && trim($this->getVal($row, $pIdxDisc)) !== '') {
+                        $discSkus[$sku] = $series;
+                    }
+                    if ($pIdxSleeper !== -1 && trim($this->getVal($row, $pIdxSleeper)) !== '') {
+                        $sleeperSkus[$sku] = $series;
+                    }
+                }
+            }
+
+            $mappedSleeperFromPrice = $sleeperSkus;
+
+            // 從銷貨報表掃不續辦產品
+            $raw = $this->gs->readSheet(SALES_SHEET);
+            if (count($raw) > 1 && $pIdxCode !== -1) {
+                $h = $raw[0];
+                $idxDate = $this->findHeader($h, ['日期','單據日期']);
+                $idxCode = $this->findHeader($h, ['產品編號','編號']);
+                $idxAmt  = $this->findHeader($h, ['金額','銷額','銷售金額']);
+                $idxQty  = $this->findHeader($h, ['數量','片數']);
+                $idxCust = $this->findHeader($h, ['客戶名稱','客戶']);
+
+                $discProdTotals = [];
+                for ($i = 1; $i < count($raw); $i++) {
+                    $row = $raw[$i];
+                    $d = $this->parseDate($this->getVal($row, $idxDate));
+                    if (!$d || (int)$d->format('Y') !== $year) continue;
+
+                    $sku = $this->cleanSku($this->getVal($row, $idxCode));
+                    if (!$sku || !isset($discSkus[$sku])) continue;
+
+                    $qty = $this->optFloat($this->getVal($row, $idxQty));
+                    if ($qty <= 0) continue;
+
+                    $amt = abs($this->optFloat($this->getVal($row, $idxAmt)));
+                    $cust = trim($this->getVal($row, $idxCust));
+                    $series = $discSkus[$sku];
+
+                    $discontStats['total'] += $amt;
+
+                    $key = $sku . '|' . $series;
+                    if (!isset($discProdTotals[$key])) {
+                        $discProdTotals[$key] = ['sku' => $sku, 'series' => $series, 'amt' => 0];
+                    }
+                    $discProdTotals[$key]['amt'] += $amt;
+                }
+
+                usort($discProdTotals, function($a, $b) { return $b['amt'] - $a['amt']; });
+                $discontStats['products'] = $discProdTotals;
+            }
+
+            // 補充缺失的睡美人 SKU（沒有在睡美人表但有睡美人標記）
+            $sleeperConfig = $this->getSleeperConfig();
+            $existingSleeperSkus = $sleeperConfig['success'] ? array_keys($sleeperConfig['data']) : [];
+            $missingSleeper = [];
+            foreach ($mappedSleeperFromPrice as $sku => $series) {
+                if (!in_array($sku, $existingSleeperSkus)) {
+                    $missingSleeper[] = ['sku' => $sku, 'series' => $series];
+                }
+            }
+            $discontStats['missingSleeper'] = $missingSleeper;
+        }
+
         return [
             'success' => true,
             'data' => [
@@ -503,7 +629,10 @@ class SleeperService
                 'grandTotal' => $grandTotal,
                 'peopleTotal' => $peopleTotal,
                 'target' => 3000000,
-                'maxMonthTotal' => $maxMonthTotal
+                'maxMonthTotal' => $maxMonthTotal,
+                'topCustomers' => $topCustomers,
+                'topProducts' => $topProducts,
+                'discontStats' => $discontStats
             ]
         ];
     }

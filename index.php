@@ -223,14 +223,22 @@ input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-colo
 .dash-title { font-size: 13px; font-weight: 900; color: var(--gold); margin-bottom: 16px; letter-spacing: 1px; }
 .dash-hint { text-align: center; color: var(--text2); font-size: 13px; margin-top: 24px; padding: 20px; }
 
-.bar-chart { display: flex; gap: 0; height: 200px; }
-.bar-y-axis { display: flex; flex-direction: column; justify-content: space-between; padding-right: 8px; min-width: 60px; text-align: right; }
+.rank-list { display: flex; flex-direction: column; gap: 6px; }
+.rank-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: rgba(255,255,255,0.03); border-radius: 8px; }
+.rank-num { font-size: 12px; font-weight: 900; color: var(--gold); min-width: 24px; }
+.rank-name { flex: 1; font-size: 13px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rank-amt { font-size: 14px; font-weight: 800; color: var(--gold); text-align: right; }
+
+.bar-chart { display: flex; gap: 0; height: 220px; }
+.bar-y-axis { display: flex; flex-direction: column; justify-content: space-between; padding-right: 8px; min-width: 55px; text-align: right; }
 .bar-y-label { font-size: 10px; color: var(--text2); font-weight: 700; }
-.bar-area { flex: 1; display: flex; align-items: flex-end; gap: 6px; height: 100%; }
-.bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; }
-.bar-stack { width: 100%; max-width: 40px; border-radius: 6px 6px 0 0; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; min-height: 4px; background: rgba(255,255,255,0.05); }
-.bar-seg { width: 100%; transition: height 0.3s; cursor: pointer; }
-.bar-seg:first-child { border-radius: 6px 6px 0 0; }
+.bar-area { flex: 1; display: flex; align-items: flex-end; gap: 4px; height: 100%; position: relative; }
+.bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end; }
+.bar-stack { width: 100%; max-width: 36px; border-radius: 6px 6px 0 0; overflow: hidden; position: relative; background: rgba(255,255,255,0.04); min-height: 4px; }
+.bar-seg { position: absolute; left: 0; right: 0; bottom: 0; cursor: pointer; transition: height 0.3s; }
+.bar-seg:first-child { border-radius: 0 0 0 0; }
+.bar-col:first-child .bar-seg:first-child { border-radius: 0; }
+.bar-seg:last-child { border-radius: 6px 6px 0 0; }
 .bar-label { font-size: 10px; color: var(--text2); font-weight: 700; margin-top: 6px; }
 
 .person-grid { display: flex; flex-direction: column; gap: 10px; }
@@ -749,21 +757,24 @@ function renderDashboard(d) {
     '<div class="kpi-card" style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;text-align:center"><div class="label" style="font-size:10px;color:var(--text2);font-weight:800;letter-spacing:1px;margin-bottom:6px;text-transform:uppercase">目標差距</div><div class="value" style="font-size:22px;font-weight:900;color:' + (target - grandTotal > 0 ? '#ef4444' : '#22c55e') + '">' + fmt(Math.max(0, target - grandTotal)) + '</div><div class="sub" style="font-size:11px;color:var(--text2);margin-top:4px">' + (target - grandTotal > 0 ? '尚差' : '已達成') + '</div></div>' +
     '</div>';
 
-  // 長條圖
+  // 長條圖（由下往上）
   var maxTotal = d.maxMonthTotal || 1;
   var barChartHtml = '<div class="dash-section"><div class="dash-title">逐月業績長條圖</div><div class="bar-chart"><div class="bar-y-axis">';
   var ySteps = [0, 25, 50, 75, 100];
   for (var yi = ySteps.length - 1; yi >= 0; yi--) {
     barChartHtml += '<div class="bar-y-label">' + fmtNum(Math.round(maxTotal * ySteps[yi] / 100)) + '</div>';
   }
-  barChartHtml += '</div><div class="bar-area">';
+  barChartHtml += '</div><div class="bar-area"><div class="bar-baseline"></div>';
   months.forEach(function(m) {
-    var pct = m.total / maxTotal * 100;
-    barChartHtml += '<div class="bar-col"><div class="bar-stack" style="height:' + Math.max(pct, 2) + '%">';
+    var barH = m.total > 0 ? Math.max(m.total / maxTotal * 100, 3) : 0;
+    barChartHtml += '<div class="bar-col"><div class="bar-stack" style="height:' + barH + '%">';
     var sortedPeople = Object.keys(m.people).sort(function(a, b) { return m.people[b] - m.people[a]; });
+    var cumPct = 0;
     sortedPeople.forEach(function(n) {
       var segPct = m.total > 0 ? m.people[n] / m.total * 100 : 0;
-      barChartHtml += '<div class="bar-seg" style="height:' + segPct + '%;background:' + colorMap[n] + '" title="' + n + ': ' + fmt(m.people[n]) + '"></div>';
+      var segH = segPct;
+      barChartHtml += '<div class="bar-seg" style="height:' + segH + '%;bottom:' + cumPct + '%;background:' + colorMap[n] + '" title="' + n + ': ' + fmt(m.people[n]) + '"></div>';
+      cumPct += segPct;
     });
     barChartHtml += '</div><div class="bar-label">' + m.month + '月</div></div>';
   });
@@ -784,6 +795,48 @@ function renderDashboard(d) {
     '</div>';
   });
   html += '</div></div>';
+
+  // 前 10 大客戶
+  if (d.topCustomers && d.topCustomers.length) {
+    html += '<div class="dash-section"><div class="dash-title">🏆 前 10 大客戶（銷售金額）</div><div class="rank-list">';
+    d.topCustomers.forEach(function(c, i) {
+      html += '<div class="rank-row"><span class="rank-num">' + (i+1) + '</span><span class="rank-name">' + c.name + '</span><span class="rank-amt">' + fmt(c.total) + '</span></div>';
+    });
+    html += '</div></div>';
+  }
+
+  // 前 10 大產品
+  if (d.topProducts && d.topProducts.length) {
+    html += '<div class="dash-section"><div class="dash-title">🏆 前 10 大產品（系列 + 編號 + 金額）</div><div class="rank-list">';
+    d.topProducts.forEach(function(p, i) {
+      html += '<div class="rank-row"><span class="rank-num">' + (i+1) + '</span><span class="rank-name">' + p.series + ' <span class="text-purple" style="font-size:11px">' + p.sku + '</span></span><span class="rank-amt">' + fmt(Math.round(p.amt)) + '</span></div>';
+    });
+    html += '</div></div>';
+  }
+
+  // 不續辦統計
+  if (d.discontStats) {
+    html += '<div class="dash-section"><div class="dash-title">🚫 不續辦產品銷售統計</div>';
+    html += '<div class="kpi-row" style="margin-bottom:12px">' +
+      '<div class="kpi-card kpi-gold"><div class="label">不續辦總銷售</div><div class="value">' + fmt(Math.round(d.discontStats.total)) + '</div><div class="sub">元（年度）</div></div>' +
+      '<div class="kpi-card kpi-blue"><div class="label">品項數</div><div class="value">' + d.discontStats.products.length + '</div><div class="sub">支 SKU</div></div>' +
+    '</div>';
+    if (d.discontStats.products.length) {
+      html += '<div class="rank-list">';
+      d.discontStats.products.slice(0, 10).forEach(function(p, i) {
+        html += '<div class="rank-row"><span class="rank-num">' + (i+1) + '</span><span class="rank-name">' + p.series + ' <span class="text-purple" style="font-size:11px">' + p.sku + '</span></span><span class="rank-amt">' + fmt(Math.round(p.amt)) + '</span></div>';
+      });
+      html += '</div>';
+    }
+    if (d.discontStats.missingSleeper && d.discontStats.missingSleeper.length) {
+      html += '<div style="margin-top:12px;padding:12px;background:rgba(194,157,102,0.08);border-radius:10px;font-size:12px;color:var(--gold)">⚠️ 編號價目表標記為「睡美人」但睡美人工作表缺少的 SKU (' + d.discontStats.missingSleeper.length + ' 支)：' +
+        d.discontStats.missingSleeper.slice(0, 5).map(function(s) { return s.sku + '(' + s.series + ')'; }).join('、') +
+        (d.discontStats.missingSleeper.length > 5 ? '…等' + d.discontStats.missingSleeper.length + ' 支' : '') +
+        '，已自動以 S 級計。' +
+      '</div>';
+    }
+    html += '</div>';
+  }
 
   html += '<div class="dash-hint">💡 選擇月份後按「查詢」查看明細，或切換「產品總覽」</div>';
 
