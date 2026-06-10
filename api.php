@@ -63,9 +63,13 @@ try {
             break;
 
         case 'year-summary':
-            $year  = (int)($_GET['year'] ?? date('Y'));
-            $res = $svc->getYearSummary($year);
-            echo json_encode($res);
+            try {
+                $year  = (int)($_GET['year'] ?? date('Y'));
+                $res = $svc->getYearSummary($year);
+                echo json_encode($res);
+            } catch (\Exception $e) {
+                echo json_encode(['success' => false, 'msg' => 'year-summary 錯誤: ' . $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
+            }
             break;
 
         case 'products':
