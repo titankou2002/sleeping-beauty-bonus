@@ -935,8 +935,162 @@ class SleeperService
         ];
     }
 
-    public function getStrategyReport($year, $month)
+    private function getStrategyPeriodMeta($mode, $year, $period)
     {
+        $mode = in_array($mode, ['month', 'quarter', 'half', 'year'], true) ? $mode : 'month';
+        $period = (int)$period;
+        $year = (int)$year;
+
+        if ($mode === 'month') {
+            $period = max(1, min(12, $period));
+            return [
+                'mode' => 'month',
+                'year' => $year,
+                'period' => $period,
+                'months' => [$period],
+                'label' => $year . ' / ' . $period,
+                'primaryLabel' => 'MOM'
+            ];
+        }
+        if ($mode === 'quarter') {
+            $period = max(1, min(4, $period));
+            $start = ($period - 1) * 3 + 1;
+            return [
+                'mode' => 'quarter',
+                'year' => $year,
+                'period' => $period,
+                'months' => [$start, $start + 1, $start + 2],
+                'label' => $year . ' Q' . $period,
+                'primaryLabel' => 'QOQ'
+            ];
+        }
+        if ($mode === 'half') {
+            $period = $period === 2 ? 2 : 1;
+            return [
+                'mode' => 'half',
+                'year' => $year,
+                'period' => $period,
+                'months' => $period === 1 ? [1, 2, 3, 4, 5, 6] : [7, 8, 9, 10, 11, 12],
+                'label' => $year . ' H' . $period,
+                'primaryLabel' => 'HOH'
+            ];
+        }
+
+        return [
+            'mode' => 'year',
+            'year' => $year,
+            'period' => 1,
+            'months' => range(1, 12),
+            'label' => (string)$year,
+            'primaryLabel' => 'YOY'
+        ];
+    }
+
+    private function getPreviousStrategyPeriodMeta($meta)
+    {
+        $year = (int)$meta['year'];
+        $period = (int)$meta['period'];
+        $mode = $meta['mode'];
+        if ($mode === 'month') {
+            return $period === 1
+                ? $this->getStrategyPeriodMeta('month', $year - 1, 12)
+                : $this->getStrategyPeriodMeta('month', $year, $period - 1);
+        }
+        if ($mode === 'quarter') {
+            return $period === 1
+                ? $this->getStrategyPeriodMeta('quarter', $year - 1, 4)
+                : $this->getStrategyPeriodMeta('quarter', $year, $period - 1);
+        }
+        if ($mode === 'half') {
+            return $period === 1
+                ? $this->getStrategyPeriodMeta('half', $year - 1, 2)
+                : $this->getStrategyPeriodMeta('half', $year, 1);
+        }
+        return $this->getStrategyPeriodMeta('year', $year - 1, 1);
+    }
+
+    private function getYoyStrategyPeriodMeta($meta)
+    {
+        return $this->getStrategyPeriodMeta($meta['mode'], (int)$meta['year'] - 1, (int)$meta['period']);
+    }
+
+    private function buildStrategySummaryFromBuckets($salesTotals, $customerTotals, $total, $pings, $txCount)
+    {
+        $salesList = array_values($salesTotals);
+        usort($salesList, function ($a, $b) { return $b['amount'] <=> $a['amount']; });
+        $customerList = array_values($customerTotals);
+        usort($customerList, function ($a, $b) { return $b['amount'] <=> $a['amount']; });
+
+        $top3SalesAmt = 0;
+        for ($i = 0; $i < min(3, count($salesList)); $i++) $top3SalesAmt += $salesList[$i]['amount'];
+        $topCustomerAmt = count($customerList) ? $customerList[0]['amount'] : 0;
+
+        return [
+            'total' => round($total),
+            'pings' => round($pings, 2),
+            'txCount' => (int)$txCount,
+            'avgTicket' => $txCount > 0 ? round($total / $txCount) : 0,
+            'salesCount' => count($salesTotals),
+            'top3SalesPct' => $total > 0 ? round($top3SalesAmt / $total * 100, 1) : 0,
+            'topCustomerPct' => $total > 0 ? round($topCustomerAmt / $total * 100, 1) : 0
+        ];
+    }
+
+    private function buildStrategyCompare($current, $base, $label)
+    {
+        $fields = ['total', 'pings', 'txCount', 'avgTicket'];
+        $out = ['label' => $label];
+        foreach ($fields as $field) {
+            $curr = (float)($current[$field] ?? 0);
+            $prev = (float)($base[$field] ?? 0);
+            $delta = $curr - $prev;
+            $out[$field . 'Delta'] = round($delta, $field === 'pings' ? 2 : 0);
+            $out[$field . 'Pct'] = $prev != 0 ? round($delta / $prev * 100, 1) : ($curr != 0 ? 100.0 : 0.0);
+        }
+        return $out;
+    }
+
+    private function buildDeltaLeaders($currentMap, $prevMap, $type)
+    {
+        $keys = array_unique(array_merge(array_keys($currentMap), array_keys($prevMap)));
+        $rows = [];
+        foreach ($keys as $key) {
+            $curr = isset($currentMap[$key]) ? (float)$currentMap[$key]['amount'] : 0;
+            $prev = isset($prevMap[$key]) ? (float)$prevMap[$key]['amount'] : 0;
+            $delta = $curr - $prev;
+            if (abs($delta) < 0.0001) continue;
+
+            if ($type === 'product') {
+                $label = isset($currentMap[$key])
+                    ? ($currentMap[$key]['sku'] ?: $key)
+                    : (isset($prevMap[$key]) ? ($prevMap[$key]['sku'] ?: $key) : $key);
+            } else {
+                $label = isset($currentMap[$key])
+                    ? $currentMap[$key]['name']
+                    : (isset($prevMap[$key]) ? $prevMap[$key]['name'] : $key);
+            }
+
+            $rows[] = [
+                'key' => $key,
+                'name' => $label,
+                'delta' => round($delta),
+                'current' => round($curr),
+                'previous' => round($prev)
+            ];
+        }
+        usort($rows, function ($a, $b) {
+            return abs($b['delta']) <=> abs($a['delta']);
+        });
+        return array_slice($rows, 0, 8);
+    }
+
+    public function getStrategyReport($year, $period = null, $mode = 'month')
+    {
+        if ($period === null || $period === 0) $period = (int)date('n');
+        $meta = $this->getStrategyPeriodMeta($mode, (int)$year, (int)$period);
+        $prevMeta = $this->getPreviousStrategyPeriodMeta($meta);
+        $yoyMeta = $this->getYoyStrategyPeriodMeta($meta);
+
         $raw = $this->gs->readSheet(CACHE_SHEET);
         if (count($raw) < 2) {
             return ['success' => false, 'msg' => '找不到產品年度銷售快取，請先同步銷售快取。'];
@@ -959,25 +1113,32 @@ class SleeperService
         }
 
         $metaMap = $this->getMetaMap();
-        $salesTotals = [];
-        $customerTotals = [];
-        $productTotals = [];
-        $seriesTotals = [];
         $monthTrend = [];
         for ($m = 1; $m <= 12; $m++) $monthTrend[$m] = 0;
-        $monthTotal = 0;
-        $monthPings = 0;
-        $monthTxCount = 0;
+
+        $buckets = [
+            'current' => ['sales' => [], 'customers' => [], 'products' => [], 'series' => [], 'total' => 0, 'pings' => 0, 'count' => 0],
+            'previous' => ['sales' => [], 'customers' => [], 'products' => [], 'series' => [], 'total' => 0, 'pings' => 0, 'count' => 0],
+            'yoy' => ['sales' => [], 'customers' => [], 'products' => [], 'series' => [], 'total' => 0, 'pings' => 0, 'count' => 0]
+        ];
+
+        $matchesPeriod = function ($rowYear, $rowMonth, $periodMeta) {
+            return $rowYear === (int)$periodMeta['year'] && in_array($rowMonth, $periodMeta['months'], true);
+        };
 
         for ($i = 1; $i < count($raw); $i++) {
             $row = $raw[$i];
             $rowYear = (int)$this->getVal($row, $idx['year']);
             $rowMonth = (int)$this->getVal($row, $idx['month']);
-            if ($rowYear !== (int)$year) continue;
 
             $amount = $this->optFloat($this->getVal($row, $idx['amount']));
-            $monthTrend[$rowMonth] += $amount;
-            if ($rowMonth !== (int)$month) continue;
+            if ($rowYear === (int)$meta['year']) $monthTrend[$rowMonth] += $amount;
+
+            $bucketName = null;
+            if ($matchesPeriod($rowYear, $rowMonth, $meta)) $bucketName = 'current';
+            elseif ($matchesPeriod($rowYear, $rowMonth, $prevMeta)) $bucketName = 'previous';
+            elseif ($matchesPeriod($rowYear, $rowMonth, $yoyMeta)) $bucketName = 'yoy';
+            if ($bucketName === null) continue;
 
             $sku = $this->cleanSku($this->getVal($row, $idx['code']));
             $customer = trim($this->getVal($row, $idx['customer'])) ?: '未指定客戶';
@@ -989,75 +1150,104 @@ class SleeperService
             $series = isset($metaMap[$sku]) ? trim($metaMap[$sku]['series']) : '';
             if ($series === '') $series = '未分類';
 
-            if (!isset($salesTotals[$sales])) $salesTotals[$sales] = ['name' => $sales, 'amount' => 0, 'pings' => 0, 'count' => 0];
-            $salesTotals[$sales]['amount'] += $amount;
-            $salesTotals[$sales]['pings'] += $pings;
-            $salesTotals[$sales]['count'] += $txCount;
+            if (!isset($buckets[$bucketName]['sales'][$sales])) $buckets[$bucketName]['sales'][$sales] = ['name' => $sales, 'amount' => 0, 'pings' => 0, 'count' => 0];
+            $buckets[$bucketName]['sales'][$sales]['amount'] += $amount;
+            $buckets[$bucketName]['sales'][$sales]['pings'] += $pings;
+            $buckets[$bucketName]['sales'][$sales]['count'] += $txCount;
 
-            if (!isset($customerTotals[$customer])) $customerTotals[$customer] = ['name' => $customer, 'amount' => 0, 'pings' => 0, 'count' => 0];
-            $customerTotals[$customer]['amount'] += $amount;
-            $customerTotals[$customer]['pings'] += $pings;
-            $customerTotals[$customer]['count'] += $txCount;
+            if (!isset($buckets[$bucketName]['customers'][$customer])) $buckets[$bucketName]['customers'][$customer] = ['name' => $customer, 'amount' => 0, 'pings' => 0, 'count' => 0];
+            $buckets[$bucketName]['customers'][$customer]['amount'] += $amount;
+            $buckets[$bucketName]['customers'][$customer]['pings'] += $pings;
+            $buckets[$bucketName]['customers'][$customer]['count'] += $txCount;
 
             $productKey = $sku . '|' . $series;
-            if (!isset($productTotals[$productKey])) {
-                $productTotals[$productKey] = ['sku' => $sku, 'series' => $series, 'productName' => $productName, 'amount' => 0, 'pings' => 0, 'count' => 0];
+            if (!isset($buckets[$bucketName]['products'][$productKey])) {
+                $buckets[$bucketName]['products'][$productKey] = ['sku' => $sku, 'series' => $series, 'productName' => $productName, 'amount' => 0, 'pings' => 0, 'count' => 0];
             }
-            $productTotals[$productKey]['amount'] += $amount;
-            $productTotals[$productKey]['pings'] += $pings;
-            $productTotals[$productKey]['count'] += $txCount;
+            $buckets[$bucketName]['products'][$productKey]['amount'] += $amount;
+            $buckets[$bucketName]['products'][$productKey]['pings'] += $pings;
+            $buckets[$bucketName]['products'][$productKey]['count'] += $txCount;
 
-            if (!isset($seriesTotals[$series])) $seriesTotals[$series] = ['name' => $series, 'amount' => 0, 'pings' => 0, 'count' => 0];
-            $seriesTotals[$series]['amount'] += $amount;
-            $seriesTotals[$series]['pings'] += $pings;
-            $seriesTotals[$series]['count'] += $txCount;
+            if (!isset($buckets[$bucketName]['series'][$series])) $buckets[$bucketName]['series'][$series] = ['name' => $series, 'amount' => 0, 'pings' => 0, 'count' => 0];
+            $buckets[$bucketName]['series'][$series]['amount'] += $amount;
+            $buckets[$bucketName]['series'][$series]['pings'] += $pings;
+            $buckets[$bucketName]['series'][$series]['count'] += $txCount;
 
-            $monthTotal += $amount;
-            $monthPings += $pings;
-            $monthTxCount += $txCount;
+            $buckets[$bucketName]['total'] += $amount;
+            $buckets[$bucketName]['pings'] += $pings;
+            $buckets[$bucketName]['count'] += $txCount;
         }
 
         $sortDesc = function (&$arr) {
             uasort($arr, function ($a, $b) { return $b['amount'] <=> $a['amount']; });
         };
-        $sortDesc($salesTotals);
-        $sortDesc($customerTotals);
-        $sortDesc($productTotals);
-        $sortDesc($seriesTotals);
+        foreach (['current', 'previous', 'yoy'] as $bucketName) {
+            $sortDesc($buckets[$bucketName]['sales']);
+            $sortDesc($buckets[$bucketName]['customers']);
+            $sortDesc($buckets[$bucketName]['products']);
+            $sortDesc($buckets[$bucketName]['series']);
+        }
 
-        $topSales = array_values(array_slice($salesTotals, 0, 8));
-        $topCustomers = array_values(array_slice($customerTotals, 0, 10));
-        $topProducts = array_values(array_slice($productTotals, 0, 10));
-        $topSeries = array_values(array_slice($seriesTotals, 0, 6));
+        $currentSummary = $this->buildStrategySummaryFromBuckets(
+            $buckets['current']['sales'],
+            $buckets['current']['customers'],
+            $buckets['current']['total'],
+            $buckets['current']['pings'],
+            $buckets['current']['count']
+        );
+        $prevSummary = $this->buildStrategySummaryFromBuckets(
+            $buckets['previous']['sales'],
+            $buckets['previous']['customers'],
+            $buckets['previous']['total'],
+            $buckets['previous']['pings'],
+            $buckets['previous']['count']
+        );
+        $yoySummary = $this->buildStrategySummaryFromBuckets(
+            $buckets['yoy']['sales'],
+            $buckets['yoy']['customers'],
+            $buckets['yoy']['total'],
+            $buckets['yoy']['pings'],
+            $buckets['yoy']['count']
+        );
 
-        $top3SalesAmt = 0;
-        for ($i = 0; $i < min(3, count($topSales)); $i++) $top3SalesAmt += $topSales[$i]['amount'];
-        $topCustomerAmt = count($topCustomers) ? $topCustomers[0]['amount'] : 0;
+        $topSales = array_values(array_slice($buckets['current']['sales'], 0, 8));
+        $topCustomers = array_values(array_slice($buckets['current']['customers'], 0, 10));
+        $topProducts = array_values(array_slice($buckets['current']['products'], 0, 10));
+        $topSeries = array_values(array_slice($buckets['current']['series'], 0, 6));
+
         $topProduct = count($topProducts) ? $topProducts[0] : null;
+        $growthSales = $this->buildDeltaLeaders($buckets['current']['sales'], $buckets['previous']['sales'], 'sales');
+        $growthCustomers = $this->buildDeltaLeaders($buckets['current']['customers'], $buckets['previous']['customers'], 'customer');
+        $growthProducts = $this->buildDeltaLeaders($buckets['current']['products'], $buckets['previous']['products'], 'product');
 
         return [
             'success' => true,
             'data' => [
-                'year' => (int)$year,
-                'month' => (int)$month,
-                'summary' => [
-                    'monthTotal' => round($monthTotal),
-                    'monthPings' => round($monthPings, 2),
-                    'monthTxCount' => $monthTxCount,
-                    'salesCount' => count($salesTotals),
-                    'top3SalesPct' => $monthTotal > 0 ? round($top3SalesAmt / $monthTotal * 100, 1) : 0,
-                    'topCustomerPct' => $monthTotal > 0 ? round($topCustomerAmt / $monthTotal * 100, 1) : 0
+                'mode' => $meta['mode'],
+                'year' => (int)$meta['year'],
+                'period' => (int)$meta['period'],
+                'months' => $meta['months'],
+                'label' => $meta['label'],
+                'previousLabel' => $prevMeta['label'],
+                'yoyLabel' => $yoyMeta['label'],
+                'summary' => $currentSummary,
+                'comparisons' => [
+                    'primary' => $this->buildStrategyCompare($currentSummary, $prevSummary, $meta['primaryLabel']),
+                    'yoy' => $this->buildStrategyCompare($currentSummary, $yoySummary, 'YOY')
                 ],
                 'topSales' => $topSales,
                 'topCustomers' => $topCustomers,
                 'topProducts' => $topProducts,
                 'topSeries' => $topSeries,
+                'growthSales' => $growthSales,
+                'growthCustomers' => $growthCustomers,
+                'growthProducts' => $growthProducts,
                 'monthTrend' => $monthTrend,
                 'insights' => [
-                    'leader' => count($topSales) ? $topSales[0]['name'] . ' 目前領先，' . round($topSales[0]['amount'] / 10000, 1) . ' 萬。' : '本月尚無業務資料。',
-                    'concentration' => '前 3 業務占比 ' . ($monthTotal > 0 ? round($top3SalesAmt / $monthTotal * 100, 1) : 0) . '%。',
-                    'customer' => count($topCustomers) ? '最大客戶 ' . mb_substr($topCustomers[0]['name'], 0, 6, 'UTF-8') . ' 占比 ' . ($monthTotal > 0 ? round($topCustomers[0]['amount'] / $monthTotal * 100, 1) : 0) . '%。' : '本月尚無客戶資料。',
-                    'product' => $topProduct ? '熱銷產品 ' . $topProduct['sku'] . '，' . round($topProduct['amount'] / 10000, 1) . ' 萬。' : '本月尚無產品資料。'
+                    'leader' => count($topSales) ? $topSales[0]['name'] . ' 目前領先，' . round($topSales[0]['amount'] / 10000, 1) . ' 萬。' : '本期尚無業務資料。',
+                    'concentration' => '前 3 業務占比 ' . $currentSummary['top3SalesPct'] . '%，最大客戶占比 ' . $currentSummary['topCustomerPct'] . '%。',
+                    'customer' => count($topCustomers) ? '最大客戶 ' . mb_substr($topCustomers[0]['name'], 0, 8, 'UTF-8') . '，貢獻 ' . round($topCustomers[0]['amount'] / 10000, 1) . ' 萬。' : '本期尚無客戶資料。',
+                    'product' => $topProduct ? '熱銷產品 ' . $topProduct['sku'] . '，' . round($topProduct['amount'] / 10000, 1) . ' 萬。' : '本期尚無產品資料。'
                 ]
             ]
         ];
@@ -2010,8 +2200,9 @@ try {
         case 'strategy-report':
             try {
                 $year = (int)($_GET['year'] ?? date('Y'));
-                $month = (int)($_GET['month'] ?? date('n'));
-                $res = $svc->getStrategyReport($year, $month);
+                $mode = trim($_GET['mode'] ?? 'month');
+                $period = isset($_GET['period']) ? (int)$_GET['period'] : (int)($_GET['month'] ?? date('n'));
+                $res = $svc->getStrategyReport($year, $period, $mode);
                 echo json_encode($res);
             } catch (Exception $e) {
                 echo json_encode(['success' => false, 'msg' => 'strategy-report 錯誤: ' . $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);

@@ -420,8 +420,21 @@ input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-colo
   margin-top: -6px;
   margin-bottom: 14px;
 }
+.mode-tabs { display: inline-flex; gap: 4px; }
+.mode-tab {
+  height: 30px; padding: 0 12px; border-radius: 999px;
+  font-size: 12px; font-weight: 800; letter-spacing: 0.4px;
+  border: 1px solid var(--border-light); background: rgba(255,255,255,0.03); color: var(--text2);
+  cursor: pointer;
+}
+.mode-tab.active {
+  background: var(--gold-soft);
+  border-color: rgba(194,157,102,0.35);
+  color: var(--gold);
+}
 .bar-list { display: flex; flex-direction: column; gap: 10px; }
 .bar-row { display: grid; grid-template-columns: 120px 1fr 78px; gap: 10px; align-items: center; }
+.bar-row.delta { grid-template-columns: 140px 1fr 92px; }
 .bar-label {
   font-size: 12px; font-weight: 800; color: var(--text);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -435,7 +448,27 @@ input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-colo
   height: 100%; border-radius: 999px;
   background: linear-gradient(90deg, rgba(194,157,102,0.85), #d4b483);
 }
+.bar-fill.pos { background: linear-gradient(90deg, rgba(34,197,94,0.85), #86efac); }
+.bar-fill.neg { background: linear-gradient(90deg, rgba(239,68,68,0.85), #fca5a5); }
 .bar-value { font-size: 12px; color: var(--gold); font-weight: 800; text-align: right; }
+.compare-strip {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.compare-card {
+  padding: 14px 16px;
+  border-radius: var(--radius-lg);
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.05);
+}
+.compare-label { font-size: 11px; color: var(--text2); font-weight: 800; letter-spacing: 0.8px; margin-bottom: 6px; }
+.compare-value { font-size: 20px; font-weight: 900; margin-bottom: 4px; }
+.compare-sub { font-size: 12px; color: var(--text2); }
+.delta-up { color: var(--green); }
+.delta-down { color: var(--red); }
+.delta-flat { color: var(--text2); }
 .donut-grid {
   display: grid;
   grid-template-columns: minmax(180px, 220px) 1fr;
@@ -508,8 +541,10 @@ input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-colo
   .report-grid { grid-template-columns: 1fr; }
   .donut-grid { grid-template-columns: 1fr; }
   .bar-row { grid-template-columns: 92px 1fr 62px; }
+  .bar-row.delta { grid-template-columns: 90px 1fr 70px; }
   .donut { width: 160px; height: 160px; }
   .trend-wrap { gap: 6px; }
+  .compare-strip { grid-template-columns: 1fr; }
 }
   </style>
 </head>
@@ -575,18 +610,17 @@ input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-colo
     </div>
 
     <div class="ctrl-bar hidden" id="ctrl-reports">
+      <div class="mode-tabs">
+        <button class="mode-tab active" id="mode-month" onclick="setReportMode('month')">月</button>
+        <button class="mode-tab" id="mode-quarter" onclick="setReportMode('quarter')">季</button>
+        <button class="mode-tab" id="mode-half" onclick="setReportMode('half')">半年</button>
+        <button class="mode-tab" id="mode-year" onclick="setReportMode('year')">年</button>
+      </div>
       <select id="report-year">
         <option value="2026">2026 年</option>
         <option value="2025">2025 年</option>
       </select>
-      <select id="report-month">
-        <option value="1">1 月</option><option value="2">2 月</option>
-        <option value="3">3 月</option><option value="4">4 月</option>
-        <option value="5">5 月</option><option value="6">6 月</option>
-        <option value="7">7 月</option><option value="8">8 月</option>
-        <option value="9">9 月</option><option value="10">10 月</option>
-        <option value="11">11 月</option><option value="12">12 月</option>
-      </select>
+      <select id="report-period"></select>
       <button class="btn btn-primary" onclick="loadStrategyReport()">載入報表</button>
     </div>
 
@@ -615,11 +649,12 @@ const API_BASE = 'api.php';
 var currentMonth = new Date().getMonth();
 var currentYear = new Date().getFullYear();
 var DASHBOARD_COLORS = ['#c29d66','#22c55e','#3b82f6','#ef4444','#a855f7','#f97316','#ec4899','#14b8a6'];
+var reportMode = 'month';
 
 document.getElementById('filter-month').value = currentMonth;
 document.getElementById('filter-year').value = currentYear;
-document.getElementById('report-month').value = currentMonth + 1;
 document.getElementById('report-year').value = currentYear;
+updateReportPeriodOptions();
 loadDashboard();
 loadSalesList();
 
@@ -912,6 +947,39 @@ function switchTab(tab) {
     if (!window._strategyReport) loadStrategyReport();
     else renderStrategyReport(window._strategyReport);
   }
+}
+
+function updateReportPeriodOptions() {
+  var sel = document.getElementById('report-period');
+  var html = '';
+  var defaultValue = '1';
+  if (reportMode === 'month') {
+    for (var m = 1; m <= 12; m++) html += '<option value="' + m + '">' + m + ' 月</option>';
+    defaultValue = String(currentMonth + 1);
+    sel.style.display = '';
+  } else if (reportMode === 'quarter') {
+    for (var q = 1; q <= 4; q++) html += '<option value="' + q + '">Q' + q + '</option>';
+    defaultValue = String(Math.floor(currentMonth / 3) + 1);
+    sel.style.display = '';
+  } else if (reportMode === 'half') {
+    html = '<option value="1">H1</option><option value="2">H2</option>';
+    defaultValue = currentMonth < 6 ? '1' : '2';
+    sel.style.display = '';
+  } else {
+    html = '<option value="1">全年</option>';
+    defaultValue = '1';
+    sel.style.display = 'none';
+  }
+  sel.innerHTML = html;
+  sel.value = defaultValue;
+}
+
+function setReportMode(mode) {
+  reportMode = mode;
+  ['month', 'quarter', 'half', 'year'].forEach(function(key) {
+    document.getElementById('mode-' + key).classList.toggle('active', key === mode);
+  });
+  updateReportPeriodOptions();
 }
 function switchProdTab(tab) {
   currentProdTab = tab;
@@ -1225,9 +1293,9 @@ function renderDashboard(d) {
 
 function loadStrategyReport() {
   var year = parseInt(document.getElementById('report-year').value, 10);
-  var month = parseInt(document.getElementById('report-month').value, 10);
+  var period = parseInt(document.getElementById('report-period').value || '1', 10);
   showLoading(true);
-  apiGet('strategy-report', { year: year, month: month }, function(res) {
+  apiGet('strategy-report', { year: year, mode: reportMode, period: period }, function(res) {
     showLoading(false);
     if (!res.success) {
       toast(res.msg || '載入報表失敗', true);
@@ -1245,6 +1313,15 @@ function fmtPct(n) {
   return (Math.round((n || 0) * 10) / 10).toFixed(1) + '%';
 }
 
+function fmtDeltaPct(n) {
+  var num = Math.round((n || 0) * 10) / 10;
+  return (num > 0 ? '+' : '') + num.toFixed(1) + '%';
+}
+
+function deltaClass(n) {
+  return n > 0 ? 'delta-up' : (n < 0 ? 'delta-down' : 'delta-flat');
+}
+
 function ellipsis(s, n) {
   s = String(s || '');
   return s.length > n ? s.slice(0, n) + '…' : s;
@@ -1259,6 +1336,22 @@ function buildBarRows(items, key, valueFormatter) {
       '<div class="bar-label">' + ellipsis(item[key], 12) + '</div>' +
       '<div class="bar-track"><div class="bar-fill" style="width:' + width + '%"></div></div>' +
       '<div class="bar-value">' + valueFormatter(item.amount || 0) + '</div>' +
+      '</div>';
+  }).join('') + '</div>';
+}
+
+function buildDeltaRows(items, key) {
+  if (!items || !items.length) return '<div class="chart-sub">與上期相比沒有明顯變化</div>';
+  var max = 1;
+  items.forEach(function(item) { max = Math.max(max, Math.abs(item.delta || 0)); });
+  return '<div class="bar-list">' + items.map(function(item) {
+    var width = Math.max(6, Math.round(Math.abs(item.delta || 0) / max * 100));
+    var cls = item.delta >= 0 ? 'pos' : 'neg';
+    var sign = item.delta >= 0 ? '+' : '';
+    return '<div class="bar-row delta">' +
+      '<div class="bar-label">' + ellipsis(item[key], 14) + '</div>' +
+      '<div class="bar-track"><div class="bar-fill ' + cls + '" style="width:' + width + '%"></div></div>' +
+      '<div class="bar-value ' + deltaClass(item.delta) + '">' + sign + fmt(item.delta || 0) + '</div>' +
       '</div>';
   }).join('') + '</div>';
 }
@@ -1311,12 +1404,26 @@ function buildTrendChart(monthTrend, activeMonth) {
   return html;
 }
 
+function buildCompareCard(label, currentValue, primaryPct, yoyPct) {
+  return '<div class="compare-card">' +
+    '<div class="compare-label">' + label + '</div>' +
+    '<div class="compare-value">' + currentValue + '</div>' +
+    '<div class="compare-sub">對前期 <span class="' + deltaClass(primaryPct) + '">' + fmtDeltaPct(primaryPct || 0) + '</span> ・ YOY <span class="' + deltaClass(yoyPct) + '">' + fmtDeltaPct(yoyPct || 0) + '</span></div>' +
+    '</div>';
+}
+
 function renderStrategyReport(d) {
   var s = d.summary || {};
+  var c = d.comparisons || {};
+  var primary = c.primary || {};
+  var yoy = c.yoy || {};
   var topSales = d.topSales || [];
   var topCustomers = d.topCustomers || [];
   var topProducts = d.topProducts || [];
   var topSeries = d.topSeries || [];
+  var growthSales = d.growthSales || [];
+  var growthCustomers = d.growthCustomers || [];
+  var growthProducts = d.growthProducts || [];
   var topSalesDonut = topSales.slice(0, 5);
   if (topSales.length > 5) {
     var otherAmt = topSales.slice(5).reduce(function(sum, item) { return sum + (item.amount || 0); }, 0);
@@ -1324,23 +1431,33 @@ function renderStrategyReport(d) {
   }
 
   var html = '<div class="kpi-row">' +
-    '<div class="kpi-card kpi-gold"><div class="label">本月銷售額</div><div class="value">' + fmt(s.monthTotal || 0) + '</div><div class="sub">' + d.year + ' / ' + d.month + '</div></div>' +
-    '<div class="kpi-card kpi-green"><div class="label">本月銷售坪數</div><div class="value">' + (s.monthPings || 0) + '</div><div class="sub">坪</div></div>' +
-    '<div class="kpi-card kpi-blue"><div class="label">交易筆數</div><div class="value">' + (s.monthTxCount || 0) + '</div><div class="sub">筆</div></div>' +
+    '<div class="kpi-card kpi-gold"><div class="label">本期銷售額</div><div class="value">' + fmt(s.total || 0) + '</div><div class="sub">' + d.label + '</div></div>' +
+    '<div class="kpi-card kpi-green"><div class="label">本期銷售坪數</div><div class="value">' + (s.pings || 0) + '</div><div class="sub">坪</div></div>' +
+    '<div class="kpi-card kpi-blue"><div class="label">交易筆數</div><div class="value">' + (s.txCount || 0) + '</div><div class="sub">筆</div></div>' +
+    '<div class="kpi-card"><div class="label">平均單筆金額</div><div class="value">' + fmt(s.avgTicket || 0) + '</div><div class="sub">客單價</div></div>' +
     '<div class="kpi-card kpi-red"><div class="label">前 3 業務占比</div><div class="value">' + fmtPct(s.top3SalesPct || 0) + '</div><div class="sub">集中度</div></div>' +
+    '<div class="kpi-card"><div class="label">最大客戶占比</div><div class="value">' + fmtPct(s.topCustomerPct || 0) + '</div><div class="sub">依賴度</div></div>' +
+    '</div>';
+
+  html += '<div class="compare-strip">' +
+    buildCompareCard(primary.label || '前期比較', fmtDeltaPct(primary.totalPct || 0), primary.totalPct, yoy.totalPct) +
+    buildCompareCard('交易效率', fmt(s.avgTicket || 0), primary.avgTicketPct, yoy.avgTicketPct) +
     '</div>';
 
   html += '<div class="report-grid">';
-  html += '<div class="chart-card"><div class="chart-title">業務月排行</div><div class="chart-sub">看誰真的在出貨，不看感覺。</div>' + buildBarRows(topSales, 'name', fmt) + '</div>';
-  html += buildDonutCard('業務占比', topSalesDonut, 'name', '本月占比\n' + fmt(s.monthTotal || 0));
+  html += '<div class="chart-card"><div class="chart-title">業務排行</div><div class="chart-sub">看誰真的在出貨，不看感覺。</div>' + buildBarRows(topSales, 'name', fmt) + '</div>';
+  html += buildDonutCard('業務占比', topSalesDonut, 'name', '本期占比\n' + fmt(s.total || 0));
   html += '<div class="chart-card"><div class="chart-title">前 10 大客戶</div><div class="chart-sub">看客戶集中風險。</div>' + buildBarRows(topCustomers, 'name', fmt) + '</div>';
   html += '<div class="chart-card"><div class="chart-title">前 10 大產品</div><div class="chart-sub">看哪個 SKU 在拉動銷售。</div>' + buildBarRows(topProducts.map(function(item) {
     return { name: item.sku, amount: item.amount };
   }), 'name', fmt) + '</div>';
   html += buildDonutCard('系列占比', topSeries, 'name', '系列結構\n' + topSeries.length + ' 類');
-  html += '<div class="chart-card"><div class="chart-title">年度月趨勢</div><div class="chart-sub">判斷本月是高峰、平穩，還是掉速。</div>' + buildTrendChart(d.monthTrend || {}, d.month) + '</div>';
+  html += '<div class="chart-card"><div class="chart-title">年度月趨勢</div><div class="chart-sub">判斷這期是在高峰、平穩，還是掉速。</div>' + buildTrendChart(d.monthTrend || {}, d.months ? d.months[0] : 0) + '</div>';
+  html += '<div class="chart-card"><div class="chart-title">業務成長貢獻</div><div class="chart-sub">相對 ' + (d.previousLabel || '前期') + '，誰拉上來、誰掉下去。</div>' + buildDeltaRows(growthSales, 'name') + '</div>';
+  html += '<div class="chart-card"><div class="chart-title">客戶成長貢獻</div><div class="chart-sub">看成長來自哪些客戶，或少在哪些客戶。</div>' + buildDeltaRows(growthCustomers, 'name') + '</div>';
+  html += '<div class="chart-card full-span"><div class="chart-title">產品成長貢獻</div><div class="chart-sub">看哪個 SKU 真正在推升或拖累本期。</div>' + buildDeltaRows(growthProducts, 'name') + '</div>';
   html += '<div class="chart-card full-span"><div class="chart-title">管理提示</div><div class="insight-list">' +
-    '<div class="insight-item">' + (d.insights && d.insights.leader ? d.insights.leader : '本月尚無業務資料。') + '</div>' +
+    '<div class="insight-item">' + (d.insights && d.insights.leader ? d.insights.leader : '本期尚無業務資料。') + '</div>' +
     '<div class="insight-item">' + (d.insights && d.insights.concentration ? d.insights.concentration : '尚無集中度資料。') + '</div>' +
     '<div class="insight-item">' + (d.insights && d.insights.customer ? d.insights.customer : '尚無客戶分析資料。') + '</div>' +
     '<div class="insight-item">' + (d.insights && d.insights.product ? d.insights.product : '尚無產品分析資料。') + '</div>' +
