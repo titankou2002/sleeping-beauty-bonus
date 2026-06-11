@@ -58,9 +58,35 @@
 上述所有的修改已經全部由 AI 本地 Commit 並 **Push 到您的 GitHub 儲存庫 (`main` 分支)**：
 - **最後的 Commit ID**：`5051082 fix: add missing valueInputOption parameter to PUT requests`
 
-### 💡 您的後續步驟：
-1. **cPanel 部署**：請先在您的網域後台 (cPanel) 將剛剛 Push 上去的 GitHub main 分支拉取 (Pull) 下來，覆蓋網頁伺服器上的舊檔案。
-2. **初始化快取**：在網頁上切換至「產品總覽」頁籤，點擊 **「🔄 同步銷售快取」** 按鈕。這時試算表後台會花費約 5-10 秒重建您的 cache。快取建立後，未來每次開啟網頁即可實現秒讀，不再需要掃描原始大表。
-3. **店面實體照片驗證**：在產品總覽中找到有陳列家數的產品（例如陳列家數 > 0），點擊數字，檢查 Modal 內店家的店面實景照片是否加載正確。
+---
+
+## 📝 4. 新增評估：戰略報表中心移植規劃（日/週/月/年報）
+**評估對象**：[/戰情室](file:///Users/titankou2002/Library/CloudStorage/GoogleDrive-titankou2002@gmail.com/我的雲端硬碟/BT/Antigravity/戰情室) 下的 [Service_Report.js](file:///Users/titankou2002/Library/CloudStorage/GoogleDrive-titankou2002@gmail.com/我的雲端硬碟/BT/Antigravity/戰情室/Service_Report.js) 與 [Service_SalesYearCache.js](file:///Users/titankou2002/Library/CloudStorage/GoogleDrive-titankou2002@gmail.com/我的雲端硬碟/BT/Antigravity/戰情室/Service_SalesYearCache.js)。
+**成果報告**：已在 Artifact 目錄建立 [proposed_reports.md](file:///Users/titankou2002/.gemini/antigravity/brain/d520153e-f7b7-4318-a936-a419d324d6c0/proposed_reports.md)。
+
+---
+
+## 🌙 今晚交辦工作事項（回家續讀與決策）
+
+為了方便您回家在另一台電腦上續讀與決策，以下為今晚的主要工作交辦與驗證事項：
+
+### 🔍 1. 閱讀「戰略報表中心」開發規劃
+請開啟並詳讀本機資料夾中的報告：[proposed_reports.md](file:///Users/titankou2002/.gemini/antigravity/brain/d520153e-f7b7-4318-a936-a419d324d6c0/proposed_reports.md)。
+該報告分析了如何利用目前 PHP 系統已建好的 `產品年度銷售快取`（或微調），來產出與 GAS 版相同的日/週/月/年戰略報表。
+
+### 🧠 2. 針對三個核心問題進行決策
+為了下一步的程式碼開發與移植，請您思考並決定：
+- **問題 A（快取擴充）**：是否同意將「**負責業務**」加入快取欄位中？
+  - *原因*：現有快取無業務欄位，加入後才能極速生成業務個人的月/年業績排行與獎金分析。
+- **問題 B（日報/週報查詢方案）**：日、週報在 PHP 中的資料撈取方式，您偏好哪一種？
+  - *方案一（局部掃描）*：日/週報直接在 PHP 中拉取「當月/上月」的原始銷貨列（不需掃描幾萬筆歷史明細，載入約 1-2 秒，架構最簡單）。
+  - *方案二（快取升級）*：將月快取重構為「日級彙總快取」，支援所有報表，速度最快（<0.2秒，快取行數會略增至一萬多行）。
+- **問題 C（UI 設計）**：是否在目前網頁頂部直接開闢第三個 Tab「**戰略報表**」，並設計「日報看板」、「戰略週報」、「業績月報/年報」三個子頁面與金黑漸層 UI？
+
+### 🧪 3. 部署與功能驗證（回家上機操作）
+1. **cPanel 拉取**：在網域後台 (cPanel) 將今日 Push 的 Git 程式碼 Pull 至網頁伺服器。
+2. **重構快取測試**：點擊網頁上「產品總覽」的 **「🔄 同步銷售快取」**，確認 `產品年度銷售快取` 工作表是否正確更新且清空舊資料。
+3. **陳列照片測試**：點擊陳列店家數，確認彈出的 Modal 中是否有正確加載 lh3 網址的店面實景照片。
 
 祝您下班路上平安，回家用另一台電腦拉取 Google Drive 或訪問網站即可直接驗證與續讀！
+
