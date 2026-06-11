@@ -935,6 +935,134 @@ class SleeperService
         ];
     }
 
+    public function getStrategyReport($year, $month)
+    {
+        $raw = $this->gs->readSheet(CACHE_SHEET);
+        if (count($raw) < 2) {
+            return ['success' => false, 'msg' => '找不到產品年度銷售快取，請先同步銷售快取。'];
+        }
+
+        $h = $raw[0];
+        $idx = [
+            'year' => $this->findHeader($h, ['年度']),
+            'month' => $this->findHeader($h, ['月份']),
+            'code' => $this->findHeader($h, ['產品編號']),
+            'customer' => $this->findHeader($h, ['客戶名稱', '客戶']),
+            'sales' => $this->findHeader($h, ['負責業務', '業務']),
+            'pings' => $this->findHeader($h, ['銷售坪數']),
+            'amount' => $this->findHeader($h, ['銷售金額']),
+            'count' => $this->findHeader($h, ['交易筆數']),
+            'productName' => $this->findHeader($h, ['產品名稱', '品名'])
+        ];
+        if ($idx['year'] === -1 || $idx['month'] === -1 || $idx['code'] === -1 || $idx['amount'] === -1) {
+            return ['success' => false, 'msg' => '快取欄位不完整，請重新同步銷售快取。'];
+        }
+
+        $metaMap = $this->getMetaMap();
+        $salesTotals = [];
+        $customerTotals = [];
+        $productTotals = [];
+        $seriesTotals = [];
+        $monthTrend = [];
+        for ($m = 1; $m <= 12; $m++) $monthTrend[$m] = 0;
+        $monthTotal = 0;
+        $monthPings = 0;
+        $monthTxCount = 0;
+
+        for ($i = 1; $i < count($raw); $i++) {
+            $row = $raw[$i];
+            $rowYear = (int)$this->getVal($row, $idx['year']);
+            $rowMonth = (int)$this->getVal($row, $idx['month']);
+            if ($rowYear !== (int)$year) continue;
+
+            $amount = $this->optFloat($this->getVal($row, $idx['amount']));
+            $monthTrend[$rowMonth] += $amount;
+            if ($rowMonth !== (int)$month) continue;
+
+            $sku = $this->cleanSku($this->getVal($row, $idx['code']));
+            $customer = trim($this->getVal($row, $idx['customer'])) ?: '未指定客戶';
+            $sales = $this->normalizeSalesRep($idx['sales'] !== -1 ? $this->getVal($row, $idx['sales']) : '');
+            if (isset(self::$salesMerge[$sales])) $sales = self::$salesMerge[$sales];
+            $pings = $idx['pings'] !== -1 ? $this->optFloat($this->getVal($row, $idx['pings'])) : 0;
+            $txCount = $idx['count'] !== -1 ? (int)$this->getVal($row, $idx['count']) : 0;
+            $productName = trim($this->getVal($row, $idx['productName']));
+            $series = isset($metaMap[$sku]) ? trim($metaMap[$sku]['series']) : '';
+            if ($series === '') $series = '未分類';
+
+            if (!isset($salesTotals[$sales])) $salesTotals[$sales] = ['name' => $sales, 'amount' => 0, 'pings' => 0, 'count' => 0];
+            $salesTotals[$sales]['amount'] += $amount;
+            $salesTotals[$sales]['pings'] += $pings;
+            $salesTotals[$sales]['count'] += $txCount;
+
+            if (!isset($customerTotals[$customer])) $customerTotals[$customer] = ['name' => $customer, 'amount' => 0, 'pings' => 0, 'count' => 0];
+            $customerTotals[$customer]['amount'] += $amount;
+            $customerTotals[$customer]['pings'] += $pings;
+            $customerTotals[$customer]['count'] += $txCount;
+
+            $productKey = $sku . '|' . $series;
+            if (!isset($productTotals[$productKey])) {
+                $productTotals[$productKey] = ['sku' => $sku, 'series' => $series, 'productName' => $productName, 'amount' => 0, 'pings' => 0, 'count' => 0];
+            }
+            $productTotals[$productKey]['amount'] += $amount;
+            $productTotals[$productKey]['pings'] += $pings;
+            $productTotals[$productKey]['count'] += $txCount;
+
+            if (!isset($seriesTotals[$series])) $seriesTotals[$series] = ['name' => $series, 'amount' => 0, 'pings' => 0, 'count' => 0];
+            $seriesTotals[$series]['amount'] += $amount;
+            $seriesTotals[$series]['pings'] += $pings;
+            $seriesTotals[$series]['count'] += $txCount;
+
+            $monthTotal += $amount;
+            $monthPings += $pings;
+            $monthTxCount += $txCount;
+        }
+
+        $sortDesc = function (&$arr) {
+            uasort($arr, function ($a, $b) { return $b['amount'] <=> $a['amount']; });
+        };
+        $sortDesc($salesTotals);
+        $sortDesc($customerTotals);
+        $sortDesc($productTotals);
+        $sortDesc($seriesTotals);
+
+        $topSales = array_values(array_slice($salesTotals, 0, 8));
+        $topCustomers = array_values(array_slice($customerTotals, 0, 10));
+        $topProducts = array_values(array_slice($productTotals, 0, 10));
+        $topSeries = array_values(array_slice($seriesTotals, 0, 6));
+
+        $top3SalesAmt = 0;
+        for ($i = 0; $i < min(3, count($topSales)); $i++) $top3SalesAmt += $topSales[$i]['amount'];
+        $topCustomerAmt = count($topCustomers) ? $topCustomers[0]['amount'] : 0;
+        $topProduct = count($topProducts) ? $topProducts[0] : null;
+
+        return [
+            'success' => true,
+            'data' => [
+                'year' => (int)$year,
+                'month' => (int)$month,
+                'summary' => [
+                    'monthTotal' => round($monthTotal),
+                    'monthPings' => round($monthPings, 2),
+                    'monthTxCount' => $monthTxCount,
+                    'salesCount' => count($salesTotals),
+                    'top3SalesPct' => $monthTotal > 0 ? round($top3SalesAmt / $monthTotal * 100, 1) : 0,
+                    'topCustomerPct' => $monthTotal > 0 ? round($topCustomerAmt / $monthTotal * 100, 1) : 0
+                ],
+                'topSales' => $topSales,
+                'topCustomers' => $topCustomers,
+                'topProducts' => $topProducts,
+                'topSeries' => $topSeries,
+                'monthTrend' => $monthTrend,
+                'insights' => [
+                    'leader' => count($topSales) ? $topSales[0]['name'] . ' 目前領先，' . round($topSales[0]['amount'] / 10000, 1) . ' 萬。' : '本月尚無業務資料。',
+                    'concentration' => '前 3 業務占比 ' . ($monthTotal > 0 ? round($top3SalesAmt / $monthTotal * 100, 1) : 0) . '%。',
+                    'customer' => count($topCustomers) ? '最大客戶 ' . mb_substr($topCustomers[0]['name'], 0, 6, 'UTF-8') . ' 占比 ' . ($monthTotal > 0 ? round($topCustomers[0]['amount'] / $monthTotal * 100, 1) : 0) . '%。' : '本月尚無客戶資料。',
+                    'product' => $topProduct ? '熱銷產品 ' . $topProduct['sku'] . '，' . round($topProduct['amount'] / 10000, 1) . ' 萬。' : '本月尚無產品資料。'
+                ]
+            ]
+        ];
+    }
+
     public function getCustomerDetail($customer, $year = null)
     {
         $seriesMap = $this->getSeriesMap();
@@ -1876,6 +2004,17 @@ try {
                 echo json_encode($res);
             } catch (Exception $e) {
                 echo json_encode(['success' => false, 'msg' => 'year-summary 錯誤: ' . $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
+            }
+            break;
+
+        case 'strategy-report':
+            try {
+                $year = (int)($_GET['year'] ?? date('Y'));
+                $month = (int)($_GET['month'] ?? date('n'));
+                $res = $svc->getStrategyReport($year, $month);
+                echo json_encode($res);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'msg' => 'strategy-report 錯誤: ' . $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
             }
             break;
 

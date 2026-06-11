@@ -394,6 +394,109 @@ input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-colo
 .btn-close:hover { color: var(--text); }
 .modal-body { padding: 20px 24px; overflow-y: auto; flex: 1; }
 .hidden { display: none !important; }
+.report-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.chart-card, .dash-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 18px 18px 16px;
+}
+.chart-card.full-span { grid-column: 1 / -1; }
+.chart-title {
+  font-size: 15px;
+  font-weight: 900;
+  color: var(--gold);
+  margin-bottom: 14px;
+  letter-spacing: 0.5px;
+}
+.chart-sub {
+  color: var(--text2);
+  font-size: 12px;
+  margin-top: -6px;
+  margin-bottom: 14px;
+}
+.bar-list { display: flex; flex-direction: column; gap: 10px; }
+.bar-row { display: grid; grid-template-columns: 120px 1fr 78px; gap: 10px; align-items: center; }
+.bar-label {
+  font-size: 12px; font-weight: 800; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.bar-track {
+  height: 12px; border-radius: 999px; overflow: hidden;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.04);
+}
+.bar-fill {
+  height: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, rgba(194,157,102,0.85), #d4b483);
+}
+.bar-value { font-size: 12px; color: var(--gold); font-weight: 800; text-align: right; }
+.donut-grid {
+  display: grid;
+  grid-template-columns: minmax(180px, 220px) 1fr;
+  gap: 18px;
+  align-items: center;
+}
+.donut-wrap { display: flex; align-items: center; justify-content: center; }
+.donut {
+  width: 180px; height: 180px; border-radius: 50%;
+  position: relative;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05);
+}
+.donut::after {
+  content: attr(data-center);
+  position: absolute; inset: 24px;
+  border-radius: 50%;
+  background: #090909;
+  border: 1px solid rgba(255,255,255,0.05);
+  display: flex; align-items: center; justify-content: center;
+  text-align: center; white-space: pre-line;
+  color: var(--text); font-size: 13px; font-weight: 900; line-height: 1.5;
+  padding: 12px;
+}
+.legend-list { display: flex; flex-direction: column; gap: 8px; }
+.legend-row {
+  display: grid; grid-template-columns: 18px 1fr auto;
+  gap: 10px; align-items: center;
+  font-size: 12px;
+}
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+.legend-name {
+  color: var(--text); font-weight: 700;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.legend-val { color: var(--gold); font-weight: 800; }
+.trend-wrap {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 8px; align-items: end;
+  min-height: 220px; padding-top: 14px;
+}
+.trend-col { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.trend-value { font-size: 10px; color: var(--text2); writing-mode: vertical-rl; transform: rotate(180deg); }
+.trend-bar {
+  width: 100%; min-height: 8px; border-radius: 10px 10px 0 0;
+  background: linear-gradient(180deg, #d4b483 0%, rgba(194,157,102,0.35) 100%);
+  border: 1px solid rgba(194,157,102,0.18);
+}
+.trend-col.active .trend-bar {
+  background: linear-gradient(180deg, #3b82f6 0%, rgba(59,130,246,0.35) 100%);
+  border-color: rgba(59,130,246,0.35);
+}
+.trend-label { font-size: 11px; color: var(--text2); font-weight: 700; }
+.insight-list { display: flex; flex-direction: column; gap: 10px; }
+.insight-item {
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.05);
+  font-size: 13px; line-height: 1.6;
+}
 @media (max-width: 768px) {
   .topbar-inner { gap: 12px; }
   .logo { font-size: 14px; }
@@ -402,6 +505,11 @@ input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-colo
   .prod-right { display: none; }
   .detail-table { font-size: 12px; }
   .detail-table th, .detail-table td { padding: 8px 8px; }
+  .report-grid { grid-template-columns: 1fr; }
+  .donut-grid { grid-template-columns: 1fr; }
+  .bar-row { grid-template-columns: 92px 1fr 62px; }
+  .donut { width: 160px; height: 160px; }
+  .trend-wrap { gap: 6px; }
 }
   </style>
 </head>
@@ -414,6 +522,7 @@ input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-colo
         <div class="tab-bar">
           <button class="tab-btn active" id="tab-bonus" onclick="switchTab('bonus')">獎金試算</button>
           <button class="tab-btn" id="tab-products" onclick="switchTab('products')">產品總覽</button>
+          <button class="tab-btn" id="tab-reports" onclick="switchTab('reports')">戰略報表</button>
         </div>
       </div>
     </header>
@@ -465,6 +574,22 @@ input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-colo
       <button class="btn btn-accent" onclick="rebuildCache()">🔄 同步銷售快取</button>
     </div>
 
+    <div class="ctrl-bar hidden" id="ctrl-reports">
+      <select id="report-year">
+        <option value="2026">2026 年</option>
+        <option value="2025">2025 年</option>
+      </select>
+      <select id="report-month">
+        <option value="1">1 月</option><option value="2">2 月</option>
+        <option value="3">3 月</option><option value="4">4 月</option>
+        <option value="5">5 月</option><option value="6">6 月</option>
+        <option value="7">7 月</option><option value="8">8 月</option>
+        <option value="9">9 月</option><option value="10">10 月</option>
+        <option value="11">11 月</option><option value="12">12 月</option>
+      </select>
+      <button class="btn btn-primary" onclick="loadStrategyReport()">載入報表</button>
+    </div>
+
 
     <div id="loading" class="loading hidden">
       <div class="spinner"></div>
@@ -493,6 +618,8 @@ var DASHBOARD_COLORS = ['#c29d66','#22c55e','#3b82f6','#ef4444','#a855f7','#f973
 
 document.getElementById('filter-month').value = currentMonth;
 document.getElementById('filter-year').value = currentYear;
+document.getElementById('report-month').value = currentMonth + 1;
+document.getElementById('report-year').value = currentYear;
 loadDashboard();
 loadSalesList();
 
@@ -759,6 +886,7 @@ function fmtNum(n) { return isNaN(n) ? '0萬' : (n / 10000).toFixed(1) + '萬'; 
 var currentTab = 'bonus';
 var currentProdTab = 'sleeper';
 var sortDir = -1;
+window._strategyReport = null;
 function toggleSortDir() {
   sortDir = sortDir === -1 ? 1 : -1;
   document.getElementById('sort-dir-btn').textContent = sortDir === -1 ? '↓' : '↑';
@@ -771,13 +899,18 @@ function switchTab(tab) {
   currentTab = tab;
   document.getElementById('tab-bonus').classList.toggle('active', tab === 'bonus');
   document.getElementById('tab-products').classList.toggle('active', tab === 'products');
+  document.getElementById('tab-reports').classList.toggle('active', tab === 'reports');
   document.getElementById('ctrl-bonus').classList.toggle('hidden', tab !== 'bonus');
-  document.getElementById('ctrl-products').classList.toggle('hidden', tab === 'bonus');
+  document.getElementById('ctrl-products').classList.toggle('hidden', tab !== 'products');
+  document.getElementById('ctrl-reports').classList.toggle('hidden', tab !== 'reports');
   if (tab === 'products') {
     var el = document.getElementById('filter-grade');
     el.style.display = currentProdTab === 'sleeper' ? '' : 'none';
     if (!window._sleeperData) loadProducts();
     else renderProducts();
+  } else if (tab === 'reports') {
+    if (!window._strategyReport) loadStrategyReport();
+    else renderStrategyReport(window._strategyReport);
   }
 }
 function switchProdTab(tab) {
@@ -1086,6 +1219,133 @@ function renderDashboard(d) {
   }
 
   html += '<div class="dash-hint">選擇月份後按「查詢」查看明細，或切換「產品總覽」</div>';
+
+  document.getElementById('main-content').innerHTML = html;
+}
+
+function loadStrategyReport() {
+  var year = parseInt(document.getElementById('report-year').value, 10);
+  var month = parseInt(document.getElementById('report-month').value, 10);
+  showLoading(true);
+  apiGet('strategy-report', { year: year, month: month }, function(res) {
+    showLoading(false);
+    if (!res.success) {
+      toast(res.msg || '載入報表失敗', true);
+      return;
+    }
+    window._strategyReport = res.data;
+    renderStrategyReport(res.data);
+  }, function(err) {
+    showLoading(false);
+    toast('載入報表失敗: ' + err, true);
+  });
+}
+
+function fmtPct(n) {
+  return (Math.round((n || 0) * 10) / 10).toFixed(1) + '%';
+}
+
+function ellipsis(s, n) {
+  s = String(s || '');
+  return s.length > n ? s.slice(0, n) + '…' : s;
+}
+
+function buildBarRows(items, key, valueFormatter) {
+  if (!items || !items.length) return '<div class="chart-sub">本月尚無資料</div>';
+  var max = items[0].amount || 1;
+  return '<div class="bar-list">' + items.map(function(item) {
+    var width = max > 0 ? Math.max(6, Math.round((item.amount || 0) / max * 100)) : 0;
+    return '<div class="bar-row">' +
+      '<div class="bar-label">' + ellipsis(item[key], 12) + '</div>' +
+      '<div class="bar-track"><div class="bar-fill" style="width:' + width + '%"></div></div>' +
+      '<div class="bar-value">' + valueFormatter(item.amount || 0) + '</div>' +
+      '</div>';
+  }).join('') + '</div>';
+}
+
+function buildDonutCard(title, items, key, centerLabel) {
+  if (!items || !items.length) {
+    return '<div class="chart-card"><div class="chart-title">' + title + '</div><div class="chart-sub">本月尚無資料</div></div>';
+  }
+  var total = items.reduce(function(sum, item) { return sum + (item.amount || 0); }, 0) || 1;
+  var start = 0;
+  var gradients = [];
+  var legends = [];
+  items.forEach(function(item, idx) {
+    var pct = (item.amount || 0) / total * 100;
+    var end = start + pct;
+    var color = DASHBOARD_COLORS[idx % DASHBOARD_COLORS.length];
+    gradients.push(color + ' ' + start.toFixed(2) + '% ' + end.toFixed(2) + '%');
+    legends.push(
+      '<div class="legend-row">' +
+      '<span class="legend-dot" style="background:' + color + '"></span>' +
+      '<span class="legend-name">' + ellipsis(item[key], 16) + '</span>' +
+      '<span class="legend-val">' + fmtPct(pct) + '</span>' +
+      '</div>'
+    );
+    start = end;
+  });
+  return '<div class="chart-card">' +
+    '<div class="chart-title">' + title + '</div>' +
+    '<div class="donut-grid">' +
+      '<div class="donut-wrap"><div class="donut" data-center="' + centerLabel.replace(/\n/g, '&#10;') + '" style="background:conic-gradient(' + gradients.join(',') + ')"></div></div>' +
+      '<div class="legend-list">' + legends.join('') + '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+function buildTrendChart(monthTrend, activeMonth) {
+  var max = 1;
+  for (var i = 1; i <= 12; i++) max = Math.max(max, monthTrend[i] || 0);
+  var html = '<div class="trend-wrap">';
+  for (var m = 1; m <= 12; m++) {
+    var val = monthTrend[m] || 0;
+    var h = Math.max(8, Math.round(val / max * 150));
+    html += '<div class="trend-col' + (m === activeMonth ? ' active' : '') + '">' +
+      '<div class="trend-value">' + (val > 0 ? fmt(val) : '0萬') + '</div>' +
+      '<div class="trend-bar" style="height:' + h + 'px"></div>' +
+      '<div class="trend-label">' + m + '月</div>' +
+      '</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+function renderStrategyReport(d) {
+  var s = d.summary || {};
+  var topSales = d.topSales || [];
+  var topCustomers = d.topCustomers || [];
+  var topProducts = d.topProducts || [];
+  var topSeries = d.topSeries || [];
+  var topSalesDonut = topSales.slice(0, 5);
+  if (topSales.length > 5) {
+    var otherAmt = topSales.slice(5).reduce(function(sum, item) { return sum + (item.amount || 0); }, 0);
+    if (otherAmt > 0) topSalesDonut.push({ name: '其他', amount: otherAmt });
+  }
+
+  var html = '<div class="kpi-row">' +
+    '<div class="kpi-card kpi-gold"><div class="label">本月銷售額</div><div class="value">' + fmt(s.monthTotal || 0) + '</div><div class="sub">' + d.year + ' / ' + d.month + '</div></div>' +
+    '<div class="kpi-card kpi-green"><div class="label">本月銷售坪數</div><div class="value">' + (s.monthPings || 0) + '</div><div class="sub">坪</div></div>' +
+    '<div class="kpi-card kpi-blue"><div class="label">交易筆數</div><div class="value">' + (s.monthTxCount || 0) + '</div><div class="sub">筆</div></div>' +
+    '<div class="kpi-card kpi-red"><div class="label">前 3 業務占比</div><div class="value">' + fmtPct(s.top3SalesPct || 0) + '</div><div class="sub">集中度</div></div>' +
+    '</div>';
+
+  html += '<div class="report-grid">';
+  html += '<div class="chart-card"><div class="chart-title">業務月排行</div><div class="chart-sub">看誰真的在出貨，不看感覺。</div>' + buildBarRows(topSales, 'name', fmt) + '</div>';
+  html += buildDonutCard('業務占比', topSalesDonut, 'name', '本月占比\n' + fmt(s.monthTotal || 0));
+  html += '<div class="chart-card"><div class="chart-title">前 10 大客戶</div><div class="chart-sub">看客戶集中風險。</div>' + buildBarRows(topCustomers, 'name', fmt) + '</div>';
+  html += '<div class="chart-card"><div class="chart-title">前 10 大產品</div><div class="chart-sub">看哪個 SKU 在拉動銷售。</div>' + buildBarRows(topProducts.map(function(item) {
+    return { name: item.sku, amount: item.amount };
+  }), 'name', fmt) + '</div>';
+  html += buildDonutCard('系列占比', topSeries, 'name', '系列結構\n' + topSeries.length + ' 類');
+  html += '<div class="chart-card"><div class="chart-title">年度月趨勢</div><div class="chart-sub">判斷本月是高峰、平穩，還是掉速。</div>' + buildTrendChart(d.monthTrend || {}, d.month) + '</div>';
+  html += '<div class="chart-card full-span"><div class="chart-title">管理提示</div><div class="insight-list">' +
+    '<div class="insight-item">' + (d.insights && d.insights.leader ? d.insights.leader : '本月尚無業務資料。') + '</div>' +
+    '<div class="insight-item">' + (d.insights && d.insights.concentration ? d.insights.concentration : '尚無集中度資料。') + '</div>' +
+    '<div class="insight-item">' + (d.insights && d.insights.customer ? d.insights.customer : '尚無客戶分析資料。') + '</div>' +
+    '<div class="insight-item">' + (d.insights && d.insights.product ? d.insights.product : '尚無產品分析資料。') + '</div>' +
+    '</div></div>';
+  html += '</div>';
 
   document.getElementById('main-content').innerHTML = html;
 }
