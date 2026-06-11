@@ -838,6 +838,7 @@ class SleeperService
         $idxCategory = $this->findHeader($h, ['產品大類','大類']);
         $idxSleeper = $this->findHeader($h, ['睡美人']);
         $idxDisc = $this->findHeader($h, ['不續辦']);
+        $idxImage = $this->findHeader($h, ['單片連結網址','單片圖','圖片網址','單片網址','圖片連結']);
         if ($idxCode === -1) return [];
 
         $map = [];
@@ -854,6 +855,7 @@ class SleeperService
                 'productName' => $idxProduct !== -1 ? trim($this->getVal($row, $idxProduct)) : '',
                 'size' => $idxSize !== -1 ? trim($this->getVal($row, $idxSize)) : '',
                 'category' => $idxCategory !== -1 ? trim($this->getVal($row, $idxCategory)) : '',
+                'imageUrl' => $idxImage !== -1 ? trim($this->getVal($row, $idxImage)) : '',
                 'isSleeper' => $idxSleeper !== -1 && trim($this->getVal($row, $idxSleeper)) !== '',
                 'isDiscontinued' => $idxDisc !== -1 && trim($this->getVal($row, $idxDisc)) !== ''
             ];
@@ -2023,6 +2025,8 @@ class SleeperService
         }
         $seriesRanks = [];
         $categoryRanks = [];
+        $sizeRanks = [];
+        $topProducts = [];
 
         for ($i = 1; $i < count($cacheRows); $i++) {
             $row = $cacheRows[$i];
@@ -2047,18 +2051,23 @@ class SleeperService
                     'series' => $profile['series'] ?? '',
                     'seriesCn' => $profile['seriesCn'] ?? '',
                     'totalPings' => 0,
+                    'totalAmount' => 0,
                     'items' => []
                 ];
             }
             $seriesRanks[$seriesKey]['totalPings'] += $pings;
+            $seriesRanks[$seriesKey]['totalAmount'] += $amount;
             if (!isset($seriesRanks[$seriesKey]['items'][$sku])) {
                 $seriesRanks[$seriesKey]['items'][$sku] = [
                     'sku' => $sku,
                     'name' => trim(($profile['productName'] ?? '') . ' ' . ($profile['size'] ?? '')),
-                    'pings' => 0
+                    'pings' => 0,
+                    'amount' => 0,
+                    'imageUrl' => $profile['imageUrl'] ?? ''
                 ];
             }
             $seriesRanks[$seriesKey]['items'][$sku]['pings'] += $pings;
+            $seriesRanks[$seriesKey]['items'][$sku]['amount'] += $amount;
 
             $category = trim($profile['category'] ?? '') ?: '未分類';
             if (!isset($categoryRanks[$category])) {
@@ -2067,6 +2076,31 @@ class SleeperService
             $categoryRanks[$category]['amount'] += $amount;
             $categoryRanks[$category]['pings'] += $pings;
             $categoryRanks[$category]['count'] += $txCount;
+
+            $size = trim($profile['size'] ?? '') ?: '未標尺寸';
+            if (!isset($sizeRanks[$size])) {
+                $sizeRanks[$size] = ['name' => $size, 'amount' => 0, 'pings' => 0, 'count' => 0];
+            }
+            $sizeRanks[$size]['amount'] += $amount;
+            $sizeRanks[$size]['pings'] += $pings;
+            $sizeRanks[$size]['count'] += $txCount;
+
+            if (!isset($topProducts[$sku])) {
+                $topProducts[$sku] = [
+                    'sku' => $sku,
+                    'name' => trim($profile['productName'] ?? ''),
+                    'series' => trim($profile['seriesCn'] ?: ($profile['series'] ?? '')),
+                    'category' => $category,
+                    'size' => $size,
+                    'imageUrl' => $profile['imageUrl'] ?? '',
+                    'amount' => 0,
+                    'pings' => 0,
+                    'count' => 0
+                ];
+            }
+            $topProducts[$sku]['amount'] += $amount;
+            $topProducts[$sku]['pings'] += $pings;
+            $topProducts[$sku]['count'] += $txCount;
         }
 
         foreach ($seriesRanks as &$rank) {
@@ -2074,6 +2108,7 @@ class SleeperService
             usort($rank['items'], function ($a, $b) {
                 return $b['pings'] <=> $a['pings'];
             });
+            $rank['sharePct'] = ($strategy['summary']['total'] ?? 0) > 0 ? ($rank['totalAmount'] / $strategy['summary']['total'] * 100) : 0;
         }
         unset($rank);
         usort($seriesRanks, function ($a, $b) {
@@ -2083,6 +2118,16 @@ class SleeperService
         usort($categoryRanks, function ($a, $b) {
             return $b['amount'] <=> $a['amount'];
         });
+        usort($sizeRanks, function ($a, $b) {
+            return $b['amount'] <=> $a['amount'];
+        });
+        usort($topProducts, function ($a, $b) {
+            return ($b['amount'] <=> $a['amount']) ?: ($b['pings'] <=> $a['pings']);
+        });
+        foreach ($topProducts as &$row) {
+            $row['sharePct'] = ($strategy['summary']['total'] ?? 0) > 0 ? ($row['amount'] / $strategy['summary']['total'] * 100) : 0;
+        }
+        unset($row);
 
         $rows = [];
         for ($m = 1; $m <= 12; $m++) {
@@ -2120,9 +2165,12 @@ class SleeperService
                 ],
                 'monthCompare' => $rows,
                 'topCustomers' => array_slice($strategy['topCustomers'] ?? [], 0, 10),
+                'topProjects' => array_slice($strategy['topProjects'] ?? [], 0, 10),
                 'topSales' => array_slice($strategy['topSales'] ?? [], 0, 10),
                 'seriesRanking' => $seriesRanks,
                 'categoryRanking' => array_values($categoryRanks),
+                'sizeRanking' => array_values($sizeRanks),
+                'topProductsDetailed' => array_slice(array_values($topProducts), 0, 12),
                 'contracts' => $contractSummary,
                 'fieldActivity' => $strategy['fieldActivity'] ?? ['summary' => []],
                 'insights' => $strategy['insights'] ?? []

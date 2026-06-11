@@ -6,25 +6,25 @@
   <title>睡美人月會報表</title>
   <style>
     :root {
-      --bg: #f3f3f0;
-      --paper: #ffffff;
-      --grid: #161616;
-      --line: #212121;
-      --soft: #d9d9d4;
-      --text: #111;
-      --muted: #555;
-      --accent: #fff200;
-      --pink: #f8d9dd;
-      --blue: #dce9ff;
-      --green: #dff4e2;
-      --orange: #ffe2c7;
-      --red: #d60000;
+      --bg: #0a0a0a;
+      --paper: #111111;
+      --grid: rgba(194,157,102,0.28);
+      --line: rgba(255,255,255,0.10);
+      --soft: rgba(255,255,255,0.03);
+      --text: #f6f1e6;
+      --muted: #a9a39a;
+      --accent: #c29d66;
+      --accent-strong: #f0cb84;
+      --blue: #60a5fa;
+      --green: #22c55e;
+      --orange: #f59e0b;
+      --red: #ef4444;
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
       font-family: "Noto Sans TC", "PingFang TC", sans-serif;
-      background: var(--bg);
+      background: radial-gradient(circle at top, rgba(194,157,102,0.10), transparent 30%), var(--bg);
       color: var(--text);
     }
     .page {
@@ -59,8 +59,8 @@
     }
     select, button, a.btn-link {
       height: 42px;
-      border: 2px solid var(--grid);
-      background: #fff;
+      border: 1px solid rgba(194,157,102,0.45);
+      background: rgba(255,255,255,0.04);
       color: var(--text);
       font-size: 14px;
       font-weight: 700;
@@ -72,27 +72,30 @@
     }
     button {
       cursor: pointer;
-      background: var(--accent);
+      background: linear-gradient(180deg, rgba(194,157,102,0.2), rgba(194,157,102,0.1));
     }
     .sheet {
       background: var(--paper);
-      border: 3px solid var(--grid);
+      border: 1px solid var(--grid);
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.25);
       margin-bottom: 18px;
     }
     .sheet-title {
       padding: 10px 14px;
       font-size: 22px;
       font-weight: 900;
-      border-bottom: 3px solid var(--grid);
-      background: #efefea;
+      border-bottom: 1px solid var(--grid);
+      background: linear-gradient(180deg, rgba(194,157,102,0.14), rgba(194,157,102,0.05));
     }
     .kpi-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
     }
     .kpi-cell {
-      border-right: 2px solid var(--line);
-      border-bottom: 2px solid var(--line);
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
       min-height: 110px;
       padding: 12px;
       display: flex;
@@ -116,8 +119,8 @@
       font-weight: 700;
     }
     .red { color: var(--red); }
-    .yellow { background: var(--accent); }
-    .soft { background: #f7f7f3; }
+    .yellow { background: linear-gradient(180deg, rgba(194,157,102,0.24), rgba(194,157,102,0.10)); }
+    .soft { background: rgba(255,255,255,0.02); }
     .table-wrap {
       overflow-x: auto;
     }
@@ -126,13 +129,13 @@
       border-collapse: collapse;
     }
     th, td {
-      border: 2px solid var(--line);
+      border: 1px solid var(--line);
       padding: 8px 10px;
       font-size: 13px;
       vertical-align: top;
     }
     th {
-      background: #ecece7;
+      background: rgba(194,157,102,0.12);
       text-align: center;
       font-weight: 900;
     }
@@ -148,14 +151,14 @@
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 0;
-      border-top: 2px solid var(--line);
-      border-left: 2px solid var(--line);
+      border-top: 1px solid var(--line);
+      border-left: 1px solid var(--line);
     }
     .mini-card {
-      border-right: 2px solid var(--line);
-      border-bottom: 2px solid var(--line);
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
       padding: 12px;
-      background: #fafaf7;
+      background: rgba(255,255,255,0.03);
     }
     .mini-card h3 {
       margin: 0 0 8px;
@@ -172,8 +175,8 @@
       gap: 8px;
     }
     .item-row {
-      border: 2px solid var(--line);
-      background: #fbfbf8;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.03);
       padding: 10px 12px;
       display: flex;
       align-items: center;
@@ -185,9 +188,115 @@
     .pill {
       display: inline-block;
       padding: 3px 8px;
-      border: 1px solid var(--line);
-      background: #fff;
+      border: 1px solid rgba(194,157,102,0.35);
+      background: rgba(194,157,102,0.10);
       font-size: 11px;
+      font-weight: 800;
+    }
+    .chart-grid {
+      display: grid;
+      grid-template-columns: 1.3fr 1fr;
+      gap: 16px;
+      padding: 12px;
+    }
+    .chart-card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      background: rgba(255,255,255,0.025);
+    }
+    .bar-chart {
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
+      min-height: 220px;
+      padding-top: 18px;
+    }
+    .bar-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+    .bar-pair {
+      width: 100%;
+      height: 180px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 6px;
+    }
+    .bar {
+      width: calc(50% - 3px);
+      border-radius: 10px 10px 0 0;
+      min-height: 6px;
+    }
+    .bar.prev { background: rgba(255,255,255,0.18); }
+    .bar.curr { background: linear-gradient(180deg, var(--accent-strong), rgba(194,157,102,0.35)); }
+    .bar-label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .bar-val {
+      font-size: 11px;
+      color: var(--text);
+    }
+    .product-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      padding: 12px;
+    }
+    .product-card {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px;
+      background: rgba(255,255,255,0.03);
+      display: grid;
+      grid-template-columns: 92px 1fr;
+      gap: 14px;
+      align-items: start;
+    }
+    .product-thumb {
+      width: 92px;
+      height: 92px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      object-fit: contain;
+    }
+    .product-name {
+      font-size: 16px;
+      font-weight: 900;
+      color: var(--accent-strong);
+      margin: 0 0 6px;
+    }
+    .product-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .product-stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .stat-box {
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .stat-box .t {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .stat-box .v {
+      font-size: 15px;
       font-weight: 800;
     }
     .series-lines {
@@ -197,7 +306,7 @@
     }
     .series-line {
       display: grid;
-      grid-template-columns: 130px 1fr 80px;
+      grid-template-columns: 110px 1fr 64px 74px 60px;
       gap: 8px;
       font-size: 12px;
     }
@@ -212,8 +321,8 @@
     @media (max-width: 640px) {
       .page { padding: 12px; }
       .kpi-grid, .mini-grid { grid-template-columns: 1fr; }
-      .kpi-cell:nth-child(4n) { border-right: 2px solid var(--line); }
-      .series-line { grid-template-columns: 1fr; }
+      .kpi-cell:nth-child(4n) { border-right: 1px solid var(--line); }
+      .series-line, .product-grid, .chart-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -257,6 +366,12 @@
     function fmtInt(n) { return String(truncNum(n || 0)); }
     function fmtPct(n) { return truncNum(n || 0) + '%'; }
     function fmtDate(s) { return s || '—'; }
+    function driveUrlToDirect(url) {
+      const s = String(url || '');
+      const m = s.match(/\/file\/d\/([^\/]+)/);
+      if (m) return 'https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w200';
+      return s;
+    }
     function escapeHtml(s) {
       return String(s || '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
     }
@@ -285,16 +400,6 @@
               <div class="kpi-value">${fmtWan(s.salesYoyBase)}</div>
               <div class="kpi-sub">YOY ${fmtPct(s.salesYoyPct)}</div>
             </div>
-            <div class="kpi-cell yellow">
-              <div class="kpi-label">次月預估缺口</div>
-              <div class="kpi-value">${fmtWan(s.nextMonthGoal)}</div>
-              <div class="kpi-sub">相對去年同期基準</div>
-            </div>
-            <div class="kpi-cell soft">
-              <div class="kpi-label">前 3 業務占比</div>
-              <div class="kpi-value">${fmtPct(s.top3Pct)}</div>
-              <div class="kpi-sub">最大客戶占比 ${fmtPct(s.topCustomerPct)}</div>
-            </div>
             <div class="kpi-cell">
               <div class="kpi-label">本月坪數</div>
               <div class="kpi-value">${fmtInt(s.pings)}</div>
@@ -305,15 +410,15 @@
               <div class="kpi-value">${fmtInt(s.txCount)}</div>
               <div class="kpi-sub">筆</div>
             </div>
-            <div class="kpi-cell">
-              <div class="kpi-label">平均單筆</div>
-              <div class="kpi-value">${fmtWan(s.avgTicket)}</div>
-              <div class="kpi-sub">客單價</div>
+            <div class="kpi-cell yellow">
+              <div class="kpi-label">最大客戶占比</div>
+              <div class="kpi-value">${fmtPct(s.topCustomerPct)}</div>
+              <div class="kpi-sub">客戶集中度</div>
             </div>
             <div class="kpi-cell">
-              <div class="kpi-label">會議重點</div>
-              <div class="kpi-value">${fmtInt((d.topCustomers || []).length)}</div>
-              <div class="kpi-sub">本月重點客戶清單</div>
+              <div class="kpi-label">本月主力類別</div>
+              <div class="kpi-value">${escapeHtml((d.categoryRanking || [])[0] ? (d.categoryRanking || [])[0].name : '—')}</div>
+              <div class="kpi-sub">依銷售金額最高</div>
             </div>
           </div>
         </section>
@@ -322,32 +427,53 @@
 
     function buildMonthCompareSheet(d) {
       const rows = d.monthCompare || [];
+      const visibleRows = rows.filter(r => r.month <= d.month);
+      const max = Math.max(1, ...visibleRows.flatMap(r => [r.previous || 0, r.current || 0]));
       return `
         <section class="sheet">
           <div class="sheet-title">年度月銷比較</div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>月份</th>
-                  <th>${d.year - 1}</th>
-                  <th>${d.year}</th>
-                  <th>差額</th>
-                  <th>YOY</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${rows.map(r => `
-                  <tr>
-                    <td class="center">${r.month}月</td>
-                    <td class="num">${fmtWan(r.previous)}</td>
-                    <td class="num">${fmtWan(r.current)}</td>
-                    <td class="num ${r.current - r.previous >= 0 ? '' : 'red'}">${fmtWan((r.current || 0) - (r.previous || 0))}</td>
-                    <td class="num ${r.yoyPct >= 0 ? '' : 'red'}">${fmtPct(r.yoyPct)}</td>
-                  </tr>
+          <div class="chart-grid">
+            <div class="chart-card">
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>月份</th>
+                      <th>${d.year - 1}</th>
+                      <th>${d.year}</th>
+                      <th>差額</th>
+                      <th>YOY</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${visibleRows.map(r => `
+                      <tr>
+                        <td class="center">${r.month}月</td>
+                        <td class="num">${fmtWan(r.previous)}</td>
+                        <td class="num">${fmtWan(r.current)}</td>
+                        <td class="num">${fmtWan((r.current || 0) - (r.previous || 0))}</td>
+                        <td class="num">${fmtPct(r.yoyPct)}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="chart-card">
+              <div class="hint" style="margin-bottom:10px">同月份雙柱比較，讀起來會比只看表快。</div>
+              <div class="bar-chart">
+                ${visibleRows.map(r => `
+                  <div class="bar-col">
+                    <div class="bar-pair">
+                      <div class="bar prev" style="height:${Math.max(8, Math.round((r.previous || 0) / max * 100))}%"></div>
+                      <div class="bar curr" style="height:${Math.max(8, Math.round((r.current || 0) / max * 100))}%"></div>
+                    </div>
+                    <div class="bar-label">${r.month}月</div>
+                    <div class="bar-val">${fmtWan(r.current)}</div>
+                  </div>
                 `).join('')}
-              </tbody>
-            </table>
+              </div>
+            </div>
           </div>
         </section>
       `;
@@ -378,6 +504,8 @@
                 <tr>
                   <th>名次</th>
                   <th>總坪數</th>
+                  <th>金額</th>
+                  <th>佔比</th>
                   <th>廠牌</th>
                   <th>系列</th>
                   <th>中文系列</th>
@@ -389,6 +517,8 @@
                   <tr>
                     <td class="center">${idx + 1}</td>
                     <td class="num">${fmtInt(r.totalPings)}</td>
+                    <td class="num">${fmtWan(r.totalAmount)}</td>
+                    <td class="num">${fmtPct(r.sharePct)}</td>
                     <td class="center">${escapeHtml(r.brand || '—')}</td>
                     <td class="center">${escapeHtml(r.series || '—')}</td>
                     <td class="center">${escapeHtml(r.seriesCn || '—')}</td>
@@ -399,6 +529,8 @@
                             <div class="series-sku">${escapeHtml(item.sku)}</div>
                             <div>${escapeHtml(item.name || '—')}</div>
                             <div class="num">${fmtInt(item.pings)}</div>
+                            <div class="num">${fmtWan(item.amount)}</div>
+                            <div class="num">${fmtPct((r.totalAmount || 0) > 0 ? (item.amount || 0) / r.totalAmount * 100 : 0)}</div>
                           </div>
                         `).join('')}
                       </div>
@@ -414,30 +546,59 @@
 
     function buildCategorySheet(d) {
       const rows = d.categoryRanking || [];
+      const sizeRows = d.sizeRanking || [];
       return `
         <section class="sheet">
-          <div class="sheet-title">產品大類分析</div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>產品大類</th>
-                  <th>銷售金額</th>
-                  <th>銷售坪數</th>
-                  <th>交易筆數</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${rows.map(r => `
-                  <tr>
-                    <td>${escapeHtml(r.name)}</td>
-                    <td class="num">${fmtWan(r.amount)}</td>
-                    <td class="num">${fmtInt(r.pings)}</td>
-                    <td class="num">${fmtInt(r.count)}</td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
+          <div class="sheet-title">產品大類與尺寸分析</div>
+          <div class="chart-grid">
+            <div class="chart-card">
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>產品大類</th>
+                      <th>銷售金額</th>
+                      <th>銷售坪數</th>
+                      <th>交易筆數</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${rows.map(r => `
+                      <tr>
+                        <td>${escapeHtml(r.name)}</td>
+                        <td class="num">${fmtWan(r.amount)}</td>
+                        <td class="num">${fmtInt(r.pings)}</td>
+                        <td class="num">${fmtInt(r.count)}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="chart-card">
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>尺寸</th>
+                      <th>銷售金額</th>
+                      <th>銷售坪數</th>
+                      <th>交易筆數</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${sizeRows.map(r => `
+                      <tr>
+                        <td>${escapeHtml(r.name)}</td>
+                        <td class="num">${fmtWan(r.amount)}</td>
+                        <td class="num">${fmtInt(r.pings)}</td>
+                        <td class="num">${fmtInt(r.count)}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </section>
       `;
@@ -556,12 +717,13 @@
     }
 
     function buildTopSheets(d) {
+      const projects = d.topProjects || [];
       return (
-        buildListSheet('前 10 大客戶分析', '這裡只看客戶，不把專案混進來。', d.topCustomers || [], row => `
+        buildListSheet('前 10 大客戶分析', '客戶分析保留專案資訊作為輔助，不另外拆紅字。', d.topCustomers || [], (row, idx) => `
           <div class="item-row">
             <div>
               <div class="item-main">${escapeHtml(row.name)}</div>
-              <div class="item-sub">交易 ${fmtInt(row.count || 0)} 筆 / 坪數 ${fmtInt(row.pings || 0)}</div>
+              <div class="item-sub">交易 ${fmtInt(row.count || 0)} 筆 / 坪數 ${fmtInt(row.pings || 0)}${projects[idx] ? ' / 專案 ' + escapeHtml(projects[idx].name) : ''}</div>
             </div>
             <div class="pill">${fmtWan(row.amount)}</div>
           </div>
@@ -578,12 +740,47 @@
       );
     }
 
+    function buildHotProductsSheet(d) {
+      const rows = d.topProductsDetailed || [];
+      return `
+        <section class="sheet">
+          <div class="sheet-title">熱銷產品分析</div>
+          <div class="section-pad">
+            <div class="hint" style="margin-bottom:12px">把單片圖、金額、坪數、佔比放在一起，看得比純表格快。</div>
+          </div>
+          <div class="product-grid">
+            ${rows.map(row => `
+              <div class="product-card">
+                <img class="product-thumb" src="${escapeHtml(driveUrlToDirect(row.imageUrl || ''))}" alt="" onerror="this.style.display='none'">
+                <div>
+                  <div class="product-name">${escapeHtml(row.sku)}</div>
+                  <div class="product-meta">
+                    <span class="pill">${escapeHtml(row.series || '未分類')}</span>
+                    <span class="pill">${escapeHtml(row.category || '未分類')}</span>
+                    <span class="pill">${escapeHtml(row.size || '未標尺寸')}</span>
+                  </div>
+                  <div class="item-sub" style="margin-bottom:10px">${escapeHtml(row.name || '未命名產品')}</div>
+                  <div class="product-stats">
+                    <div class="stat-box"><div class="t">銷售金額</div><div class="v">${fmtWan(row.amount)}</div></div>
+                    <div class="stat-box"><div class="t">銷售坪數</div><div class="v">${fmtInt(row.pings)}</div></div>
+                    <div class="stat-box"><div class="t">交易筆數</div><div class="v">${fmtInt(row.count)}</div></div>
+                    <div class="stat-box"><div class="t">本月佔比</div><div class="v">${fmtPct(row.sharePct)}</div></div>
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </section>
+      `;
+    }
+
     function render(d) {
       document.getElementById('app').innerHTML =
         buildKpiSheet(d) +
         buildMonthCompareSheet(d) +
         buildTopSheets(d) +
         buildSeriesSheet(d) +
+        buildHotProductsSheet(d) +
         buildCategorySheet(d) +
         buildContractSheet(d) +
         buildFieldSheet(d);
