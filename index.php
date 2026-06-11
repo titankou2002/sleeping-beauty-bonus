@@ -462,7 +462,9 @@ input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-colo
         <button class="sub-tab" id="sub-discontinued" onclick="switchProdTab('discontinued')">不續辦</button>
       </span>
       <button class="btn btn-primary" onclick="loadProducts()">載入產品</button>
+      <button class="btn btn-accent" onclick="rebuildCache()">🔄 同步銷售快取</button>
     </div>
+
 
     <div id="loading" class="loading hidden">
       <div class="spinner"></div>
@@ -885,6 +887,9 @@ function renderProducts() {
         }).join('') + '</div></div>';
     }
 
+    var mosText = p.mos === 888 ? '無銷售' : (p.mos || 0) + ' 月';
+    var mosClass = p.mosLevel === 2 ? 'text-red' : (p.mosLevel === 1 ? 'text-gold' : 'text-green');
+
     var gradeHtml = p.grade ? '<div class="grade-badge grade-' + p.grade + '">' + p.grade + '</div>' : '';
     html += '<div class="product-card">' +
       '<div class="prod-grade">' + gradeHtml +
@@ -895,8 +900,10 @@ function renderProducts() {
         '<div class="prod-sku">' + p.sku + '</div>' +
         '<div class="prod-stats">' +
           '<div class="prod-stat"><div class="ps-label">歷史銷售</div><div class="ps-value">' + p.totalPings + ' 坪</div></div>' +
+          '<div class="prod-stat"><div class="ps-label">目前陳列</div><div class="ps-value text-gold" style="cursor:pointer; text-decoration:underline;" onclick="showDisplayDetails(\'' + p.sku + '\')">🖼️ ' + (p.displayCount || 0) + ' 家</div></div>' +
           '<div class="prod-stat"><div class="ps-label">庫存</div><div class="ps-value">' + p.stockPing + ' 坪</div></div>' +
           '<div class="prod-stat"><div class="ps-label">成本/片</div><div class="ps-value text-gold">$' + p.costPerPiece + '</div></div>' +
+          '<div class="prod-stat"><div class="ps-label">去化月數 (MOS)</div><div class="ps-value ' + mosClass + '">' + mosText + '</div></div>' +
           '<div class="prod-stat"><div class="ps-label">最後銷售</div><div class="ps-value">' + p.lastSaleStr + '</div></div>' +
         '</div>' +
         buyerHtml +
@@ -904,9 +911,11 @@ function renderProducts() {
       '<div class="prod-right">' +
         '<div class="label" style="font-size:11px;color:var(--text2);font-weight:700;margin-bottom:4px">庫存佔用成本</div>' +
         '<div class="prod-cost">' + fmt(p.inventoryCost) + '</div>' +
-        '<div class="prod-frozen ' + frozenClass + '">' + frozenText + '</div>' +
+        '<div class="prod-frozen ' + frozenClass + '">' + (p.stagnantReason || frozenText) + '</div>' +
+        (p.action ? '<div class="action-badge" style="background:' + p.actionColor + '15; border:1px solid ' + p.actionColor + '30; color:' + p.actionColor + '; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:800; display:inline-block; margin-top:6px">' + p.action + '</div>' : '') +
       '</div>' +
     '</div>';
+
   });
   html += '</div>';
 
@@ -1108,6 +1117,67 @@ function showCustomerDetail(customer) {
   }, function(err) { showLoading(false); toast('查詢失敗: ' + err); });
 }
 
+function rebuildCache() {
+  showLoading(true);
+  apiPost('rebuild-cache', {}, function(res) {
+    showLoading(false);
+    if (res.success) {
+      toast('同步快取成功！歷史年度：' + res.years.join(', ') + '，已快取 ' + res.cacheRows + ' 筆資料。');
+      loadProducts();
+    } else {
+      toast('快取同步失敗: ' + res.error, true);
+    }
+  }, function(err) {
+    showLoading(false);
+    toast('連線失敗: ' + err, true);
+  });
+}
+
+function showDisplayDetails(sku) {
+  var data;
+  if (currentProdTab === 'sleeper') data = window._sleeperData;
+  else if (currentProdTab === 'normal') data = window._normalData;
+  else data = window._disconProducts;
+
+  if (!data) return;
+  var p = data.find(function(item) { return item.sku === sku; });
+  if (!p || !p.displays || p.displays.length === 0) {
+    toast('該品項目前無上架陳列樣板。');
+    return;
+  }
+
+  var title = document.getElementById('modal-title');
+  var body = document.getElementById('modal-body');
+  
+  title.textContent = sku + ' 目前陳列樣板明細 (' + p.displays.length + ' 家)';
+  
+  var html = '<div style="display:flex; flex-direction:column; gap:16px;">';
+  p.displays.forEach(function(d) {
+    html += '<div style="display:flex; gap:16px; background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:12px; padding:12px; align-items:center;">';
+    if (d.photoUrl) {
+      html += '<div style="width:120px; height:90px; border-radius:8px; overflow:hidden; border:1px solid rgba(255,255,255,0.1); flex-shrink:0;">' +
+        '<img src="' + d.photoUrl + '" style="width:100%; height:100%; object-fit:cover; cursor:pointer;" onclick="window.open(\'' + d.photoUrl + '\')">' +
+        '</div>';
+    } else {
+      html += '<div style="width:120px; height:90px; border-radius:8px; background:rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center; color:var(--text2); font-size:11px; flex-shrink:0;">無照片</div>';
+    }
+    html += '<div style="display:flex; flex-direction:column; justify-content:center; gap:6px;">' +
+      '<div style="font-size:16px; font-weight:800; color:var(--gold);">' + d.cust + '</div>' +
+      '<div style="font-size:12px; color:var(--text2);">上架日期：' + (d.date || '未記錄') + '</div>' +
+      '</div>' +
+      '</div>';
+  });
+  html += '</div>';
+  
+  body.innerHTML = html;
+  document.getElementById('modal-detail').classList.remove('hidden');
+}
+
+function closeDetail() {
+  document.getElementById('modal-detail').classList.add('hidden');
+}
+
 </script>
+
 </body>
 </html>

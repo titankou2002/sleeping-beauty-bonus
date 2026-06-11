@@ -56,6 +56,14 @@ class GoogleSheetsClient
         ]);
     }
 
+    public function clearSheet($sheetName)
+    {
+        $range = urlencode("'{$sheetName}'!A:ZZ");
+        $url = "https://sheets.googleapis.com/v4/spreadsheets/{$this->ssId}/values/{$range}:clear";
+        $this->api('POST', $url, (object)[]);
+    }
+
+
     public function updateCell($sheetName, $row, $col, $value)
     {
         $colLetter = $this->colIndexToLetter($col);
@@ -394,13 +402,14 @@ class SleeperService
 
         $h = $raw[0];
         $idx = [
-            'date'  => $this->findHeader($h, ['日期','單據日期','銷貨日期']),
-            'sales' => $this->findHeader($h, ['負責業務','業務','業務員','負責人']),
-            'cust'  => $this->findHeader($h, ['客戶名稱','客戶']),
-            'code'  => $this->findHeader($h, ['產品編號','編號','品碼','序號']),
-            'amt'   => $this->findHeader($h, ['金額','銷額','銷售金額','成交金額','小計','總計']),
-            'qty'   => $this->findHeader($h, ['數量','片數']),
-            'note'  => $this->findHeader($h, ['備註','說明'])
+            'date'     => $this->findHeader($h, ['日期','單據日期','銷貨日期']),
+            'sales'    => $this->findHeader($h, ['負責業務','業務','業務員','負責人']),
+            'cust'     => $this->findHeader($h, ['客戶名稱','客戶']),
+            'custCode' => $this->findHeader($h, ['客戶編號','客戶代碼','代碼']),
+            'code'     => $this->findHeader($h, ['產品編號','編號','品碼','序號']),
+            'amt'      => $this->findHeader($h, ['金額','銷額','銷售金額','成交金額','小計','總計']),
+            'qty'      => $this->findHeader($h, ['數量','片數']),
+            'note'     => $this->findHeader($h, ['備註','說明'])
         ];
         if ($idx['date'] === -1 || $idx['code'] === -1) {
             return ['success' => false, 'msg' => '無法定位銷貨報表欄位'];
@@ -414,16 +423,18 @@ class SleeperService
             if ($d->format('Y') != $year || $d->format('n') != $month + 1) continue;
 
             $custName = trim($this->getVal($row, $idx['cust']));
+            $custCode = $idx['custCode'] !== -1 ? trim($this->getVal($row, $idx['custCode'])) : '';
             $note = trim($this->getVal($row, $idx['note']));
-            if (strpos($custName, '樣品') !== false || strpos($note, '樣品') !== false || strpos($note, '扣帶') !== false) continue;
+            $amt = $this->optFloat($this->getVal($row, $idx['amt']));
+            if ($this->isSampleRow($custCode, $custName, $note, $amt)) continue;
 
             $code = $this->cleanSku($this->getVal($row, $idx['code']));
             if (!$code || !isset($sleeperMap[$code])) continue;
 
             $sleeper = $sleeperMap[$code];
             $qty = $this->optFloat($this->getVal($row, $idx['qty']));
-            $amt = $this->optFloat($this->getVal($row, $idx['amt']));
             if ($qty == 0 || $amt == 0) continue;
+
 
             $unitPrice = $qty > 0 ? $amt / $qty : 0;
             $totalCost = $sleeper['cost'] * $qty;
@@ -916,51 +927,14 @@ class SleeperService
         if (!$configRes['success']) return $configRes;
         $sleeperMap = $configRes['data'];
 
+        $displaysMap = $this->getActiveDisplaysMap();
         $stockMap = $this->getStockMap();
         $metaMap = $this->getMetaMap();
 
-        $raw = $this->gs->readSheet(SALES_SHEET);
-        $h = isset($raw[0]) ? $raw[0] : [];
-        $idxCode = $this->findHeader($h, ['產品編號','編號']);
-        $idxDate = $this->findHeader($h, ['日期','單據日期']);
-        $idxQty  = $this->findHeader($h, ['數量','片數']);
-        $idxCust = $this->findHeader($h, ['客戶名稱','客戶']);
-        $idxNote = $this->findHeader($h, ['備註']);
-
-        $salesStats = [];
-        if ($idxCode !== -1 && $idxDate !== -1) {
-            for ($i = 1; $i < count($raw); $i++) {
-                $sku = $this->cleanSku($this->getVal($raw[$i], $idxCode));
-                if (!$sku || !isset($sleeperMap[$sku])) continue;
-
-                $note = trim($this->getVal($raw[$i], $idxNote));
-                if (strpos($note, '樣品') !== false || strpos($note, '扣帶') !== false) continue;
-
-                $qty = $this->optFloat($this->getVal($raw[$i], $idxQty));
-                if ($qty <= 0) continue;
-
-                $d = $this->parseDate($this->getVal($raw[$i], $idxDate));
-                if (!$d) continue;
-
-                $meta = isset($metaMap[$sku]) ? $metaMap[$sku] : ['series' => '', 'perPing' => 36];
-                $perPing = $meta['perPing'] ?: 36;
-                $pings = $qty / $perPing;
-                $cust = trim($this->getVal($raw[$i], $idxCust));
-
-                if (!isset($salesStats[$sku])) {
-                    $salesStats[$sku] = ['lastDate' => null, 'totalPings' => 0, 'count' => 0, 'buyerMap' => []];
-                }
-                $s = &$salesStats[$sku];
-                $s['count']++;
-                if (!$s['lastDate'] || $d > $s['lastDate']) $s['lastDate'] = $d;
-                $s['totalPings'] += $pings;
-                if (!isset($s['buyerMap'][$cust])) $s['buyerMap'][$cust] = 0;
-                $s['buyerMap'][$cust] += $pings;
-            }
-        }
-
+        $salesStats = $this->loadSalesStats($metaMap);
         $now = new DateTime();
         $products = [];
+
         foreach ($sleeperMap as $sku => $slp) {
             $meta = isset($metaMap[$sku]) ? $metaMap[$sku] : ['series' => '', 'perPing' => 36];
             $stockPing = isset($stockMap[$sku]) ? $stockMap[$sku] : 0;
@@ -987,6 +961,45 @@ class SleeperService
                 }
             }
 
+            // Stagnancy diagnostics & actions
+            $pings6M = $stats ? $stats['pings6M'] : 0;
+            $monthlySpeedPings = $pings6M / 6;
+            $mos = $monthlySpeedPings > 0 ? round(($stockPing / $monthlySpeedPings) * 10) / 10 : ($stockPing > 0 ? 888 : 0);
+
+            $action = '正常去化';
+            $actionColor = '#10b981'; // green
+            $stagnantReason = '正常';
+            $mosLevel = 0; // 0: benign, 1: observation, 2: promotion
+
+            if ($daysSinceLastSale === null) {
+                $action = '🔥 折扣促銷';
+                $actionColor = '#ef4444'; // red
+                $stagnantReason = '💀 從未銷售';
+                $mosLevel = 2;
+            } elseif ($daysSinceLastSale > 180) {
+                $action = '🔥 折扣促銷';
+                $actionColor = '#ef4444'; // red
+                $stagnantReason = '💀 6M無交易';
+                $mosLevel = 2;
+            } elseif ($daysSinceLastSale > 90) {
+                $action = '📝 觀察/加強推廣';
+                $actionColor = '#f59e0b'; // yellow
+                $stagnantReason = '🔇 3M無交易';
+                $mosLevel = 1;
+            } elseif ($mos > 12) {
+                $action = '🔥 折扣促銷';
+                $actionColor = '#ef4444'; // red
+                $stagnantReason = '⚠️ 銷速過慢 (MOS > 12M)';
+                $mosLevel = 2;
+            } elseif ($mos > 6) {
+                $action = '📝 觀察/加強推廣';
+                $actionColor = '#f59e0b'; // yellow
+                $stagnantReason = '🔸 銷速偏慢 (MOS > 6M)';
+                $mosLevel = 1;
+            }
+
+            $activeDisplays = isset($displaysMap[$sku]) ? $displaysMap[$sku] : [];
+
             $products[] = [
                 'sku' => $sku,
                 'series' => $meta['series'],
@@ -999,7 +1012,14 @@ class SleeperService
                 'saleCount' => $stats ? $stats['count'] : 0,
                 'daysSinceLastSale' => $daysSinceLastSale,
                 'lastSaleStr' => $lastSaleStr,
-                'buyers' => $buyers
+                'buyers' => $buyers,
+                'mos' => $mos,
+                'action' => $action,
+                'actionColor' => $actionColor,
+                'stagnantReason' => $stagnantReason,
+                'mosLevel' => $mosLevel,
+                'displayCount' => count($activeDisplays),
+                'displays' => $activeDisplays
             ];
         }
 
@@ -1028,9 +1048,9 @@ class SleeperService
             $sku = $this->cleanSku($this->getVal($row, $pCode));
             if (!$sku) continue;
             if (trim($this->getVal($row, $pDisc)) === '') continue;
-            $meta['series']  = $pSer !== -1 ? trim($this->getVal($row, $pSer)) : '';
+            $seriesVal = $pSer !== -1 ? trim($this->getVal($row, $pSer)) : '';
             $disconMap[$sku] = [
-                'series'   => $meta['series'],
+                'series'   => $seriesVal,
                 'cost'     => $pCost !== -1 ? $this->optFloat($this->getVal($row, $pCost)) : 0,
                 'perPing'  => $pPerPing !== -1 ? ($this->optFloat($this->getVal($row, $pPerPing)) ?: 36) : 36,
                 'imageUrl' => $pImg !== -1 ? trim($this->getVal($row, $pImg)) : ''
@@ -1045,45 +1065,10 @@ class SleeperService
         }
         unset($info);
 
+        $displaysMap = $this->getActiveDisplaysMap();
         $stockMap = $this->getStockMap();
-        $raw = $this->gs->readSheet(SALES_SHEET);
-        $h = isset($raw[0]) ? $raw[0] : [];
-        $idxCode = $this->findHeader($h, ['產品編號','編號']);
-        $idxDate = $this->findHeader($h, ['日期','單據日期']);
-        $idxQty  = $this->findHeader($h, ['數量','片數']);
-        $idxCust = $this->findHeader($h, ['客戶名稱','客戶']);
-        $idxNote = $this->findHeader($h, ['備註']);
-
-        $salesStats = [];
-        if ($idxCode !== -1 && $idxDate !== -1) {
-            for ($i = 1; $i < count($raw); $i++) {
-                $sku = $this->cleanSku($this->getVal($raw[$i], $idxCode));
-                if (!$sku || !isset($disconMap[$sku])) continue;
-
-                $note = trim($this->getVal($raw[$i], $idxNote));
-                if (strpos($note, '樣品') !== false || strpos($note, '扣帶') !== false) continue;
-
-                $qty = $this->optFloat($this->getVal($raw[$i], $idxQty));
-                if ($qty <= 0) continue;
-
-                $d = $this->parseDate($this->getVal($raw[$i], $idxDate));
-                if (!$d) continue;
-
-                $perPing = $disconMap[$sku]['perPing'] ?: 36;
-                $pings = $qty / $perPing;
-                $cust = trim($this->getVal($raw[$i], $idxCust));
-
-                if (!isset($salesStats[$sku])) {
-                    $salesStats[$sku] = ['lastDate' => null, 'totalPings' => 0, 'count' => 0, 'buyerMap' => []];
-                }
-                $s = &$salesStats[$sku];
-                $s['count']++;
-                if (!$s['lastDate'] || $d > $s['lastDate']) $s['lastDate'] = $d;
-                $s['totalPings'] += $pings;
-                if (!isset($s['buyerMap'][$cust])) $s['buyerMap'][$cust] = 0;
-                $s['buyerMap'][$cust] += $pings;
-            }
-        }
+        $metaMap = $this->getMetaMap();
+        $salesStats = $this->loadSalesStats($metaMap);
 
         $now = new DateTime();
         $products = [];
@@ -1112,6 +1097,45 @@ class SleeperService
                 }
             }
 
+            // Stagnancy diagnostics & actions
+            $pings6M = $stats ? $stats['pings6M'] : 0;
+            $monthlySpeedPings = $pings6M / 6;
+            $mos = $monthlySpeedPings > 0 ? round(($stockPing / $monthlySpeedPings) * 10) / 10 : ($stockPing > 0 ? 888 : 0);
+
+            $action = '正常去化';
+            $actionColor = '#10b981'; // green
+            $stagnantReason = '正常';
+            $mosLevel = 0;
+
+            if ($daysSinceLastSale === null) {
+                $action = '🔥 折扣促銷';
+                $actionColor = '#ef4444';
+                $stagnantReason = '💀 從未銷售';
+                $mosLevel = 2;
+            } elseif ($daysSinceLastSale > 180) {
+                $action = '🔥 折扣促銷';
+                $actionColor = '#ef4444';
+                $stagnantReason = '💀 6M無交易';
+                $mosLevel = 2;
+            } elseif ($daysSinceLastSale > 90) {
+                $action = '📝 觀察/加強推廣';
+                $actionColor = '#f59e0b';
+                $stagnantReason = '🔇 3M無交易';
+                $mosLevel = 1;
+            } elseif ($mos > 12) {
+                $action = '🔥 折扣促銷';
+                $actionColor = '#ef4444';
+                $stagnantReason = '⚠️ 銷速過慢 (MOS > 12M)';
+                $mosLevel = 2;
+            } elseif ($mos > 6) {
+                $action = '📝 觀察/加強推廣';
+                $actionColor = '#f59e0b';
+                $stagnantReason = '🔸 銷速偏慢 (MOS > 6M)';
+                $mosLevel = 1;
+            }
+
+            $activeDisplays = isset($displaysMap[$sku]) ? $displaysMap[$sku] : [];
+
             $products[] = [
                 'sku' => $sku,
                 'series' => $info['series'],
@@ -1125,7 +1149,14 @@ class SleeperService
                 'daysSinceLastSale' => $daysSinceLastSale,
                 'lastSaleStr' => $lastSaleStr,
                 'buyers' => $buyers,
-                'imageUrl' => $info['imageUrl']
+                'imageUrl' => $info['imageUrl'],
+                'mos' => $mos,
+                'action' => $action,
+                'actionColor' => $actionColor,
+                'stagnantReason' => $stagnantReason,
+                'mosLevel' => $mosLevel,
+                'displayCount' => count($activeDisplays),
+                'displays' => $activeDisplays
             ];
         }
 
@@ -1171,40 +1202,10 @@ class SleeperService
         }
         unset($info);
 
+        $displaysMap = $this->getActiveDisplaysMap();
         $stockMap = $this->getStockMap();
-        $raw = $this->gs->readSheet(SALES_SHEET);
-        $h = isset($raw[0]) ? $raw[0] : [];
-        $idxCode = $this->findHeader($h, ['產品編號','編號']);
-        $idxDate = $this->findHeader($h, ['日期','單據日期']);
-        $idxQty  = $this->findHeader($h, ['數量','片數']);
-        $idxCust = $this->findHeader($h, ['客戶名稱','客戶']);
-        $idxNote = $this->findHeader($h, ['備註']);
-
-        $salesStats = [];
-        if ($idxCode !== -1 && $idxDate !== -1) {
-            for ($i = 1; $i < count($raw); $i++) {
-                $sku = $this->cleanSku($this->getVal($raw[$i], $idxCode));
-                if (!$sku || !isset($normMap[$sku])) continue;
-                $note = trim($this->getVal($raw[$i], $idxNote));
-                if (strpos($note, '樣品') !== false || strpos($note, '扣帶') !== false) continue;
-                $qty = $this->optFloat($this->getVal($raw[$i], $idxQty));
-                if ($qty <= 0) continue;
-                $d = $this->parseDate($this->getVal($raw[$i], $idxDate));
-                if (!$d) continue;
-                $perPing = $normMap[$sku]['perPing'] ?: 36;
-                $pings = $qty / $perPing;
-                $cust = trim($this->getVal($raw[$i], $idxCust));
-                if (!isset($salesStats[$sku])) {
-                    $salesStats[$sku] = ['lastDate' => null, 'totalPings' => 0, 'count' => 0, 'buyerMap' => []];
-                }
-                $s = &$salesStats[$sku];
-                $s['count']++;
-                if (!$s['lastDate'] || $d > $s['lastDate']) $s['lastDate'] = $d;
-                $s['totalPings'] += $pings;
-                if (!isset($s['buyerMap'][$cust])) $s['buyerMap'][$cust] = 0;
-                $s['buyerMap'][$cust] += $pings;
-            }
-        }
+        $metaMap = $this->getMetaMap();
+        $salesStats = $this->loadSalesStats($metaMap);
 
         $now = new DateTime();
         $products = [];
@@ -1213,12 +1214,14 @@ class SleeperService
             $costPerPing = $info['cost'] * ($info['perPing'] ?: 36);
             $inventoryCost = round($stockPing * $costPerPing);
             $stats = isset($salesStats[$sku]) ? $salesStats[$sku] : null;
+
             $daysSinceLastSale = null;
             $lastSaleStr = '從未銷售';
             if ($stats && $stats['lastDate']) {
                 $daysSinceLastSale = (int)$now->diff($stats['lastDate'])->days;
                 $lastSaleStr = $stats['lastDate']->format('Y/m');
             }
+
             $totalPings = $stats ? round($stats['totalPings'] * 10) / 10 : 0;
             $buyers = [];
             if ($stats) {
@@ -1230,6 +1233,46 @@ class SleeperService
                     $buyers[] = ['name' => $name, 'pings' => round($pings * 10) / 10];
                 }
             }
+
+            // Stagnancy diagnostics & actions
+            $pings6M = $stats ? $stats['pings6M'] : 0;
+            $monthlySpeedPings = $pings6M / 6;
+            $mos = $monthlySpeedPings > 0 ? round(($stockPing / $monthlySpeedPings) * 10) / 10 : ($stockPing > 0 ? 888 : 0);
+
+            $action = '正常去化';
+            $actionColor = '#10b981'; // green
+            $stagnantReason = '正常';
+            $mosLevel = 0;
+
+            if ($daysSinceLastSale === null) {
+                $action = '🔥 折扣促銷';
+                $actionColor = '#ef4444';
+                $stagnantReason = '💀 從未銷售';
+                $mosLevel = 2;
+            } elseif ($daysSinceLastSale > 180) {
+                $action = '🔥 折扣促銷';
+                $actionColor = '#ef4444';
+                $stagnantReason = '💀 6M無交易';
+                $mosLevel = 2;
+            } elseif ($daysSinceLastSale > 90) {
+                $action = '📝 觀察/加強推廣';
+                $actionColor = '#f59e0b';
+                $stagnantReason = '🔇 3M無交易';
+                $mosLevel = 1;
+            } elseif ($mos > 12) {
+                $action = '🔥 折扣促銷';
+                $actionColor = '#ef4444';
+                $stagnantReason = '⚠️ 銷速過慢 (MOS > 12M)';
+                $mosLevel = 2;
+            } elseif ($mos > 6) {
+                $action = '📝 觀察/加強推廣';
+                $actionColor = '#f59e0b';
+                $stagnantReason = '🔸 銷速偏慢 (MOS > 6M)';
+                $mosLevel = 1;
+            }
+
+            $activeDisplays = isset($displaysMap[$sku]) ? $displaysMap[$sku] : [];
+
             $products[] = [
                 'sku' => $sku,
                 'series' => $info['series'],
@@ -1242,7 +1285,14 @@ class SleeperService
                 'saleCount' => $stats ? $stats['count'] : 0,
                 'daysSinceLastSale' => $daysSinceLastSale,
                 'lastSaleStr' => $lastSaleStr,
-                'buyers' => $buyers
+                'buyers' => $buyers,
+                'mos' => $mos,
+                'action' => $action,
+                'actionColor' => $actionColor,
+                'stagnantReason' => $stagnantReason,
+                'mosLevel' => $mosLevel,
+                'displayCount' => count($activeDisplays),
+                'displays' => $activeDisplays
             ];
         }
 
@@ -1250,6 +1300,8 @@ class SleeperService
 
         return ['success' => true, 'data' => $products];
     }
+
+
 
     private function ensureTrialSheet()
     {
@@ -1333,7 +1385,352 @@ class SleeperService
         }
         return $result;
     }
+
+    public function isSampleRow($custCode, $custName, $note, $amt)
+    {
+        $cCode = strtoupper(trim($custCode));
+        if (substr($cCode, -2) === '-S' || substr($cCode, -3) === '-S1') return true;
+        
+        $name = trim($custName);
+        $nt = trim($note);
+        
+        if (preg_match('/樣品|陳列|贈|SAMPLE|送樣|扣帶/ui', $name . ' ' . $nt)) {
+            return true;
+        }
+        if ($amt == 0) return true;
+        return false;
+    }
+
+    public function getActiveDisplaysMap()
+    {
+        $map = [];
+        try {
+            $gsLayout = new GoogleSheetsClient(SS_ID_LAYOUT);
+            $data = $gsLayout->readSheet(LAYOUT_SHEET);
+            if (count($data) < 3) return $map;
+
+            $h = $data[1]; // headers on row index 1
+            $idxCust = $this->findHeader($h, ["客戶名稱", "客戶"]);
+            $idxSku = $this->findHeader($h, ["編號", "產品編號"]);
+            $idxImg = $this->findHeader($h, ["版面連結", "連結", "圖片", "照片"]);
+            $idxDate = $this->findHeader($h, ["上架日期", "日期"]);
+            $idxOffDate = $this->findHeader($h, ["下架日期"]);
+
+            if ($idxCust === -1 || $idxSku === -1) return $map;
+
+            for ($i = 2; $i < count($data); $i++) {
+                $row = $data[$i];
+                $offDateVal = trim($this->getVal($row, $idxOffDate));
+                if ($offDateVal !== '') continue; // Skip if already off board
+
+                $sku = $this->cleanSku($this->getVal($row, $idxSku));
+                if (!$sku) continue;
+
+                $cust = trim($this->getVal($row, $idxCust));
+                $dateVal = $idxDate !== -1 ? trim($this->getVal($row, $idxDate)) : '';
+                $rawImg = $idxImg !== -1 ? trim($this->getVal($row, $idxImg)) : '';
+
+                $photoUrl = $rawImg;
+                $driveId = $this->extractIdFromUrl($rawImg);
+                if ($driveId) {
+                    $photoUrl = "https://lh3.googleusercontent.com/d/{$driveId}=w1000";
+                }
+
+                if (!isset($map[$sku])) {
+                    $map[$sku] = [];
+                }
+                $map[$sku][] = [
+                    'cust' => $cust,
+                    'date' => $dateVal,
+                    'photoUrl' => $photoUrl
+                ];
+            }
+        } catch (Exception $e) {
+            error_log("getActiveDisplaysMap error: " . $e->getMessage());
+        }
+        return $map;
+    }
+
+    private function extractIdFromUrl($url)
+    {
+        if (!$url) return '';
+        if (preg_match('/[-\w]{25,}(?!.*[-\w]{25,})/', $url, $matches)) {
+            return $matches[0];
+        }
+        return '';
+    }
+
+    public function getSalesYearCacheRows()
+    {
+        $data = $this->gs->readSheet(CACHE_SHEET);
+        if (count($data) < 2) return [];
+        return array_slice($data, 1); // skip header row
+    }
+
+    public function rebuildSalesYearCache($years = null)
+    {
+        try {
+            $nowYear = (int)date('Y');
+            if ($years === null) {
+                $targetYears = [$nowYear, $nowYear - 1, $nowYear - 2];
+            } else {
+                $targetYears = array_unique(array_map('intval', (array)$years));
+            }
+            sort($targetYears);
+
+            $salesRows = $this->gs->readSheet(SALES_SHEET);
+            if (count($salesRows) < 2) {
+                return ['success' => false, 'error' => '找不到經銷銷售報表資料。'];
+            }
+
+            $headers = $salesRows[0];
+            $idx = [
+                'date' => $this->findHeader($headers, ['單據日期', '銷貨日期', '日期']),
+                'code' => $this->findHeader($headers, ['產品編號', '編號', '品號']),
+                'customer' => $this->findHeader($headers, ['客戶名稱', '客戶']),
+                'custCode' => $this->findHeader($headers, ['客戶編號', '客戶代碼', '代碼']),
+                'qty' => $this->findHeader($headers, ['數量', '銷貨數量', '片數']),
+                'amount' => $this->findHeader($headers, ['金額', '銷貨金額']),
+                'type' => $this->findHeader($headers, ['類別', '性質', '單據類別']),
+                'productName' => $this->findHeader($headers, ['產品名稱', '品名']),
+                'note' => $this->findHeader($headers, ['產品備註', '備註', '說明'])
+            ];
+
+            if ($idx['date'] === -1 || $idx['code'] === -1 || $idx['qty'] === -1 || $idx['amount'] === -1) {
+                return ['success' => false, 'error' => '經銷銷售報表缺少必要欄位：日期、產品編號、數量或金額。'];
+            }
+
+            $metaMap = $this->getMetaMap();
+            $aggregate = [];
+            $scanned = 0;
+            $included = 0;
+            $updatedAt = date('Y/m/d H:i:s');
+
+            for ($i = 1; $i < count($salesRows); $i++) {
+                $row = $salesRows[$i];
+                $scanned++;
+
+                $d = $this->parseDate($this->getVal($row, $idx['date']));
+                if (!$d) continue;
+
+                $year = (int)$d->format('Y');
+                if (!in_array($year, $targetYears, true)) continue;
+
+                $code = $this->cleanSku($this->getVal($row, $idx['code']));
+                if (!$code) continue;
+
+                $qty = $this->optFloat($this->getVal($row, $idx['qty']));
+                $amount = $this->optFloat($this->getVal($row, $idx['amount']));
+                if ($qty == 0 && $amount == 0) continue;
+
+                $custName = trim($this->getVal($row, $idx['customer']));
+                $custCode = $idx['custCode'] !== -1 ? trim($this->getVal($row, $idx['custCode'])) : '';
+                $productName = $idx['productName'] !== -1 ? trim($this->getVal($row, $idx['productName'])) : '';
+                $note = $idx['note'] !== -1 ? trim($this->getVal($row, $idx['note'])) : '';
+
+                if ($this->isSampleRow($custCode, $custName, $productName . ' ' . $note, $amount)) continue;
+
+                $typeText = $idx['type'] !== -1 ? trim($this->getVal($row, $idx['type'])) : '';
+                $isReturn = (strpos($typeText, '退') !== false) || ($qty < 0);
+                $month = (int)$d->format('n');
+                
+                $key = "{$year}|{$month}|{$code}|{$custName}";
+                $perPing = isset($metaMap[$code]) ? ($metaMap[$code]['perPing'] ?: 36) : 36;
+
+                if (!isset($aggregate[$key])) {
+                    $aggregate[$key] = [
+                        'year' => $year,
+                        'month' => $month,
+                        'code' => $code,
+                        'customer' => $custName,
+                        'qty' => 0,
+                        'pings' => 0,
+                        'amount' => 0,
+                        'count' => 0,
+                        'returnQty' => 0,
+                        'totalQty' => 0,
+                        'lastTxDate' => null,
+                        'productName' => $productName
+                    ];
+                }
+
+                $item = &$aggregate[$key];
+                if ($productName && !$item['productName']) $item['productName'] = $productName;
+
+                if ($isReturn) {
+                    $item['returnQty'] += abs($qty);
+                    continue;
+                }
+
+                $absQty = abs($qty);
+                $item['qty'] += $absQty;
+                $item['pings'] += $absQty / $perPing;
+                $item['amount'] += $amount;
+                $item['count'] += 1;
+                $item['totalQty'] += $absQty;
+                if (!$item['lastTxDate'] || $d > $item['lastTxDate']) {
+                    $item['lastTxDate'] = $d;
+                }
+                $included++;
+            }
+
+            $oldRows = [];
+            try {
+                $existing = $this->gs->readSheet(CACHE_SHEET);
+                if (count($existing) > 1) {
+                    for ($i = 1; $i < count($existing); $i++) {
+                        $row = $existing[$i];
+                        $yrVal = (int)$this->getVal($row, 0);
+                        if ($yrVal && !in_array($yrVal, $targetYears, true)) {
+                            $oldRows[] = $row;
+                        }
+                    }
+                }
+            } catch (Exception $ex) {
+                // Ignore if sheet doesn't exist
+            }
+
+            $newRows = [];
+            ksort($aggregate);
+            foreach ($aggregate as $key => $item) {
+                $newRows[] = [
+                    $item['year'],
+                    $item['month'],
+                    $item['code'],
+                    $item['customer'],
+                    round($item['qty'], 2),
+                    round($item['pings'], 2),
+                    round($item['amount']),
+                    $item['count'],
+                    round($item['returnQty'], 2),
+                    round($item['totalQty'], 2),
+                    $item['lastTxDate'] ? $item['lastTxDate']->format('Y/m/d') : '',
+                    $item['productName'],
+                    $updatedAt,
+                    'v1'
+                ];
+            }
+
+            $mergedRows = array_merge($oldRows, $newRows);
+
+            $this->gs->clearSheet(CACHE_SHEET);
+            
+            $headers = ['年度', '月份', '產品編號', '客戶名稱', '銷售片數', '銷售坪數', '銷售金額', '交易筆數', '退貨片數', '總片數', '最後交易日', '產品名稱', '更新時間', '快取版本'];
+            $allRows = array_merge([$headers], $mergedRows);
+
+            $chunkSize = 1000;
+            for ($i = 0; $i < count($allRows); $i += $chunkSize) {
+                $chunk = array_slice($allRows, $i, $chunkSize);
+                $this->gs->writeRows(CACHE_SHEET, $i + 1, $chunk);
+            }
+
+            return [
+                'success' => true,
+                'years' => $targetYears,
+                'scannedRows' => $scanned,
+                'includedRows' => $included,
+                'cacheRows' => count($newRows),
+                'totalRowsAfterMerge' => count($mergedRows),
+                'updatedAt' => $updatedAt
+            ];
+        } catch (Exception $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    private function loadSalesStats($metaMap)
+    {
+        $salesStats = [];
+        $cacheLoaded = false;
+        $now = new DateTime();
+        $limit6M = clone $now;
+        $limit6M->modify('-180 days');
+
+        try {
+            $cacheRows = $this->getSalesYearCacheRows();
+            if ($cacheRows && count($cacheRows) > 0) {
+                foreach ($cacheRows as $cRow) {
+                    $sku = $this->cleanSku($this->getVal($cRow, 2));
+                    if (!$sku) continue;
+
+                    $pings = $this->optFloat($this->getVal($cRow, 5));
+                    $lastDateStr = trim($this->getVal($cRow, 10));
+                    $d = $lastDateStr ? $this->parseDate($lastDateStr) : null;
+                    $cust = trim($this->getVal($cRow, 3));
+
+                    if (!isset($salesStats[$sku])) {
+                        $salesStats[$sku] = ['lastDate' => null, 'totalPings' => 0, 'pings6M' => 0, 'buyerMap' => [], 'count' => 0];
+                    }
+                    $s = &$salesStats[$sku];
+                    $s['count'] += (int)$this->getVal($cRow, 7);
+                    if ($d) {
+                        if (!$s['lastDate'] || $d > $s['lastDate']) $s['lastDate'] = $d;
+                        if ($d >= $limit6M) {
+                            $s['pings6M'] += $pings;
+                        }
+                    }
+                    $s['totalPings'] += $pings;
+                    if (!isset($s['buyerMap'][$cust])) $s['buyerMap'][$cust] = 0;
+                    $s['buyerMap'][$cust] += $pings;
+                }
+                $cacheLoaded = true;
+            }
+        } catch (Exception $e) {
+            // suppress
+        }
+
+        if (!$cacheLoaded) {
+            $raw = $this->gs->readSheet(SALES_SHEET);
+            $h = isset($raw[0]) ? $raw[0] : [];
+            $idxCode = $this->findHeader($h, ['產品編號','編號']);
+            $idxCustCode = $this->findHeader($h, ['客戶編號','客戶代碼','代碼']);
+            $idxDate = $this->findHeader($h, ['日期','單據日期']);
+            $idxQty  = $this->findHeader($h, ['數量','片數']);
+            $idxCust = $this->findHeader($h, ['客戶名稱','客戶']);
+            $idxNote = $this->findHeader($h, ['備註']);
+            $idxAmt  = $this->findHeader($h, ['金額','銷額','銷售金額']);
+
+            if ($idxCode !== -1 && $idxDate !== -1) {
+                for ($i = 1; $i < count($raw); $i++) {
+                    $row = $raw[$i];
+                    $sku = $this->cleanSku($this->getVal($row, $idxCode));
+                    if (!$sku) continue;
+
+                    $custName = trim($this->getVal($row, $idxCust));
+                    $custCode = $idxCustCode !== -1 ? trim($this->getVal($row, $idxCustCode)) : '';
+                    $note = trim($this->getVal($row, $idxNote));
+                    $amt = $this->optFloat($this->getVal($row, $idxAmt));
+
+                    if ($this->isSampleRow($custCode, $custName, $note, $amt)) continue;
+
+                    $qty = $this->optFloat($this->getVal($row, $idxQty));
+                    if ($qty <= 0) continue;
+
+                    $d = $this->parseDate($this->getVal($row, $idxDate));
+                    if (!$d) continue;
+
+                    $perPing = isset($metaMap[$sku]) ? ($metaMap[$sku]['perPing'] ?: 36) : 36;
+                    $pings = $qty / $perPing;
+
+                    if (!isset($salesStats[$sku])) {
+                        $salesStats[$sku] = ['lastDate' => null, 'totalPings' => 0, 'pings6M' => 0, 'buyerMap' => [], 'count' => 0];
+                    }
+                    $s = &$salesStats[$sku];
+                    $s['count']++;
+                    if (!$s['lastDate'] || $d > $s['lastDate']) $s['lastDate'] = $d;
+                    if ($d >= $limit6M) {
+                        $s['pings6M'] += $pings;
+                    }
+                    $s['totalPings'] += $pings;
+                    if (!isset($s['buyerMap'][$custName])) $s['buyerMap'][$custName] = 0;
+                    $s['buyerMap'][$custName] += $pings;
+                }
+            }
+        }
+        return $salesStats;
+    }
 }
+
 
 // ====== ROUTER ======
 try {
@@ -1407,12 +1804,29 @@ try {
             $res = $svc->getNormalProductOverview();
             echo json_encode($res);
             break;
+
+        case 'rebuild-cache':
+            $years = $_POST['years'] ?? $_GET['years'] ?? null;
+            if ($years && is_string($years)) {
+                $years = array_map('intval', preg_split('/[,，\s]+/', $years));
+            }
+            $res = $svc->rebuildSalesYearCache($years);
+            echo json_encode($res);
+            break;
+
+        case 'active-displays':
+            $res = ['success' => true, 'data' => $svc->getActiveDisplaysMap()];
+            echo json_encode($res);
+            break;
+
+        case 'trial-sheet':
             $year  = isset($_GET['year'])  ? (int)$_GET['year']  : null;
             $month = isset($_GET['month']) ? (int)$_GET['month'] : null;
             $sales = $_GET['sales'] ?? '';
             $res = $svc->readTrialSheet($year, $month, $sales);
             echo json_encode($res);
             break;
+
 
         case 'update-row':
             $rowIdx    = (int)($_POST['rowIdx'] ?? 0);
