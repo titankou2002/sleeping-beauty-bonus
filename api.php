@@ -39,7 +39,7 @@ class GoogleSheetsClient
     public function writeRows($sheetName, $startRow, $rows)
     {
         $range = urlencode("'{$sheetName}'!A{$startRow}");
-        $url = "https://sheets.googleapis.com/v4/spreadsheets/{$this->ssId}/values/{$range}";
+        $url = "https://sheets.googleapis.com/v4/spreadsheets/{$this->ssId}/values/{$range}?valueInputOption=USER_ENTERED";
         $this->api('PUT', $url, [
             'values' => $rows,
             'majorDimension' => 'ROWS'
@@ -68,7 +68,7 @@ class GoogleSheetsClient
     {
         $colLetter = $this->colIndexToLetter($col);
         $range = urlencode("'{$sheetName}'!{$colLetter}{$row}");
-        $url = "https://sheets.googleapis.com/v4/spreadsheets/{$this->ssId}/values/{$range}";
+        $url = "https://sheets.googleapis.com/v4/spreadsheets/{$this->ssId}/values/{$range}?valueInputOption=USER_ENTERED";
         $this->api('PUT', $url, [
             'values' => [[$value]],
             'majorDimension' => 'ROWS'
@@ -80,7 +80,7 @@ class GoogleSheetsClient
         $colLetter = $this->colIndexToLetter($colStart);
         $colEnd = $this->colIndexToLetter($colStart + count($values) - 1);
         $range = urlencode("'{$sheetName}'!{$colLetter}{$row}:{$colEnd}{$row}");
-        $url = "https://sheets.googleapis.com/v4/spreadsheets/{$this->ssId}/values/{$range}";
+        $url = "https://sheets.googleapis.com/v4/spreadsheets/{$this->ssId}/values/{$range}?valueInputOption=USER_ENTERED";
         $this->api('PUT', $url, [
             'values' => [$values],
             'majorDimension' => 'ROWS'
