@@ -297,7 +297,7 @@ class SleeperService
         if (mb_strpos($s, '鼎康') !== false || mb_strpos($s, '鼎晨') !== false) return '鼎晨';
         if (mb_strpos($s, '今冠') !== false || mb_strpos($s, '金冠') !== false) return '金冠';
         if (mb_strpos($s, '東春') !== false || mb_strpos($s, '滿財') !== false) return '東春';
-        if (mb_strpos($s, '德思特尼') !== false) return '德思特尼';
+        if (mb_strpos($s, '德思特尼') !== false || mb_strpos($s, '德思') !== false) return '德思特尼';
 
         $parts = preg_split('/[-－—]/u', $s);
         $s = $parts[0] ?? $s;
@@ -816,6 +816,46 @@ class SleeperService
             $map[$sku] = [
                 'series'  => $idxSeries !== -1 ? trim($this->getVal($data[$i], $idxSeries)) : '',
                 'perPing' => $idxPerPing !== -1 ? ($this->optFloat($this->getVal($data[$i], $idxPerPing)) ?: 36) : 36
+            ];
+        }
+        return $map;
+    }
+
+    public function getProductProfileMap()
+    {
+        $data = $this->gs->readSheet(PRICE_SHEET);
+        if (count($data) < 2) return [];
+
+        $h = $data[0];
+        $idxCode = $this->findHeader($h, ['編號','產品編號']);
+        $idxSeries = $this->findHeader($h, ['系列','英文系列']);
+        $idxSeriesCn = $this->findHeader($h, ['中文系列','系列中文','中文名稱']);
+        $idxPerPing = $this->findHeader($h, ['片/坪']);
+        $idxBrand = $this->findHeader($h, ['廠牌','品牌']);
+        $idxCountry = $this->findHeader($h, ['產地','國家']);
+        $idxProduct = $this->findHeader($h, ['原廠品名','產品名稱','品名']);
+        $idxSize = $this->findHeader($h, ['尺寸(cm)','尺寸']);
+        $idxCategory = $this->findHeader($h, ['產品大類','大類']);
+        $idxSleeper = $this->findHeader($h, ['睡美人']);
+        $idxDisc = $this->findHeader($h, ['不續辦']);
+        if ($idxCode === -1) return [];
+
+        $map = [];
+        for ($i = 1; $i < count($data); $i++) {
+            $row = $data[$i];
+            $sku = $this->cleanSku($this->getVal($row, $idxCode));
+            if (!$sku) continue;
+            $map[$sku] = [
+                'series' => $idxSeries !== -1 ? trim($this->getVal($row, $idxSeries)) : '',
+                'seriesCn' => $idxSeriesCn !== -1 ? trim($this->getVal($row, $idxSeriesCn)) : '',
+                'perPing' => $idxPerPing !== -1 ? ($this->optFloat($this->getVal($row, $idxPerPing)) ?: 36) : 36,
+                'brand' => $idxBrand !== -1 ? trim($this->getVal($row, $idxBrand)) : '',
+                'country' => $idxCountry !== -1 ? trim($this->getVal($row, $idxCountry)) : '',
+                'productName' => $idxProduct !== -1 ? trim($this->getVal($row, $idxProduct)) : '',
+                'size' => $idxSize !== -1 ? trim($this->getVal($row, $idxSize)) : '',
+                'category' => $idxCategory !== -1 ? trim($this->getVal($row, $idxCategory)) : '',
+                'isSleeper' => $idxSleeper !== -1 && trim($this->getVal($row, $idxSleeper)) !== '',
+                'isDiscontinued' => $idxDisc !== -1 && trim($this->getVal($row, $idxDisc)) !== ''
             ];
         }
         return $map;
@@ -1493,6 +1533,7 @@ class SleeperService
         $meta = $this->getStrategyPeriodMeta($mode, (int)$year, (int)$period);
         $prevMeta = $this->getPreviousStrategyPeriodMeta($meta);
         $yoyMeta = $this->getYoyStrategyPeriodMeta($meta);
+        $productProfiles = $this->getProductProfileMap();
 
         $raw = $this->gs->readSheet(CACHE_SHEET);
         if (count($raw) < 2) {
@@ -1541,6 +1582,8 @@ class SleeperService
             if ($bucketName === null) continue;
 
             $sku = $this->cleanSku($this->getVal($row, $idx['code']));
+            $profile = isset($productProfiles[$sku]) ? $productProfiles[$sku] : null;
+            if ($profile && !empty($profile['isDiscontinued'])) continue;
             $customer = $this->displayCustomerName($this->getVal($row, $idx['customer']));
             $project = trim($idx['project'] !== -1 ? $this->getVal($row, $idx['project']) : '');
             if ($project === '') $project = '未指定專案';
@@ -1549,7 +1592,7 @@ class SleeperService
             $pings = $idx['pings'] !== -1 ? $this->optFloat($this->getVal($row, $idx['pings'])) : 0;
             $txCount = $idx['count'] !== -1 ? (int)$this->getVal($row, $idx['count']) : 0;
             $productName = trim($this->getVal($row, $idx['productName']));
-            $series = isset($metaMap[$sku]) ? trim($metaMap[$sku]['series']) : '';
+            $series = $profile ? trim($profile['seriesCn'] ?: $profile['series']) : (isset($metaMap[$sku]) ? trim($metaMap[$sku]['series']) : '');
             if ($series === '') $series = '未分類';
 
             if (!isset($buckets[$bucketName]['sales'][$sales])) $buckets[$bucketName]['sales'][$sales] = ['name' => $sales, 'amount' => 0, 'pings' => 0, 'count' => 0];
@@ -1866,6 +1909,224 @@ class SleeperService
             'highVisitLowSalesCustomers' => array_slice($highVisitLowSales, 0, 10),
             'repEfficiency' => array_slice($repRows, 0, 10),
             'taskMix' => array_slice($taskRows, 0, 8)
+        ];
+    }
+
+    private function getContractMeetingSummary($year, $month)
+    {
+        $rows = $this->gs->readSheet('合約');
+        if (count($rows) < 2) {
+            return [
+                'healthCounts' => [],
+                'summary' => ['active' => 0, 'expiringSoon' => 0, 'overdue' => 0, 'balance' => 0],
+                'topRisk' => []
+            ];
+        }
+
+        $h = $rows[0];
+        $idxHealth = $this->findHeader($h, ['健康度']);
+        $idxCustomer = $this->findHeader($h, ['客戶']);
+        $idxLastDue = $this->findHeader($h, ['最後一張票期']);
+        $idxBalance = -1;
+        foreach ($h as $i => $col) {
+            if (mb_strpos((string)$col, '餘額') !== false) $idxBalance = $i;
+        }
+        $idxSales = $this->findHeader($h, ['業務']);
+
+        $healthCounts = [];
+        $topRisk = [];
+        $active = 0;
+        $expiringSoon = 0;
+        $overdue = 0;
+        $balance = 0;
+        $targetMonth = new DateTime(sprintf('%04d-%02d-01', $year, $month));
+
+        for ($i = 1; $i < count($rows); $i++) {
+            $row = $rows[$i];
+            $health = trim($this->getVal($row, $idxHealth));
+            $customer = $this->displayCustomerName($this->getVal($row, $idxCustomer));
+            $bal = $idxBalance !== -1 ? $this->optFloat($this->getVal($row, $idxBalance)) : 0;
+            $sales = trim($this->getVal($row, $idxSales));
+            if ($customer === '未知客戶') continue;
+
+            if (!isset($healthCounts[$health])) $healthCounts[$health] = ['name' => $health === '' ? '未分類' : $health, 'count' => 0];
+            $healthCounts[$health]['count'] += 1;
+            $active += 1;
+            $balance += $bal;
+            if (in_array($health, ['逾期', '嚴重'], true)) $overdue += 1;
+
+            $due = $this->parseDate($this->getVal($row, $idxLastDue));
+            if ($due) {
+                $diffDays = (int)$targetMonth->diff($due)->format('%r%a');
+                if ($diffDays >= 0 && $diffDays <= 45) $expiringSoon += 1;
+            }
+
+            if (in_array($health, ['逾期', '嚴重', '待續約'], true) || $bal > 300000) {
+                $topRisk[] = [
+                    'customer' => $customer,
+                    'health' => $health === '' ? '未分類' : $health,
+                    'balance' => $bal,
+                    'sales' => $sales,
+                    'lastDue' => $due ? $due->format('Y/m/d') : ''
+                ];
+            }
+        }
+
+        usort($topRisk, function ($a, $b) {
+            return ($b['balance'] <=> $a['balance']);
+        });
+        usort($healthCounts, function ($a, $b) {
+            return ($b['count'] <=> $a['count']);
+        });
+
+        return [
+            'healthCounts' => array_values($healthCounts),
+            'summary' => [
+                'active' => $active,
+                'expiringSoon' => $expiringSoon,
+                'overdue' => $overdue,
+                'balance' => $balance
+            ],
+            'topRisk' => array_slice($topRisk, 0, 10)
+        ];
+    }
+
+    public function getMeetingReport($year, $month)
+    {
+        $year = (int)$year;
+        $month = (int)$month;
+        if ($month < 1 || $month > 12) $month = (int)date('n');
+
+        $strategyRes = $this->getStrategyReport($year, $month, 'month');
+        if (!$strategyRes['success']) return $strategyRes;
+        $strategy = $strategyRes['data'];
+
+        $profiles = $this->getProductProfileMap();
+        $cacheRows = $this->gs->readSheet(CACHE_SHEET);
+        if (count($cacheRows) < 2) {
+            return ['success' => false, 'msg' => '找不到產品年度銷售快取，請先同步銷售快取。'];
+        }
+
+        $h = $cacheRows[0];
+        $idx = [
+            'year' => $this->findHeader($h, ['年度']),
+            'month' => $this->findHeader($h, ['月份']),
+            'sku' => $this->findHeader($h, ['產品編號']),
+            'amount' => $this->findHeader($h, ['銷售金額']),
+            'pings' => $this->findHeader($h, ['銷售坪數']),
+            'count' => $this->findHeader($h, ['交易筆數'])
+        ];
+
+        $monthTotals = [];
+        for ($m = 1; $m <= 12; $m++) {
+            $monthTotals[$m] = ['current' => 0, 'previous' => 0];
+        }
+        $seriesRanks = [];
+        $categoryRanks = [];
+
+        for ($i = 1; $i < count($cacheRows); $i++) {
+            $row = $cacheRows[$i];
+            $rowYear = (int)$this->getVal($row, $idx['year']);
+            $rowMonth = (int)$this->getVal($row, $idx['month']);
+            $sku = $this->cleanSku($this->getVal($row, $idx['sku']));
+            $amount = $this->optFloat($this->getVal($row, $idx['amount']));
+            $pings = $this->optFloat($this->getVal($row, $idx['pings']));
+            $txCount = (int)$this->getVal($row, $idx['count']);
+            $profile = isset($profiles[$sku]) ? $profiles[$sku] : null;
+            if ($profile && !empty($profile['isDiscontinued'])) continue;
+
+            if ($rowYear === $year) $monthTotals[$rowMonth]['current'] += $amount;
+            if ($rowYear === ($year - 1)) $monthTotals[$rowMonth]['previous'] += $amount;
+
+            if ($rowYear !== $year || $rowMonth !== $month) continue;
+
+            $seriesKey = ($profile['brand'] ?? '') . '|' . ($profile['series'] ?? '') . '|' . ($profile['seriesCn'] ?? '');
+            if (!isset($seriesRanks[$seriesKey])) {
+                $seriesRanks[$seriesKey] = [
+                    'brand' => $profile['brand'] ?? '',
+                    'series' => $profile['series'] ?? '',
+                    'seriesCn' => $profile['seriesCn'] ?? '',
+                    'totalPings' => 0,
+                    'items' => []
+                ];
+            }
+            $seriesRanks[$seriesKey]['totalPings'] += $pings;
+            if (!isset($seriesRanks[$seriesKey]['items'][$sku])) {
+                $seriesRanks[$seriesKey]['items'][$sku] = [
+                    'sku' => $sku,
+                    'name' => trim(($profile['productName'] ?? '') . ' ' . ($profile['size'] ?? '')),
+                    'pings' => 0
+                ];
+            }
+            $seriesRanks[$seriesKey]['items'][$sku]['pings'] += $pings;
+
+            $category = trim($profile['category'] ?? '') ?: '未分類';
+            if (!isset($categoryRanks[$category])) {
+                $categoryRanks[$category] = ['name' => $category, 'amount' => 0, 'pings' => 0, 'count' => 0];
+            }
+            $categoryRanks[$category]['amount'] += $amount;
+            $categoryRanks[$category]['pings'] += $pings;
+            $categoryRanks[$category]['count'] += $txCount;
+        }
+
+        foreach ($seriesRanks as &$rank) {
+            $rank['items'] = array_values($rank['items']);
+            usort($rank['items'], function ($a, $b) {
+                return $b['pings'] <=> $a['pings'];
+            });
+        }
+        unset($rank);
+        usort($seriesRanks, function ($a, $b) {
+            return $b['totalPings'] <=> $a['totalPings'];
+        });
+        $seriesRanks = array_slice(array_values($seriesRanks), 0, 12);
+        usort($categoryRanks, function ($a, $b) {
+            return $b['amount'] <=> $a['amount'];
+        });
+
+        $rows = [];
+        for ($m = 1; $m <= 12; $m++) {
+            $cur = $monthTotals[$m]['current'];
+            $prev = $monthTotals[$m]['previous'];
+            $rows[] = [
+                'month' => $m,
+                'current' => $cur,
+                'previous' => $prev,
+                'yoyPct' => $prev > 0 ? (($cur - $prev) / $prev * 100) : 0
+            ];
+        }
+
+        $contractSummary = $this->getContractMeetingSummary($year, $month);
+        $summary = $strategy['summary'];
+        $baseYoy = $strategy['bases']['yoy'] ?? [];
+        $nextMonthGoal = max(0, (($baseYoy['total'] ?? 0) - ($summary['total'] ?? 0)));
+
+        return [
+            'success' => true,
+            'data' => [
+                'year' => $year,
+                'month' => $month,
+                'label' => sprintf('%d.%d', $year, $month),
+                'summary' => [
+                    'sales' => $summary['total'] ?? 0,
+                    'salesYoyBase' => $baseYoy['total'] ?? 0,
+                    'salesYoyPct' => $strategy['comparisons']['yoy']['totalPct'] ?? 0,
+                    'pings' => $summary['pings'] ?? 0,
+                    'txCount' => $summary['txCount'] ?? 0,
+                    'avgTicket' => $summary['avgTicket'] ?? 0,
+                    'top3Pct' => $summary['top3SalesPct'] ?? 0,
+                    'topCustomerPct' => $summary['topCustomerPct'] ?? 0,
+                    'nextMonthGoal' => $nextMonthGoal
+                ],
+                'monthCompare' => $rows,
+                'topCustomers' => array_slice($strategy['topCustomers'] ?? [], 0, 10),
+                'topSales' => array_slice($strategy['topSales'] ?? [], 0, 10),
+                'seriesRanking' => $seriesRanks,
+                'categoryRanking' => array_values($categoryRanks),
+                'contracts' => $contractSummary,
+                'fieldActivity' => $strategy['fieldActivity'] ?? ['summary' => []],
+                'insights' => $strategy['insights'] ?? []
+            ]
         ];
     }
 
@@ -2827,6 +3088,17 @@ try {
                 echo json_encode($res);
             } catch (Exception $e) {
                 echo json_encode(['success' => false, 'msg' => 'strategy-report 錯誤: ' . $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
+            }
+            break;
+
+        case 'meeting-report':
+            try {
+                $year = (int)($_GET['year'] ?? date('Y'));
+                $month = (int)($_GET['month'] ?? date('n'));
+                $res = $svc->getMeetingReport($year, $month);
+                echo json_encode($res);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'msg' => 'meeting-report 錯誤: ' . $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
             }
             break;
 

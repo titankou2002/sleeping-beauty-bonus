@@ -623,6 +623,7 @@ input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-colo
       <select id="report-period"></select>
       <button class="btn btn-primary" onclick="loadStrategyReport()">載入報表</button>
       <button class="btn btn-accent" onclick="scanProjectFlags()">掃描疑似專案</button>
+      <button class="btn btn-ghost" onclick="window.open('meeting.php', '_blank')">月會模式</button>
     </div>
 
 
