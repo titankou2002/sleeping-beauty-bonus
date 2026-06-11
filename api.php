@@ -70,15 +70,15 @@ class GoogleSheetsClient
         $requests = [
             $this->buildFormatRequest($sheetId, 0, 1, 'NUMBER', '0'),
             $this->buildFormatRequest($sheetId, 1, 2, 'NUMBER', '0'),
-            $this->buildFormatRequest($sheetId, 2, 5, 'TEXT', '@'),
-            $this->buildFormatRequest($sheetId, 5, 7, 'NUMBER', '0.00'),
-            $this->buildFormatRequest($sheetId, 7, 8, 'NUMBER', '0'),
+            $this->buildFormatRequest($sheetId, 2, 6, 'TEXT', '@'),
+            $this->buildFormatRequest($sheetId, 6, 8, 'NUMBER', '0.00'),
             $this->buildFormatRequest($sheetId, 8, 9, 'NUMBER', '0'),
-            $this->buildFormatRequest($sheetId, 9, 11, 'NUMBER', '0.00'),
-            $this->buildFormatRequest($sheetId, 11, 12, 'DATE', 'yyyy/mm/dd'),
-            $this->buildFormatRequest($sheetId, 12, 13, 'TEXT', '@'),
-            $this->buildFormatRequest($sheetId, 13, 14, 'DATE_TIME', 'yyyy/mm/dd hh:mm:ss'),
-            $this->buildFormatRequest($sheetId, 14, 15, 'TEXT', '@')
+            $this->buildFormatRequest($sheetId, 9, 10, 'NUMBER', '0'),
+            $this->buildFormatRequest($sheetId, 10, 12, 'NUMBER', '0.00'),
+            $this->buildFormatRequest($sheetId, 12, 13, 'DATE', 'yyyy/mm/dd'),
+            $this->buildFormatRequest($sheetId, 13, 14, 'TEXT', '@'),
+            $this->buildFormatRequest($sheetId, 14, 15, 'DATE_TIME', 'yyyy/mm/dd hh:mm:ss'),
+            $this->buildFormatRequest($sheetId, 15, 16, 'TEXT', '@')
         ];
         $this->batchUpdate(['requests' => $requests]);
     }
@@ -251,12 +251,53 @@ class GoogleSheetsClient
 class SleeperService
 {
     private static $salesMerge = ['薛佶姈' => '高弘治'];
+    private static $customerSuffixes = [
+        '企業股份有限公司', '開發有限公司', '股份有限公司', '有限公司',
+        '企業', '建材', '國際', '磁磚', '磁藝', '工程', '設計部', '出貨',
+        '保留收訂', '公司', '實業', '精品', '工作室', '開發', '室內裝修',
+        '室內設計', '設計', '行銷', '商行', '建業', '綜合'
+    ];
 
     private $gs;
 
     public function __construct($gs)
     {
         $this->gs = $gs;
+    }
+
+    private function normalizeCustomerName($name)
+    {
+        return preg_replace('/[()（）【】\[\]「」『』,，.。\/／:：\s]+/u', '', trim((string)$name));
+    }
+
+    private function displayCustomerName($name)
+    {
+        $s = $this->normalizeCustomerName($name);
+        if ($s === '') return '未知客戶';
+        if (mb_strpos($s, '漢樺') !== false || mb_strpos($s, '波爾泰') !== false) return '漢樺';
+        if (mb_strpos($s, '大永') !== false || mb_strpos($s, '新大永') !== false) return '大永';
+        if (mb_strpos($s, '伊特') !== false || mb_strpos($s, '喬弈') !== false || mb_strpos($s, '喬翌') !== false) return '伊特';
+        if (mb_strpos($s, '鏷城') !== false || mb_strpos($s, '璞城') !== false) return '鏷城';
+        if (mb_strpos($s, '鼎康') !== false || mb_strpos($s, '鼎晨') !== false) return '鼎晨';
+        if (mb_strpos($s, '今冠') !== false || mb_strpos($s, '金冠') !== false) return '金冠';
+        if (mb_strpos($s, '東春') !== false || mb_strpos($s, '滿財') !== false) return '東春';
+        if (mb_strpos($s, '德思特尼') !== false) return '德思特尼';
+
+        $parts = preg_split('/[-－—]/u', $s);
+        $s = $parts[0] ?? $s;
+        $changed = true;
+        while ($changed) {
+            $changed = false;
+            foreach (self::$customerSuffixes as $suffix) {
+                $pos = mb_strpos($s, $suffix);
+                if ($pos !== false && $pos > 0) {
+                    $s = mb_substr($s, 0, $pos);
+                    $changed = true;
+                    break;
+                }
+            }
+        }
+        return mb_substr($s, 0, 4);
     }
 
     public function getSleeperConfig()
@@ -1102,6 +1143,7 @@ class SleeperService
             'month' => $this->findHeader($h, ['月份']),
             'code' => $this->findHeader($h, ['產品編號']),
             'customer' => $this->findHeader($h, ['客戶名稱', '客戶']),
+            'project' => $this->findHeader($h, ['專案名稱', '案名', '專案', '工地']),
             'sales' => $this->findHeader($h, ['負責業務', '業務']),
             'pings' => $this->findHeader($h, ['銷售坪數']),
             'amount' => $this->findHeader($h, ['銷售金額']),
@@ -1117,9 +1159,9 @@ class SleeperService
         for ($m = 1; $m <= 12; $m++) $monthTrend[$m] = 0;
 
         $buckets = [
-            'current' => ['sales' => [], 'customers' => [], 'products' => [], 'series' => [], 'total' => 0, 'pings' => 0, 'count' => 0],
-            'previous' => ['sales' => [], 'customers' => [], 'products' => [], 'series' => [], 'total' => 0, 'pings' => 0, 'count' => 0],
-            'yoy' => ['sales' => [], 'customers' => [], 'products' => [], 'series' => [], 'total' => 0, 'pings' => 0, 'count' => 0]
+            'current' => ['sales' => [], 'customers' => [], 'projects' => [], 'products' => [], 'series' => [], 'total' => 0, 'pings' => 0, 'count' => 0],
+            'previous' => ['sales' => [], 'customers' => [], 'projects' => [], 'products' => [], 'series' => [], 'total' => 0, 'pings' => 0, 'count' => 0],
+            'yoy' => ['sales' => [], 'customers' => [], 'projects' => [], 'products' => [], 'series' => [], 'total' => 0, 'pings' => 0, 'count' => 0]
         ];
 
         $matchesPeriod = function ($rowYear, $rowMonth, $periodMeta) {
@@ -1141,7 +1183,9 @@ class SleeperService
             if ($bucketName === null) continue;
 
             $sku = $this->cleanSku($this->getVal($row, $idx['code']));
-            $customer = trim($this->getVal($row, $idx['customer'])) ?: '未指定客戶';
+            $customer = $this->displayCustomerName($this->getVal($row, $idx['customer']));
+            $project = trim($idx['project'] !== -1 ? $this->getVal($row, $idx['project']) : '');
+            if ($project === '') $project = '未指定專案';
             $sales = $this->normalizeSalesRep($idx['sales'] !== -1 ? $this->getVal($row, $idx['sales']) : '');
             if (isset(self::$salesMerge[$sales])) $sales = self::$salesMerge[$sales];
             $pings = $idx['pings'] !== -1 ? $this->optFloat($this->getVal($row, $idx['pings'])) : 0;
@@ -1159,6 +1203,11 @@ class SleeperService
             $buckets[$bucketName]['customers'][$customer]['amount'] += $amount;
             $buckets[$bucketName]['customers'][$customer]['pings'] += $pings;
             $buckets[$bucketName]['customers'][$customer]['count'] += $txCount;
+
+            if (!isset($buckets[$bucketName]['projects'][$project])) $buckets[$bucketName]['projects'][$project] = ['name' => $project, 'amount' => 0, 'pings' => 0, 'count' => 0];
+            $buckets[$bucketName]['projects'][$project]['amount'] += $amount;
+            $buckets[$bucketName]['projects'][$project]['pings'] += $pings;
+            $buckets[$bucketName]['projects'][$project]['count'] += $txCount;
 
             $productKey = $sku . '|' . $series;
             if (!isset($buckets[$bucketName]['products'][$productKey])) {
@@ -1184,6 +1233,7 @@ class SleeperService
         foreach (['current', 'previous', 'yoy'] as $bucketName) {
             $sortDesc($buckets[$bucketName]['sales']);
             $sortDesc($buckets[$bucketName]['customers']);
+            $sortDesc($buckets[$bucketName]['projects']);
             $sortDesc($buckets[$bucketName]['products']);
             $sortDesc($buckets[$bucketName]['series']);
         }
@@ -1212,12 +1262,14 @@ class SleeperService
 
         $topSales = array_values(array_slice($buckets['current']['sales'], 0, 8));
         $topCustomers = array_values(array_slice($buckets['current']['customers'], 0, 10));
+        $topProjects = array_values(array_slice($buckets['current']['projects'], 0, 10));
         $topProducts = array_values(array_slice($buckets['current']['products'], 0, 10));
         $topSeries = array_values(array_slice($buckets['current']['series'], 0, 6));
 
         $topProduct = count($topProducts) ? $topProducts[0] : null;
         $growthSales = $this->buildDeltaLeaders($buckets['current']['sales'], $buckets['previous']['sales'], 'sales');
         $growthCustomers = $this->buildDeltaLeaders($buckets['current']['customers'], $buckets['previous']['customers'], 'customer');
+        $growthProjects = $this->buildDeltaLeaders($buckets['current']['projects'], $buckets['previous']['projects'], 'project');
         $growthProducts = $this->buildDeltaLeaders($buckets['current']['products'], $buckets['previous']['products'], 'product');
 
         return [
@@ -1231,23 +1283,29 @@ class SleeperService
                 'previousLabel' => $prevMeta['label'],
                 'yoyLabel' => $yoyMeta['label'],
                 'summary' => $currentSummary,
+                'bases' => [
+                    'previous' => $prevSummary,
+                    'yoy' => $yoySummary
+                ],
                 'comparisons' => [
                     'primary' => $this->buildStrategyCompare($currentSummary, $prevSummary, $meta['primaryLabel']),
                     'yoy' => $this->buildStrategyCompare($currentSummary, $yoySummary, 'YOY')
                 ],
                 'topSales' => $topSales,
                 'topCustomers' => $topCustomers,
+                'topProjects' => $topProjects,
                 'topProducts' => $topProducts,
                 'topSeries' => $topSeries,
                 'growthSales' => $growthSales,
                 'growthCustomers' => $growthCustomers,
+                'growthProjects' => $growthProjects,
                 'growthProducts' => $growthProducts,
                 'monthTrend' => $monthTrend,
                 'insights' => [
-                    'leader' => count($topSales) ? $topSales[0]['name'] . ' 目前領先，' . round($topSales[0]['amount'] / 10000, 1) . ' 萬。' : '本期尚無業務資料。',
-                    'concentration' => '前 3 業務占比 ' . $currentSummary['top3SalesPct'] . '%，最大客戶占比 ' . $currentSummary['topCustomerPct'] . '%。',
-                    'customer' => count($topCustomers) ? '最大客戶 ' . mb_substr($topCustomers[0]['name'], 0, 8, 'UTF-8') . '，貢獻 ' . round($topCustomers[0]['amount'] / 10000, 1) . ' 萬。' : '本期尚無客戶資料。',
-                    'product' => $topProduct ? '熱銷產品 ' . $topProduct['sku'] . '，' . round($topProduct['amount'] / 10000, 1) . ' 萬。' : '本期尚無產品資料。'
+                    'leader' => count($topSales) ? $topSales[0]['name'] . ' 目前領先，' . (int)floor($topSales[0]['amount'] / 10000) . ' 萬。' : '本期尚無業務資料。',
+                    'concentration' => '前 3 業務占比 ' . (int)floor($currentSummary['top3SalesPct']) . '%，最大客戶占比 ' . (int)floor($currentSummary['topCustomerPct']) . '%。',
+                    'customer' => count($topCustomers) ? '最大客戶 ' . mb_substr($topCustomers[0]['name'], 0, 8, 'UTF-8') . '，貢獻 ' . (int)floor($topCustomers[0]['amount'] / 10000) . ' 萬。' : '本期尚無客戶資料。',
+                    'product' => $topProduct ? '熱銷產品 ' . $topProduct['sku'] . '，' . (int)floor($topProduct['amount'] / 10000) . ' 萬。' : '本期尚無產品資料。'
                 ]
             ]
         ];
@@ -1893,6 +1951,7 @@ class SleeperService
                 'amount' => $this->findHeader($headers, ['金額', '銷貨金額']),
                 'type' => $this->findHeader($headers, ['類別', '性質', '單據類別']),
                 'productName' => $this->findHeader($headers, ['產品名稱', '品名']),
+                'project' => $this->findHeader($headers, ['案名', '專案', '工地名稱', '工地']),
                 'note' => $this->findHeader($headers, ['產品備註', '備註', '說明'])
             ];
 
@@ -1927,7 +1986,9 @@ class SleeperService
                 $salesName = $this->normalizeSalesRep($idx['sales'] !== -1 ? $this->getVal($row, $idx['sales']) : '');
                 $custCode = $idx['custCode'] !== -1 ? trim($this->getVal($row, $idx['custCode'])) : '';
                 $productName = $idx['productName'] !== -1 ? trim($this->getVal($row, $idx['productName'])) : '';
+                $projectName = $idx['project'] !== -1 ? trim($this->getVal($row, $idx['project'])) : '';
                 $note = $idx['note'] !== -1 ? trim($this->getVal($row, $idx['note'])) : '';
+                if ($projectName === '') $projectName = $note;
 
                 if ($this->isSampleRow($custCode, $custName, $productName . ' ' . $note, $amount)) continue;
 
@@ -1935,7 +1996,7 @@ class SleeperService
                 $isReturn = (strpos($typeText, '退') !== false) || ($qty < 0);
                 $month = (int)$d->format('n');
                 
-                $key = "{$year}|{$month}|{$code}|{$custName}|{$salesName}";
+                $key = "{$year}|{$month}|{$code}|{$custName}|{$projectName}|{$salesName}";
                 $perPing = isset($metaMap[$code]) ? ($metaMap[$code]['perPing'] ?: 36) : 36;
 
                 if (!isset($aggregate[$key])) {
@@ -1944,6 +2005,7 @@ class SleeperService
                         'month' => $month,
                         'code' => $code,
                         'customer' => $custName,
+                        'project' => $projectName,
                         'sales' => $salesName,
                         'qty' => 0,
                         'pings' => 0,
@@ -2000,6 +2062,7 @@ class SleeperService
                     $item['month'],
                     $item['code'],
                     $item['customer'],
+                    $item['project'],
                     $item['sales'],
                     round($item['qty'], 2),
                     round($item['pings'], 2),
@@ -2010,7 +2073,7 @@ class SleeperService
                     $item['lastTxDate'] ? $item['lastTxDate']->format('Y/m/d') : '',
                     $item['productName'],
                     $updatedAt,
-                    'v2-sales-owner'
+                    'v3-sales-owner-project'
                 ];
             }
 
@@ -2018,7 +2081,7 @@ class SleeperService
 
             $this->gs->clearSheet(CACHE_SHEET);
             
-            $headers = ['年度', '月份', '產品編號', '客戶名稱', '負責業務', '銷售片數', '銷售坪數', '銷售金額', '交易筆數', '退貨片數', '總片數', '最後交易日', '產品名稱', '更新時間', '快取版本'];
+            $headers = ['年度', '月份', '產品編號', '客戶名稱', '專案名稱', '負責業務', '銷售片數', '銷售坪數', '銷售金額', '交易筆數', '退貨片數', '總片數', '最後交易日', '產品名稱', '更新時間', '快取版本'];
             $allRows = array_merge([$headers], $mergedRows);
 
             $chunkSize = 1000;

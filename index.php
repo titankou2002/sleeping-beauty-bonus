@@ -1314,12 +1314,30 @@ function fmtPct(n) {
 }
 
 function fmtDeltaPct(n) {
-  var num = Math.round((n || 0) * 10) / 10;
-  return (num > 0 ? '+' : '') + num.toFixed(1) + '%';
+  var num = truncNum(n || 0);
+  return (num > 0 ? '+' : '') + num + '%';
 }
 
 function deltaClass(n) {
   return n > 0 ? 'delta-up' : (n < 0 ? 'delta-down' : 'delta-flat');
+}
+
+function truncNum(n) {
+  n = Number(n || 0);
+  return n < 0 ? Math.ceil(n) : Math.floor(n);
+}
+
+function fmtReportWan(n) {
+  n = Number(n || 0) / 10000;
+  return truncNum(n) + '萬';
+}
+
+function fmtReportInt(n) {
+  return String(truncNum(n || 0));
+}
+
+function fmtReportPct(n) {
+  return truncNum(n || 0) + '%';
 }
 
 function ellipsis(s, n) {
@@ -1351,7 +1369,7 @@ function buildDeltaRows(items, key) {
     return '<div class="bar-row delta">' +
       '<div class="bar-label">' + ellipsis(item[key], 14) + '</div>' +
       '<div class="bar-track"><div class="bar-fill ' + cls + '" style="width:' + width + '%"></div></div>' +
-      '<div class="bar-value ' + deltaClass(item.delta) + '">' + sign + fmt(item.delta || 0) + '</div>' +
+      '<div class="bar-value ' + deltaClass(item.delta) + '">' + sign + fmtReportWan(Math.abs(item.delta || 0) * (item.delta < 0 ? -1 : 1)) + '</div>' +
       '</div>';
   }).join('') + '</div>';
 }
@@ -1373,7 +1391,7 @@ function buildDonutCard(title, items, key, centerLabel) {
       '<div class="legend-row">' +
       '<span class="legend-dot" style="background:' + color + '"></span>' +
       '<span class="legend-name">' + ellipsis(item[key], 16) + '</span>' +
-      '<span class="legend-val">' + fmtPct(pct) + '</span>' +
+      '<span class="legend-val">' + fmtReportPct(pct) + '</span>' +
       '</div>'
     );
     start = end;
@@ -1395,7 +1413,7 @@ function buildTrendChart(monthTrend, activeMonth) {
     var val = monthTrend[m] || 0;
     var h = Math.max(8, Math.round(val / max * 150));
     html += '<div class="trend-col' + (m === activeMonth ? ' active' : '') + '">' +
-      '<div class="trend-value">' + (val > 0 ? fmt(val) : '0萬') + '</div>' +
+      '<div class="trend-value">' + (val > 0 ? fmtReportWan(val) : '0萬') + '</div>' +
       '<div class="trend-bar" style="height:' + h + 'px"></div>' +
       '<div class="trend-label">' + m + '月</div>' +
       '</div>';
@@ -1404,25 +1422,31 @@ function buildTrendChart(monthTrend, activeMonth) {
   return html;
 }
 
-function buildCompareCard(label, currentValue, primaryPct, yoyPct) {
+function buildCompareCard(label, currentValue, previousLabel, previousValue, yoyLabel, yoyValue, primaryPct, yoyPct) {
   return '<div class="compare-card">' +
     '<div class="compare-label">' + label + '</div>' +
     '<div class="compare-value">' + currentValue + '</div>' +
-    '<div class="compare-sub">對前期 <span class="' + deltaClass(primaryPct) + '">' + fmtDeltaPct(primaryPct || 0) + '</span> ・ YOY <span class="' + deltaClass(yoyPct) + '">' + fmtDeltaPct(yoyPct || 0) + '</span></div>' +
+    '<div class="compare-sub">' + previousLabel + ' ' + previousValue + ' ・ <span class="' + deltaClass(primaryPct) + '">' + fmtDeltaPct(primaryPct || 0) + '</span></div>' +
+    '<div class="compare-sub">' + yoyLabel + ' ' + yoyValue + ' ・ <span class="' + deltaClass(yoyPct) + '">' + fmtDeltaPct(yoyPct || 0) + '</span></div>' +
     '</div>';
 }
 
 function renderStrategyReport(d) {
   var s = d.summary || {};
+  var bases = d.bases || {};
+  var basePrev = bases.previous || {};
+  var baseYoy = bases.yoy || {};
   var c = d.comparisons || {};
   var primary = c.primary || {};
   var yoy = c.yoy || {};
   var topSales = d.topSales || [];
   var topCustomers = d.topCustomers || [];
+  var topProjects = d.topProjects || [];
   var topProducts = d.topProducts || [];
   var topSeries = d.topSeries || [];
   var growthSales = d.growthSales || [];
   var growthCustomers = d.growthCustomers || [];
+  var growthProjects = d.growthProjects || [];
   var growthProducts = d.growthProducts || [];
   var topSalesDonut = topSales.slice(0, 5);
   if (topSales.length > 5) {
@@ -1431,30 +1455,32 @@ function renderStrategyReport(d) {
   }
 
   var html = '<div class="kpi-row">' +
-    '<div class="kpi-card kpi-gold"><div class="label">本期銷售額</div><div class="value">' + fmt(s.total || 0) + '</div><div class="sub">' + d.label + '</div></div>' +
-    '<div class="kpi-card kpi-green"><div class="label">本期銷售坪數</div><div class="value">' + (s.pings || 0) + '</div><div class="sub">坪</div></div>' +
-    '<div class="kpi-card kpi-blue"><div class="label">交易筆數</div><div class="value">' + (s.txCount || 0) + '</div><div class="sub">筆</div></div>' +
-    '<div class="kpi-card"><div class="label">平均單筆金額</div><div class="value">' + fmt(s.avgTicket || 0) + '</div><div class="sub">客單價</div></div>' +
-    '<div class="kpi-card kpi-red"><div class="label">前 3 業務占比</div><div class="value">' + fmtPct(s.top3SalesPct || 0) + '</div><div class="sub">集中度</div></div>' +
-    '<div class="kpi-card"><div class="label">最大客戶占比</div><div class="value">' + fmtPct(s.topCustomerPct || 0) + '</div><div class="sub">依賴度</div></div>' +
+    '<div class="kpi-card kpi-gold"><div class="label">本期銷售額</div><div class="value">' + fmtReportWan(s.total || 0) + '</div><div class="sub">' + d.label + '</div></div>' +
+    '<div class="kpi-card kpi-green"><div class="label">本期銷售坪數</div><div class="value">' + fmtReportInt(s.pings || 0) + '</div><div class="sub">坪</div></div>' +
+    '<div class="kpi-card kpi-blue"><div class="label">交易筆數</div><div class="value">' + fmtReportInt(s.txCount || 0) + '</div><div class="sub">筆</div></div>' +
+    '<div class="kpi-card"><div class="label">平均單筆金額</div><div class="value">' + fmtReportWan(s.avgTicket || 0) + '</div><div class="sub">客單價</div></div>' +
+    '<div class="kpi-card kpi-red"><div class="label">前 3 業務占比</div><div class="value">' + fmtReportPct(s.top3SalesPct || 0) + '</div><div class="sub">集中度</div></div>' +
+    '<div class="kpi-card"><div class="label">最大客戶占比</div><div class="value">' + fmtReportPct(s.topCustomerPct || 0) + '</div><div class="sub">依賴度</div></div>' +
     '</div>';
 
   html += '<div class="compare-strip">' +
-    buildCompareCard(primary.label || '前期比較', fmtDeltaPct(primary.totalPct || 0), primary.totalPct, yoy.totalPct) +
-    buildCompareCard('交易效率', fmt(s.avgTicket || 0), primary.avgTicketPct, yoy.avgTicketPct) +
+    buildCompareCard(primary.label || '前期比較', fmtReportWan(s.total || 0), d.previousLabel || '前期', fmtReportWan(basePrev.total || 0), d.yoyLabel || '去年同期', fmtReportWan(baseYoy.total || 0), primary.totalPct, yoy.totalPct) +
+    buildCompareCard('交易效率', fmtReportWan(s.avgTicket || 0), d.previousLabel || '前期', fmtReportWan(basePrev.avgTicket || 0), d.yoyLabel || '去年同期', fmtReportWan(baseYoy.avgTicket || 0), primary.avgTicketPct, yoy.avgTicketPct) +
     '</div>';
 
   html += '<div class="report-grid">';
-  html += '<div class="chart-card"><div class="chart-title">業務排行</div><div class="chart-sub">看誰真的在出貨，不看感覺。</div>' + buildBarRows(topSales, 'name', fmt) + '</div>';
-  html += buildDonutCard('業務占比', topSalesDonut, 'name', '本期占比\n' + fmt(s.total || 0));
-  html += '<div class="chart-card"><div class="chart-title">前 10 大客戶</div><div class="chart-sub">看客戶集中風險。</div>' + buildBarRows(topCustomers, 'name', fmt) + '</div>';
+  html += '<div class="chart-card"><div class="chart-title">業務排行</div><div class="chart-sub">看誰真的在出貨，不看感覺。</div>' + buildBarRows(topSales, 'name', fmtReportWan) + '</div>';
+  html += buildDonutCard('業務占比', topSalesDonut, 'name', '本期占比\n' + fmtReportWan(s.total || 0));
+  html += '<div class="chart-card"><div class="chart-title">前 10 大客戶</div><div class="chart-sub">只看客戶，不把專案混進來。</div>' + buildBarRows(topCustomers, 'name', fmtReportWan) + '</div>';
+  html += '<div class="chart-card"><div class="chart-title">前 10 大專案</div><div class="chart-sub">專案另外統計，避免客戶失真。</div>' + buildBarRows(topProjects, 'name', fmtReportWan) + '</div>';
   html += '<div class="chart-card"><div class="chart-title">前 10 大產品</div><div class="chart-sub">看哪個 SKU 在拉動銷售。</div>' + buildBarRows(topProducts.map(function(item) {
     return { name: item.sku, amount: item.amount };
-  }), 'name', fmt) + '</div>';
+  }), 'name', fmtReportWan) + '</div>';
   html += buildDonutCard('系列占比', topSeries, 'name', '系列結構\n' + topSeries.length + ' 類');
   html += '<div class="chart-card"><div class="chart-title">年度月趨勢</div><div class="chart-sub">判斷這期是在高峰、平穩，還是掉速。</div>' + buildTrendChart(d.monthTrend || {}, d.months ? d.months[0] : 0) + '</div>';
   html += '<div class="chart-card"><div class="chart-title">業務成長貢獻</div><div class="chart-sub">相對 ' + (d.previousLabel || '前期') + '，誰拉上來、誰掉下去。</div>' + buildDeltaRows(growthSales, 'name') + '</div>';
   html += '<div class="chart-card"><div class="chart-title">客戶成長貢獻</div><div class="chart-sub">看成長來自哪些客戶，或少在哪些客戶。</div>' + buildDeltaRows(growthCustomers, 'name') + '</div>';
+  html += '<div class="chart-card"><div class="chart-title">專案成長貢獻</div><div class="chart-sub">專案獨立看，避免混淆客戶變化。</div>' + buildDeltaRows(growthProjects, 'name') + '</div>';
   html += '<div class="chart-card full-span"><div class="chart-title">產品成長貢獻</div><div class="chart-sub">看哪個 SKU 真正在推升或拖累本期。</div>' + buildDeltaRows(growthProducts, 'name') + '</div>';
   html += '<div class="chart-card full-span"><div class="chart-title">管理提示</div><div class="insight-list">' +
     '<div class="insight-item">' + (d.insights && d.insights.leader ? d.insights.leader : '本期尚無業務資料。') + '</div>' +
