@@ -22,6 +22,7 @@ class GoogleSheetsClient
     private $ssId;
     private $accessToken = null;
     private $tokenExpires = 0;
+    private $sheetIdCache = [];
 
     public function __construct($ssId = null)
     {
@@ -61,6 +62,25 @@ class GoogleSheetsClient
         $range = urlencode("'{$sheetName}'!A:ZZ");
         $url = "https://sheets.googleapis.com/v4/spreadsheets/{$this->ssId}/values/{$range}:clear";
         $this->api('POST', $url, (object)[]);
+    }
+
+    public function formatSalesYearCacheSheet($sheetName)
+    {
+        $sheetId = $this->getSheetIdByName($sheetName);
+        $requests = [
+            $this->buildFormatRequest($sheetId, 0, 1, 'NUMBER', '0'),
+            $this->buildFormatRequest($sheetId, 1, 2, 'NUMBER', '0'),
+            $this->buildFormatRequest($sheetId, 2, 5, 'TEXT', '@'),
+            $this->buildFormatRequest($sheetId, 5, 7, 'NUMBER', '0.00'),
+            $this->buildFormatRequest($sheetId, 7, 8, 'NUMBER', '0'),
+            $this->buildFormatRequest($sheetId, 8, 9, 'NUMBER', '0'),
+            $this->buildFormatRequest($sheetId, 9, 11, 'NUMBER', '0.00'),
+            $this->buildFormatRequest($sheetId, 11, 12, 'DATE', 'yyyy/mm/dd'),
+            $this->buildFormatRequest($sheetId, 12, 13, 'TEXT', '@'),
+            $this->buildFormatRequest($sheetId, 13, 14, 'DATE_TIME', 'yyyy/mm/dd hh:mm:ss'),
+            $this->buildFormatRequest($sheetId, 14, 15, 'TEXT', '@')
+        ];
+        $this->batchUpdate(['requests' => $requests]);
     }
 
 
@@ -173,6 +193,52 @@ class GoogleSheetsClient
 
         $result = json_decode($resp, true);
         return $result ?: [];
+    }
+
+    private function batchUpdate($body)
+    {
+        $url = "https://sheets.googleapis.com/v4/spreadsheets/{$this->ssId}:batchUpdate";
+        return $this->api('POST', $url, $body);
+    }
+
+    private function getSheetIdByName($sheetName)
+    {
+        if (isset($this->sheetIdCache[$sheetName])) return $this->sheetIdCache[$sheetName];
+
+        $url = "https://sheets.googleapis.com/v4/spreadsheets/{$this->ssId}?fields=sheets(properties(sheetId,title))";
+        $res = $this->api('GET', $url);
+        foreach (($res['sheets'] ?? []) as $sheet) {
+            $props = $sheet['properties'] ?? [];
+            if (($props['title'] ?? '') === $sheetName) {
+                $this->sheetIdCache[$sheetName] = (int)$props['sheetId'];
+                return $this->sheetIdCache[$sheetName];
+            }
+        }
+
+        throw new RuntimeException("找不到工作表 ID: {$sheetName}");
+    }
+
+    private function buildFormatRequest($sheetId, $startCol, $endCol, $type, $pattern)
+    {
+        return [
+            'repeatCell' => [
+                'range' => [
+                    'sheetId' => $sheetId,
+                    'startRowIndex' => 1,
+                    'startColumnIndex' => $startCol,
+                    'endColumnIndex' => $endCol
+                ],
+                'cell' => [
+                    'userEnteredFormat' => [
+                        'numberFormat' => [
+                            'type' => $type,
+                            'pattern' => $pattern
+                        ]
+                    ]
+                ],
+                'fields' => 'userEnteredFormat.numberFormat'
+            ]
+        ];
     }
 
     private static function base64url($data)
@@ -1642,6 +1708,7 @@ class SleeperService
                 $chunk = array_slice($allRows, $i, $chunkSize);
                 $this->gs->writeRows(CACHE_SHEET, $i + 1, $chunk);
             }
+            $this->gs->formatSalesYearCacheSheet(CACHE_SHEET);
 
             return [
                 'success' => true,
