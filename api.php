@@ -1316,6 +1316,14 @@ class SleeperService
         return strtoupper(preg_replace('/[\s\-]/', '', trim($v)));
     }
 
+    private function normalizeSalesRep($v)
+    {
+        $name = trim((string)$v);
+        if ($name === '') return '未分配';
+        if ($name === '陳育瑋') return '陳勁多';
+        return $name;
+    }
+
     private function optFloat($v)
     {
         if ($v instanceof DateTime) return 0;
@@ -1469,7 +1477,14 @@ class SleeperService
 
     public function rebuildSalesYearCache($years = null)
     {
+        $lockFp = null;
         try {
+            $lockFp = fopen(sys_get_temp_dir() . '/sleeping_beauty_sales_year_cache.lock', 'c');
+            if (!$lockFp || !flock($lockFp, LOCK_EX | LOCK_NB)) {
+                if (is_resource($lockFp)) fclose($lockFp);
+                return ['success' => false, 'error' => '年度銷售快取正在由睡美人戰情室重建中，請稍後再試。'];
+            }
+
             $nowYear = (int)date('Y');
             if ($years === null) {
                 $targetYears = [$nowYear, $nowYear - 1, $nowYear - 2];
@@ -1488,6 +1503,7 @@ class SleeperService
                 'date' => $this->findHeader($headers, ['單據日期', '銷貨日期', '日期']),
                 'code' => $this->findHeader($headers, ['產品編號', '編號', '品號']),
                 'customer' => $this->findHeader($headers, ['客戶名稱', '客戶']),
+                'sales' => $this->findHeader($headers, ['負責業務', '業務', '業務員']),
                 'custCode' => $this->findHeader($headers, ['客戶編號', '客戶代碼', '代碼']),
                 'qty' => $this->findHeader($headers, ['數量', '銷貨數量', '片數']),
                 'amount' => $this->findHeader($headers, ['金額', '銷貨金額']),
@@ -1524,6 +1540,7 @@ class SleeperService
                 if ($qty == 0 && $amount == 0) continue;
 
                 $custName = trim($this->getVal($row, $idx['customer']));
+                $salesName = $this->normalizeSalesRep($idx['sales'] !== -1 ? $this->getVal($row, $idx['sales']) : '');
                 $custCode = $idx['custCode'] !== -1 ? trim($this->getVal($row, $idx['custCode'])) : '';
                 $productName = $idx['productName'] !== -1 ? trim($this->getVal($row, $idx['productName'])) : '';
                 $note = $idx['note'] !== -1 ? trim($this->getVal($row, $idx['note'])) : '';
@@ -1534,7 +1551,7 @@ class SleeperService
                 $isReturn = (strpos($typeText, '退') !== false) || ($qty < 0);
                 $month = (int)$d->format('n');
                 
-                $key = "{$year}|{$month}|{$code}|{$custName}";
+                $key = "{$year}|{$month}|{$code}|{$custName}|{$salesName}";
                 $perPing = isset($metaMap[$code]) ? ($metaMap[$code]['perPing'] ?: 36) : 36;
 
                 if (!isset($aggregate[$key])) {
@@ -1543,6 +1560,7 @@ class SleeperService
                         'month' => $month,
                         'code' => $code,
                         'customer' => $custName,
+                        'sales' => $salesName,
                         'qty' => 0,
                         'pings' => 0,
                         'amount' => 0,
@@ -1598,6 +1616,7 @@ class SleeperService
                     $item['month'],
                     $item['code'],
                     $item['customer'],
+                    $item['sales'],
                     round($item['qty'], 2),
                     round($item['pings'], 2),
                     round($item['amount']),
@@ -1607,7 +1626,7 @@ class SleeperService
                     $item['lastTxDate'] ? $item['lastTxDate']->format('Y/m/d') : '',
                     $item['productName'],
                     $updatedAt,
-                    'v1'
+                    'v2-sales-owner'
                 ];
             }
 
@@ -1615,7 +1634,7 @@ class SleeperService
 
             $this->gs->clearSheet(CACHE_SHEET);
             
-            $headers = ['年度', '月份', '產品編號', '客戶名稱', '銷售片數', '銷售坪數', '銷售金額', '交易筆數', '退貨片數', '總片數', '最後交易日', '產品名稱', '更新時間', '快取版本'];
+            $headers = ['年度', '月份', '產品編號', '客戶名稱', '負責業務', '銷售片數', '銷售坪數', '銷售金額', '交易筆數', '退貨片數', '總片數', '最後交易日', '產品名稱', '更新時間', '快取版本'];
             $allRows = array_merge([$headers], $mergedRows);
 
             $chunkSize = 1000;
@@ -1635,6 +1654,11 @@ class SleeperService
             ];
         } catch (Exception $e) {
             return ['success' => false, 'error' => $e->getMessage()];
+        } finally {
+            if (is_resource($lockFp)) {
+                flock($lockFp, LOCK_UN);
+                fclose($lockFp);
+            }
         }
     }
 
@@ -1653,8 +1677,13 @@ class SleeperService
                     $sku = $this->cleanSku($this->getVal($cRow, 2));
                     if (!$sku) continue;
 
-                    $pings = $this->optFloat($this->getVal($cRow, 5));
-                    $lastDateStr = trim($this->getVal($cRow, 10));
+                    $hasSalesCol = trim($this->getVal($cRow, 4)) !== '' && !is_numeric($this->getVal($cRow, 4));
+                    $pingsIdx = $hasSalesCol ? 6 : 5;
+                    $countIdx = $hasSalesCol ? 8 : 7;
+                    $lastDateIdx = $hasSalesCol ? 11 : 10;
+
+                    $pings = $this->optFloat($this->getVal($cRow, $pingsIdx));
+                    $lastDateStr = trim($this->getVal($cRow, $lastDateIdx));
                     $d = $lastDateStr ? $this->parseDate($lastDateStr) : null;
                     $cust = trim($this->getVal($cRow, 3));
 
@@ -1662,7 +1691,7 @@ class SleeperService
                         $salesStats[$sku] = ['lastDate' => null, 'totalPings' => 0, 'pings6M' => 0, 'buyerMap' => [], 'count' => 0];
                     }
                     $s = &$salesStats[$sku];
-                    $s['count'] += (int)$this->getVal($cRow, 7);
+                    $s['count'] += (int)$this->getVal($cRow, $countIdx);
                     if ($d) {
                         if (!$s['lastDate'] || $d > $s['lastDate']) $s['lastDate'] = $d;
                         if ($d >= $limit6M) {
