@@ -269,6 +269,10 @@ class SleeperService
         '保留收訂', '公司', '實業', '精品', '工作室', '開發', '室內裝修',
         '室內設計', '設計', '行銷', '商行', '建業', '綜合'
     ];
+    private static $logisticsAddressKeywords = [
+        '貨運', '物流', '運輸', '托運', '倉庫', '貨櫃', '轉運', '集運', '加工',
+        '倉儲', '車隊', '站所', '物流中心', '轉運站'
+    ];
 
     private $gs;
 
@@ -317,6 +321,16 @@ class SleeperService
         return preg_replace('/[\s()（）【】\[\]「」『』,，.。\/／:：\-－—]+/u', '', trim((string)$address));
     }
 
+    private function isLogisticsAddress($address)
+    {
+        $address = trim((string)$address);
+        if ($address === '') return false;
+        foreach (self::$logisticsAddressKeywords as $keyword) {
+            if (mb_strpos($address, $keyword) !== false) return true;
+        }
+        return false;
+    }
+
     private function shortProjectName($customer, $projectRaw, $address)
     {
         $projectRaw = trim((string)$projectRaw);
@@ -340,6 +354,87 @@ class SleeperService
         }
         if (!count($vals)) return 0;
         return array_sum($vals) / count($vals);
+    }
+
+    private function matchesStrategyPeriod($rowYear, $rowMonth, $periodMeta)
+    {
+        return (int)$rowYear === (int)$periodMeta['year'] && in_array((int)$rowMonth, $periodMeta['months'], true);
+    }
+
+    private function truncateReport($n)
+    {
+        $n = (float)$n;
+        return $n < 0 ? ceil($n) : floor($n);
+    }
+
+    private function safeRatio($num, $den)
+    {
+        $den = (float)$den;
+        if ($den == 0.0) return 0;
+        return (float)$num / $den;
+    }
+
+    private function calcPearson($pairs)
+    {
+        $n = count($pairs);
+        if ($n < 2) return 0;
+        $sumX = 0; $sumY = 0; $sumXY = 0; $sumX2 = 0; $sumY2 = 0;
+        foreach ($pairs as $pair) {
+            $x = (float)($pair['x'] ?? 0);
+            $y = (float)($pair['y'] ?? 0);
+            $sumX += $x;
+            $sumY += $y;
+            $sumXY += $x * $y;
+            $sumX2 += $x * $x;
+            $sumY2 += $y * $y;
+        }
+        $num = ($n * $sumXY) - ($sumX * $sumY);
+        $den = sqrt((($n * $sumX2) - ($sumX * $sumX)) * (($n * $sumY2) - ($sumY * $sumY)));
+        if ($den <= 0) return 0;
+        return $num / $den;
+    }
+
+    private function classifyTaskLabel($text)
+    {
+        $text = trim((string)$text);
+        if ($text === '') return '其他';
+        $rules = [
+            '送樣' => ['送樣'],
+            '送貨' => ['送貨', '配送完工', '出貨'],
+            '版面' => ['版面上架', '樣品結案', '版面巡視'],
+            '追蹤' => ['案件追蹤', '業務更新', '聊天', '拜訪', '收款', '開會'],
+            '回公司' => ['回公司', '公司()'],
+            '退貨' => ['退貨']
+        ];
+        foreach ($rules as $label => $keywords) {
+            foreach ($keywords as $kw) {
+                if (mb_strpos($text, $kw) !== false) return $label;
+            }
+        }
+        return '其他';
+    }
+
+    private function parseWorkLogCustomers($customerText)
+    {
+        $text = trim((string)$customerText);
+        if ($text === '') return [];
+
+        $parts = preg_split('/\|\|/u', $text);
+        $results = [];
+        foreach ($parts as $part) {
+            $part = preg_replace('/\[[^\]]*\]/u', '', trim((string)$part));
+            $part = trim((string)$part);
+            if ($part === '') continue;
+            $part = preg_split('/[()（）]/u', $part)[0] ?? $part;
+            $part = preg_split('/[-－—]/u', $part)[0] ?? $part;
+            $part = trim((string)$part);
+            if ($part === '') continue;
+            if (preg_match('/^(公司|回公司|測試|內湖|台中|台南|高雄)$/u', $part)) continue;
+            $norm = $this->displayCustomerName($part);
+            if ($norm === '' || $norm === '未知客戶') continue;
+            $results[$norm] = $norm;
+        }
+        return array_values($results);
     }
 
     public function scanProjectFlags()
@@ -403,9 +498,10 @@ class SleeperService
             $customerMonthlyTotals[$customer][$yearMonth] += $amount;
 
             $address = $idx['address'] !== -1 ? trim($this->getVal($row, $idx['address'])) : '';
+            $isLogisticsAddress = $this->isLogisticsAddress($address);
             $addressKey = $this->normalizeAddress($address);
             $projectKey = $this->normalizeCustomerName($projectRaw);
-            $entityKey = $addressKey !== '' ? $addressKey : $projectKey;
+            $entityKey = $projectKey !== '' ? $projectKey : ($isLogisticsAddress ? '' : $addressKey);
             if ($entityKey === '') continue;
 
             $perPing = isset($metaMap[$sku]) ? ($metaMap[$sku]['perPing'] ?: 36) : 36;
@@ -417,6 +513,7 @@ class SleeperService
                     'customer' => $customer,
                     'yearMonth' => $yearMonth,
                     'address' => $address,
+                    'isLogisticsAddress' => $isLogisticsAddress,
                     'projectRaw' => $projectRaw,
                     'rows' => [],
                     'amount' => 0,
@@ -446,13 +543,17 @@ class SleeperService
             $reasons = [];
             $score = 0;
 
-            if ($group['address'] !== '' && $rowCount >= 2) {
+            if (!$group['isLogisticsAddress'] && $group['address'] !== '' && $rowCount >= 2) {
                 $reasons[] = '同地址集中出貨';
                 $score += 2;
             }
             if ($group['projectRaw'] !== '') {
                 $reasons[] = '含案名/工地欄位';
                 $score += 1;
+            }
+            if ($group['isLogisticsAddress']) {
+                $reasons[] = '貨運/物流/加工地址降權';
+                $score -= 3;
             }
             if ($group['amount'] >= 1000000) {
                 $reasons[] = '單月金額破 100 萬';
@@ -479,10 +580,13 @@ class SleeperService
 
             if ($score < 3) continue;
             $flaggedGroups++;
-            $suggestedType = ($group['address'] !== '' && $group['amount'] >= 800000 && $rowCount <= 4) ? '直送工地' : '現貨出庫';
+            $suggestedType = (!$group['isLogisticsAddress'] && $group['address'] !== '' && $group['amount'] >= 800000 && $rowCount <= 4) ? '直送工地' : '現貨出庫';
             $suggestedExclude = $suggestedType === '直送工地' ? '是' : '否';
             $suggestedName = $this->shortProjectName($group['customer'], $group['projectRaw'], $group['address']);
-            $reasonText = implode('、', array_unique($reasons)) . '｜' . $group['yearMonth'] . '｜' . (int)floor($group['amount'] / 10000) . '萬';
+            $cleanReasons = array_values(array_filter(array_unique($reasons), function ($reason) {
+                return $reason !== '貨運/物流/加工地址降權';
+            }));
+            $reasonText = implode('、', $cleanReasons) . '｜' . $group['yearMonth'] . '｜' . (int)floor($group['amount'] / 10000) . '萬';
 
             foreach ($group['rows'] as $rowIndex) {
                 $flaggedRows[$rowIndex] = [
@@ -1422,10 +1526,6 @@ class SleeperService
             'yoy' => ['sales' => [], 'customers' => [], 'projects' => [], 'products' => [], 'series' => [], 'total' => 0, 'pings' => 0, 'count' => 0]
         ];
 
-        $matchesPeriod = function ($rowYear, $rowMonth, $periodMeta) {
-            return $rowYear === (int)$periodMeta['year'] && in_array($rowMonth, $periodMeta['months'], true);
-        };
-
         for ($i = 1; $i < count($raw); $i++) {
             $row = $raw[$i];
             $rowYear = (int)$this->getVal($row, $idx['year']);
@@ -1435,9 +1535,9 @@ class SleeperService
             if ($rowYear === (int)$meta['year']) $monthTrend[$rowMonth] += $amount;
 
             $bucketName = null;
-            if ($matchesPeriod($rowYear, $rowMonth, $meta)) $bucketName = 'current';
-            elseif ($matchesPeriod($rowYear, $rowMonth, $prevMeta)) $bucketName = 'previous';
-            elseif ($matchesPeriod($rowYear, $rowMonth, $yoyMeta)) $bucketName = 'yoy';
+            if ($this->matchesStrategyPeriod($rowYear, $rowMonth, $meta)) $bucketName = 'current';
+            elseif ($this->matchesStrategyPeriod($rowYear, $rowMonth, $prevMeta)) $bucketName = 'previous';
+            elseif ($this->matchesStrategyPeriod($rowYear, $rowMonth, $yoyMeta)) $bucketName = 'yoy';
             if ($bucketName === null) continue;
 
             $sku = $this->cleanSku($this->getVal($row, $idx['code']));
@@ -1559,6 +1659,7 @@ class SleeperService
                 'growthProjects' => $growthProjects,
                 'growthProducts' => $growthProducts,
                 'monthTrend' => $monthTrend,
+                'fieldActivity' => $this->buildFieldActivityReport($meta, $buckets['current']),
                 'insights' => [
                     'leader' => count($topSales) ? $topSales[0]['name'] . ' 目前領先，' . (int)floor($topSales[0]['amount'] / 10000) . ' 萬。' : '本期尚無業務資料。',
                     'concentration' => '前 3 業務占比 ' . (int)floor($currentSummary['top3SalesPct']) . '%，最大客戶占比 ' . (int)floor($currentSummary['topCustomerPct']) . '%。',
@@ -1566,6 +1667,205 @@ class SleeperService
                     'product' => $topProduct ? '熱銷產品 ' . $topProduct['sku'] . '，' . (int)floor($topProduct['amount'] / 10000) . ' 萬。' : '本期尚無產品資料。'
                 ]
             ]
+        ];
+    }
+
+    private function buildFieldActivityReport($meta, $currentBucket)
+    {
+        $gsLayout = new GoogleSheetsClient(SS_ID_LAYOUT);
+        $workRows = $gsLayout->readSheet('智能_工作日誌');
+        $driveRows = $gsLayout->readSheet('智能_行駛日誌');
+
+        $salesByCustomer = [];
+        foreach (($currentBucket['customers'] ?? []) as $name => $row) {
+            $salesByCustomer[$name] = $row['amount'] ?? 0;
+        }
+        $salesByRep = [];
+        foreach (($currentBucket['sales'] ?? []) as $name => $row) {
+            $salesByRep[$name] = $row['amount'] ?? 0;
+        }
+
+        $visitByCustomer = [];
+        $visitByRep = [];
+        $taskTypeCounts = [];
+        $customerLastVisit = [];
+        $allVisitPairs = [];
+
+        if (count($workRows) >= 2) {
+            $h = $workRows[0];
+            $idxDate = $this->findHeader($h, ['日期']);
+            $idxSales = $this->findHeader($h, ['業務姓名', '業務']);
+            $idxCustomer = $this->findHeader($h, ['客戶名稱', '客戶']);
+            $idxTask = $this->findHeader($h, ['任務摘要', '摘要']);
+            for ($i = 1; $i < count($workRows); $i++) {
+                $row = $workRows[$i];
+                $d = $this->parseDate($this->getVal($row, $idxDate));
+                if (!$d) continue;
+                if (!$this->matchesStrategyPeriod((int)$d->format('Y'), (int)$d->format('n'), $meta)) continue;
+
+                $sales = $this->normalizeSalesRep($this->getVal($row, $idxSales));
+                if (isset(self::$salesMerge[$sales])) $sales = self::$salesMerge[$sales];
+                if ($sales === '') $sales = '未指定';
+
+                $taskLabel = $this->classifyTaskLabel($this->getVal($row, $idxTask));
+                if (!isset($taskTypeCounts[$taskLabel])) $taskTypeCounts[$taskLabel] = ['name' => $taskLabel, 'amount' => 0];
+                $taskTypeCounts[$taskLabel]['amount'] += 1;
+
+                if (!isset($visitByRep[$sales])) {
+                    $visitByRep[$sales] = [
+                        'name' => $sales, 'visits' => 0, 'customerSet' => [], 'daySet' => [],
+                        'salesAmount' => isset($salesByRep[$sales]) ? $salesByRep[$sales] : 0,
+                        'km' => 0, 'fuelAmount' => 0, 'fuelLiters' => 0
+                    ];
+                }
+                $visitByRep[$sales]['daySet'][$d->format('Y-m-d')] = true;
+
+                $customers = $this->parseWorkLogCustomers($this->getVal($row, $idxCustomer));
+                foreach ($customers as $customer) {
+                    if (!isset($visitByCustomer[$customer])) {
+                        $visitByCustomer[$customer] = [
+                            'name' => $customer,
+                            'visits' => 0,
+                            'salesAmount' => isset($salesByCustomer[$customer]) ? $salesByCustomer[$customer] : 0,
+                            'repSet' => [],
+                            'lastVisit' => '',
+                            'daySet' => []
+                        ];
+                    }
+                    $visitByCustomer[$customer]['visits'] += 1;
+                    $visitByCustomer[$customer]['repSet'][$sales] = true;
+                    $visitByCustomer[$customer]['daySet'][$d->format('Y-m-d')] = true;
+                    $visitByCustomer[$customer]['lastVisit'] = max($visitByCustomer[$customer]['lastVisit'], $d->format('Y-m-d'));
+                    $visitByRep[$sales]['visits'] += 1;
+                    $visitByRep[$sales]['customerSet'][$customer] = true;
+                    $customerLastVisit[$customer] = max($customerLastVisit[$customer] ?? '', $d->format('Y-m-d'));
+                    $allVisitPairs[$customer] = ['x' => $visitByCustomer[$customer]['visits'], 'y' => $visitByCustomer[$customer]['salesAmount']];
+                }
+            }
+        }
+
+        if (count($driveRows) >= 2) {
+            $h = $driveRows[0];
+            $idxDate = $this->findHeader($h, ['日期']);
+            $idxSales = $this->findHeader($h, ['業務姓名', '業務']);
+            $idxKm = $this->findHeader($h, ['行駛距離', '距離']);
+            $idxFuelLiters = $this->findHeader($h, ['加油公升']);
+            $idxFuelAmount = $this->findHeader($h, ['加油金額', '油資']);
+            for ($i = 1; $i < count($driveRows); $i++) {
+                $row = $driveRows[$i];
+                $d = $this->parseDate($this->getVal($row, $idxDate));
+                if (!$d) continue;
+                if (!$this->matchesStrategyPeriod((int)$d->format('Y'), (int)$d->format('n'), $meta)) continue;
+
+                $sales = $this->normalizeSalesRep($this->getVal($row, $idxSales));
+                if (isset(self::$salesMerge[$sales])) $sales = self::$salesMerge[$sales];
+                if ($sales === '') $sales = '未指定';
+                if (!isset($visitByRep[$sales])) {
+                    $visitByRep[$sales] = [
+                        'name' => $sales, 'visits' => 0, 'customerSet' => [], 'daySet' => [],
+                        'salesAmount' => isset($salesByRep[$sales]) ? $salesByRep[$sales] : 0,
+                        'km' => 0, 'fuelAmount' => 0, 'fuelLiters' => 0
+                    ];
+                }
+                $visitByRep[$sales]['km'] += $this->optFloat($this->getVal($row, $idxKm));
+                $visitByRep[$sales]['fuelLiters'] += $this->optFloat($this->getVal($row, $idxFuelLiters));
+                $visitByRep[$sales]['fuelAmount'] += $this->optFloat($this->getVal($row, $idxFuelAmount));
+                $visitByRep[$sales]['daySet'][$d->format('Y-m-d')] = true;
+            }
+        }
+
+        foreach ($visitByCustomer as &$item) {
+            $item['visitDays'] = count($item['daySet']);
+            $item['repCount'] = count($item['repSet']);
+            $item['salesPerVisit'] = $this->safeRatio($item['salesAmount'], max(1, $item['visits']));
+            unset($item['daySet'], $item['repSet']);
+        }
+        unset($item);
+
+        foreach ($visitByRep as &$item) {
+            $item['customerCount'] = count($item['customerSet']);
+            $item['activeDays'] = count($item['daySet']);
+            $item['salesPerVisit'] = $this->safeRatio($item['salesAmount'], max(1, $item['visits']));
+            $item['salesPerKm'] = $this->safeRatio($item['salesAmount'], max(1, $item['km']));
+            $item['costPerKm'] = $this->safeRatio($item['fuelAmount'], max(1, $item['km']));
+            $item['kmPerLiter'] = $this->safeRatio($item['km'], max(1, $item['fuelLiters']));
+            unset($item['customerSet'], $item['daySet']);
+        }
+        unset($item);
+
+        foreach ($salesByCustomer as $customer => $amount) {
+            if (!isset($visitByCustomer[$customer])) {
+                $visitByCustomer[$customer] = [
+                    'name' => $customer,
+                    'visits' => 0,
+                    'salesAmount' => $amount,
+                    'lastVisit' => $customerLastVisit[$customer] ?? '',
+                    'visitDays' => 0,
+                    'repCount' => 0,
+                    'salesPerVisit' => $amount
+                ];
+                $allVisitPairs[$customer] = ['x' => 0, 'y' => $amount];
+            }
+        }
+
+        $customerRows = array_values($visitByCustomer);
+        usort($customerRows, function ($a, $b) {
+            return ($b['visits'] <=> $a['visits']) ?: ($b['salesAmount'] <=> $a['salesAmount']);
+        });
+        $underVisited = array_values(array_filter($visitByCustomer, function ($row) {
+            return ($row['salesAmount'] ?? 0) > 0 && ($row['visits'] ?? 0) <= 1;
+        }));
+        usort($underVisited, function ($a, $b) {
+            return ($b['salesAmount'] <=> $a['salesAmount']) ?: ($a['visits'] <=> $b['visits']);
+        });
+        $highVisitLowSales = array_values(array_filter($visitByCustomer, function ($row) {
+            return ($row['visits'] ?? 0) >= 2;
+        }));
+        usort($highVisitLowSales, function ($a, $b) {
+            return ($b['visits'] <=> $a['visits']) ?: ($a['salesAmount'] <=> $b['salesAmount']);
+        });
+
+        $repRows = array_values($visitByRep);
+        foreach ($repRows as &$row) {
+            if (!isset($row['salesAmount']) || !$row['salesAmount']) $row['salesAmount'] = $salesByRep[$row['name']] ?? 0;
+        }
+        unset($row);
+        usort($repRows, function ($a, $b) {
+            return ($b['salesAmount'] <=> $a['salesAmount']) ?: ($b['visits'] <=> $a['visits']);
+        });
+
+        $taskRows = array_values($taskTypeCounts);
+        usort($taskRows, function ($a, $b) {
+            return $b['amount'] <=> $a['amount'];
+        });
+
+        $totalVisits = 0;
+        $totalKm = 0;
+        $totalFuelAmount = 0;
+        $totalFuelLiters = 0;
+        foreach ($repRows as $row) {
+            $totalVisits += $row['visits'] ?? 0;
+            $totalKm += $row['km'] ?? 0;
+            $totalFuelAmount += $row['fuelAmount'] ?? 0;
+            $totalFuelLiters += $row['fuelLiters'] ?? 0;
+        }
+
+        return [
+            'summary' => [
+                'totalVisits' => $totalVisits,
+                'visitedCustomers' => count(array_filter($customerRows, function ($row) { return ($row['visits'] ?? 0) > 0; })),
+                'totalKm' => $totalKm,
+                'fuelAmount' => $totalFuelAmount,
+                'fuelLiters' => $totalFuelLiters,
+                'salesPerKm' => $this->safeRatio($currentBucket['total'] ?? 0, max(1, $totalKm)),
+                'salesPerVisit' => $this->safeRatio($currentBucket['total'] ?? 0, max(1, $totalVisits)),
+                'visitSalesCorrelation' => $this->calcPearson(array_values($allVisitPairs))
+            ],
+            'topVisitedCustomers' => array_slice($customerRows, 0, 10),
+            'underVisitedCustomers' => array_slice($underVisited, 0, 10),
+            'highVisitLowSalesCustomers' => array_slice($highVisitLowSales, 0, 10),
+            'repEfficiency' => array_slice($repRows, 0, 10),
+            'taskMix' => array_slice($taskRows, 0, 8)
         ];
     }
 

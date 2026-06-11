@@ -1390,6 +1390,38 @@ function buildDeltaRows(items, key) {
   }).join('') + '</div>';
 }
 
+function buildVisitRows(items, key, valueKey, valueFormatter, subFormatter) {
+  if (!items || !items.length) return '<div class="chart-sub">本期尚無資料</div>';
+  var max = 1;
+  items.forEach(function(item) { max = Math.max(max, item[valueKey] || 0); });
+  return '<div class="bar-list">' + items.map(function(item) {
+    var width = Math.max(6, Math.round(((item[valueKey] || 0) / max) * 100));
+    return '<div class="bar-row">' +
+      '<div class="bar-label">' + ellipsis(item[key], 12) + '</div>' +
+      '<div class="bar-track"><div class="bar-fill" style="width:' + width + '%"></div></div>' +
+      '<div class="bar-value">' + valueFormatter(item[valueKey] || 0) + (subFormatter ? '<div class="chart-sub" style="margin:4px 0 0">' + subFormatter(item) + '</div>' : '') + '</div>' +
+      '</div>';
+  }).join('') + '</div>';
+}
+
+function buildRepRows(items) {
+  if (!items || !items.length) return '<div class="chart-sub">本期尚無外勤資料</div>';
+  var max = 1;
+  items.forEach(function(item) { max = Math.max(max, item.salesAmount || 0); });
+  return '<div class="bar-list">' + items.map(function(item) {
+    var width = Math.max(6, Math.round(((item.salesAmount || 0) / max) * 100));
+    return '<div class="bar-row">' +
+      '<div class="bar-label">' + ellipsis(item.name, 10) + '</div>' +
+      '<div class="bar-track"><div class="bar-fill" style="width:' + width + '%"></div></div>' +
+      '<div class="bar-value">' + fmtReportWan(item.salesAmount || 0) +
+        '<div class="chart-sub" style="margin:4px 0 0">拜訪 ' + fmtReportInt(item.visits || 0) + ' 次 / ' +
+        fmtReportInt(item.customerCount || 0) + ' 客 / ' +
+        fmtReportInt(item.km || 0) + ' km</div>' +
+      '</div>' +
+      '</div>';
+  }).join('') + '</div>';
+}
+
 function buildDonutCard(title, items, key, centerLabel) {
   if (!items || !items.length) {
     return '<div class="chart-card"><div class="chart-title">' + title + '</div><div class="chart-sub">本月尚無資料</div></div>';
@@ -1464,6 +1496,13 @@ function renderStrategyReport(d) {
   var growthCustomers = d.growthCustomers || [];
   var growthProjects = d.growthProjects || [];
   var growthProducts = d.growthProducts || [];
+  var fieldActivity = d.fieldActivity || {};
+  var fieldSummary = fieldActivity.summary || {};
+  var topVisitedCustomers = fieldActivity.topVisitedCustomers || [];
+  var underVisitedCustomers = fieldActivity.underVisitedCustomers || [];
+  var highVisitLowSalesCustomers = fieldActivity.highVisitLowSalesCustomers || [];
+  var repEfficiency = fieldActivity.repEfficiency || [];
+  var taskMix = fieldActivity.taskMix || [];
   var topSalesDonut = topSales.slice(0, 5);
   if (topSales.length > 5) {
     var otherAmt = topSales.slice(5).reduce(function(sum, item) { return sum + (item.amount || 0); }, 0);
@@ -1484,6 +1523,15 @@ function renderStrategyReport(d) {
     buildCompareCard('交易效率', fmtReportWan(s.avgTicket || 0), d.previousLabel || '前期', fmtReportWan(basePrev.avgTicket || 0), d.yoyLabel || '去年同期', fmtReportWan(baseYoy.avgTicket || 0), primary.avgTicketPct, yoy.avgTicketPct) +
     '</div>';
 
+  html += '<div class="kpi-row">' +
+    '<div class="kpi-card"><div class="label">客戶到訪次數</div><div class="value">' + fmtReportInt(fieldSummary.totalVisits || 0) + '</div><div class="sub">' + d.label + '</div></div>' +
+    '<div class="kpi-card"><div class="label">到訪客戶數</div><div class="value">' + fmtReportInt(fieldSummary.visitedCustomers || 0) + '</div><div class="sub">已拜訪客戶</div></div>' +
+    '<div class="kpi-card"><div class="label">外勤公里數</div><div class="value">' + fmtReportInt(fieldSummary.totalKm || 0) + '</div><div class="sub">km</div></div>' +
+    '<div class="kpi-card"><div class="label">油資</div><div class="value">' + fmtReportWan(fieldSummary.fuelAmount || 0) + '</div><div class="sub">本期油資</div></div>' +
+    '<div class="kpi-card"><div class="label">每次拜訪產值</div><div class="value">' + fmtReportWan(fieldSummary.salesPerVisit || 0) + '</div><div class="sub">業績 / 拜訪</div></div>' +
+    '<div class="kpi-card"><div class="label">拜訪業績關連</div><div class="value">' + fmtReportPct((fieldSummary.visitSalesCorrelation || 0) * 100) + '</div><div class="sub">客戶拜訪 vs 業績</div></div>' +
+    '</div>';
+
   html += '<div class="report-grid">';
   html += '<div class="chart-card"><div class="chart-title">業務排行</div><div class="chart-sub">看誰真的在出貨，不看感覺。</div>' + buildBarRows(topSales, 'name', fmtReportWan) + '</div>';
   html += buildDonutCard('業務占比', topSalesDonut, 'name', '本期占比\n' + fmtReportWan(s.total || 0));
@@ -1498,11 +1546,17 @@ function renderStrategyReport(d) {
   html += '<div class="chart-card"><div class="chart-title">客戶成長貢獻</div><div class="chart-sub">看成長來自哪些客戶，或少在哪些客戶。</div>' + buildDeltaRows(growthCustomers, 'name') + '</div>';
   html += '<div class="chart-card"><div class="chart-title">專案成長貢獻</div><div class="chart-sub">專案獨立看，避免混淆客戶變化。</div>' + buildDeltaRows(growthProjects, 'name') + '</div>';
   html += '<div class="chart-card full-span"><div class="chart-title">產品成長貢獻</div><div class="chart-sub">看哪個 SKU 真正在推升或拖累本期。</div>' + buildDeltaRows(growthProducts, 'name') + '</div>';
+  html += '<div class="chart-card"><div class="chart-title">客戶到訪熱度</div><div class="chart-sub">哪些客戶被拜訪最多，頻率是否合理。</div>' + buildVisitRows(topVisitedCustomers, 'name', 'visits', fmtReportInt, function(item) { return '業績 ' + fmtReportWan(item.salesAmount || 0) + ' / 最近 ' + (item.lastVisit || '無'); }) + '</div>';
+  html += '<div class="chart-card"><div class="chart-title">很少去但有業績</div><div class="chart-sub">高業績但拜訪偏少，優先補拜訪。</div>' + buildVisitRows(underVisitedCustomers, 'name', 'salesAmount', fmtReportWan, function(item) { return '拜訪 ' + fmtReportInt(item.visits || 0) + ' 次'; }) + '</div>';
+  html += '<div class="chart-card"><div class="chart-title">高拜訪低產出</div><div class="chart-sub">去很多次，但本期業績偏弱。</div>' + buildVisitRows(highVisitLowSalesCustomers, 'name', 'visits', fmtReportInt, function(item) { return '業績 ' + fmtReportWan(item.salesAmount || 0); }) + '</div>';
+  html += '<div class="chart-card"><div class="chart-title">業務外勤效率</div><div class="chart-sub">公里數、拜訪次數與產值一起看。</div>' + buildRepRows(repEfficiency) + '</div>';
+  html += buildDonutCard('工作型態占比', taskMix, 'name', '本期任務\n' + fmtReportInt(fieldSummary.totalVisits || 0));
   html += '<div class="chart-card full-span"><div class="chart-title">管理提示</div><div class="insight-list">' +
     '<div class="insight-item">' + (d.insights && d.insights.leader ? d.insights.leader : '本期尚無業務資料。') + '</div>' +
     '<div class="insight-item">' + (d.insights && d.insights.concentration ? d.insights.concentration : '尚無集中度資料。') + '</div>' +
     '<div class="insight-item">' + (d.insights && d.insights.customer ? d.insights.customer : '尚無客戶分析資料。') + '</div>' +
     '<div class="insight-item">' + (d.insights && d.insights.product ? d.insights.product : '尚無產品分析資料。') + '</div>' +
+    '<div class="insight-item">本期外勤 ' + fmtReportInt(fieldSummary.totalVisits || 0) + ' 次、' + fmtReportInt(fieldSummary.visitedCustomers || 0) + ' 客、' + fmtReportInt(fieldSummary.totalKm || 0) + ' km，平均每次拜訪帶來 ' + fmtReportWan(fieldSummary.salesPerVisit || 0) + '。</div>' +
     '</div></div>';
   html += '</div>';
 
