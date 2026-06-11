@@ -321,6 +321,29 @@ class SleeperService
         return preg_replace('/[\s()（）【】\[\]「」『』,，.。\/／:：\-－—]+/u', '', trim((string)$address));
     }
 
+    private function normalizeSizeLabel($size)
+    {
+        $size = strtoupper(trim((string)$size));
+        $size = str_replace(['CM', '㎝', '＊', '*', 'Ｘ', '×', 'x'], ['', '', 'X', 'X', 'X', 'X', 'X'], $size);
+        $size = preg_replace('/\s+/u', '', $size);
+        $size = preg_replace('/(?<=\d)X(?=\d)/u', 'X', $size);
+        if ($size === '') return '未標尺寸';
+        return $size;
+    }
+
+    private function normalizeContractHealthLabel($health)
+    {
+        $health = trim((string)$health);
+        if ($health === '') return ['bucket' => '未分類', 'note' => ''];
+        if (mb_strpos($health, '嚴重') !== false) return ['bucket' => '嚴重', 'note' => ''];
+        if (mb_strpos($health, '逾期') !== false) return ['bucket' => '逾期', 'note' => ''];
+        if (mb_strpos($health, '待續') !== false) return ['bucket' => '待續', 'note' => ''];
+        if (mb_strpos($health, '已續') !== false) return ['bucket' => '已續', 'note' => ''];
+        if (mb_strpos($health, '正常') !== false) return ['bucket' => '正常', 'note' => ''];
+        if (mb_strpos($health, '未續約') !== false) return ['bucket' => '其它未續約', 'note' => $health];
+        return ['bucket' => '未分類', 'note' => $health];
+    }
+
     private function isLogisticsAddress($address)
     {
         $address = trim((string)$address);
@@ -853,7 +876,7 @@ class SleeperService
                 'brand' => $idxBrand !== -1 ? trim($this->getVal($row, $idxBrand)) : '',
                 'country' => $idxCountry !== -1 ? trim($this->getVal($row, $idxCountry)) : '',
                 'productName' => $idxProduct !== -1 ? trim($this->getVal($row, $idxProduct)) : '',
-                'size' => $idxSize !== -1 ? trim($this->getVal($row, $idxSize)) : '',
+                'size' => $this->normalizeSizeLabel($idxSize !== -1 ? $this->getVal($row, $idxSize) : ''),
                 'category' => $idxCategory !== -1 ? trim($this->getVal($row, $idxCategory)) : '',
                 'imageUrl' => $idxImage !== -1 ? trim($this->getVal($row, $idxImage)) : '',
                 'isSleeper' => $idxSleeper !== -1 && trim($this->getVal($row, $idxSleeper)) !== '',
@@ -1921,7 +1944,8 @@ class SleeperService
             return [
                 'healthCounts' => [],
                 'summary' => ['active' => 0, 'expiringSoon' => 0, 'overdue' => 0, 'balance' => 0],
-                'topRisk' => []
+                'topRisk' => [],
+                'notes' => []
             ];
         }
 
@@ -1935,8 +1959,17 @@ class SleeperService
         }
         $idxSales = $this->findHeader($h, ['業務']);
 
-        $healthCounts = [];
+        $healthCounts = [
+            '正常' => ['name' => '正常', 'count' => 0],
+            '逾期' => ['name' => '逾期', 'count' => 0],
+            '嚴重' => ['name' => '嚴重', 'count' => 0],
+            '待續' => ['name' => '待續', 'count' => 0],
+            '已續' => ['name' => '已續', 'count' => 0],
+            '其它未續約' => ['name' => '其它未續約', 'count' => 0],
+            '未分類' => ['name' => '未分類', 'count' => 0]
+        ];
         $topRisk = [];
+        $notes = [];
         $active = 0;
         $expiringSoon = 0;
         $overdue = 0;
@@ -1951,11 +1984,13 @@ class SleeperService
             $sales = trim($this->getVal($row, $idxSales));
             if ($customer === '未知客戶') continue;
 
-            if (!isset($healthCounts[$health])) $healthCounts[$health] = ['name' => $health === '' ? '未分類' : $health, 'count' => 0];
-            $healthCounts[$health]['count'] += 1;
+            $healthMeta = $this->normalizeContractHealthLabel($health);
+            $bucket = $healthMeta['bucket'];
+            if (!isset($healthCounts[$bucket])) $healthCounts[$bucket] = ['name' => $bucket, 'count' => 0];
+            $healthCounts[$bucket]['count'] += 1;
             $active += 1;
             $balance += $bal;
-            if (in_array($health, ['逾期', '嚴重'], true)) $overdue += 1;
+            if (in_array($bucket, ['逾期', '嚴重'], true)) $overdue += 1;
 
             $due = $this->parseDate($this->getVal($row, $idxLastDue));
             if ($due) {
@@ -1963,10 +1998,14 @@ class SleeperService
                 if ($diffDays >= 0 && $diffDays <= 45) $expiringSoon += 1;
             }
 
-            if (in_array($health, ['逾期', '嚴重', '待續約'], true) || $bal > 300000) {
+            if ($healthMeta['note'] !== '') {
+                $notes[$healthMeta['note']] = isset($notes[$healthMeta['note']]) ? $notes[$healthMeta['note']] + 1 : 1;
+            }
+
+            if (in_array($bucket, ['逾期', '嚴重', '待續'], true) || $bal > 300000) {
                 $topRisk[] = [
                     'customer' => $customer,
-                    'health' => $health === '' ? '未分類' : $health,
+                    'health' => $bucket,
                     'balance' => $bal,
                     'sales' => $sales,
                     'lastDue' => $due ? $due->format('Y/m/d') : ''
@@ -1977,7 +2016,11 @@ class SleeperService
         usort($topRisk, function ($a, $b) {
             return ($b['balance'] <=> $a['balance']);
         });
-        usort($healthCounts, function ($a, $b) {
+        $noteRows = [];
+        foreach ($notes as $text => $count) {
+            $noteRows[] = ['name' => $text, 'count' => $count];
+        }
+        usort($noteRows, function ($a, $b) {
             return ($b['count'] <=> $a['count']);
         });
 
@@ -1989,7 +2032,8 @@ class SleeperService
                 'overdue' => $overdue,
                 'balance' => $balance
             ],
-            'topRisk' => array_slice($topRisk, 0, 10)
+            'topRisk' => array_slice($topRisk, 0, 10),
+            'notes' => array_slice($noteRows, 0, 12)
         ];
     }
 

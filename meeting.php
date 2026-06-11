@@ -608,6 +608,9 @@
       const s = (d.contracts || {}).summary || {};
       const health = (d.contracts || {}).healthCounts || [];
       const risk = (d.contracts || {}).topRisk || [];
+      const notes = (d.contracts || {}).notes || [];
+      const healthMap = {};
+      health.forEach(row => { healthMap[row.name] = row.count; });
       return `
         <section class="sheet">
           <div class="sheet-title">合約狀況</div>
@@ -617,14 +620,23 @@
             <div class="mini-card"><h3>逾期 / 嚴重</h3><div class="v red">${fmtInt(s.overdue)}</div></div>
             <div class="mini-card"><h3>合約餘額</h3><div class="v">${fmtWan(s.balance)}</div></div>
           </div>
+          <div class="mini-grid">
+            <div class="mini-card"><h3>正常</h3><div class="v">${fmtInt(healthMap['正常'] || 0)}</div></div>
+            <div class="mini-card"><h3>逾期</h3><div class="v red">${fmtInt(healthMap['逾期'] || 0)}</div></div>
+            <div class="mini-card"><h3>嚴重</h3><div class="v red">${fmtInt(healthMap['嚴重'] || 0)}</div></div>
+            <div class="mini-card"><h3>待續</h3><div class="v">${fmtInt(healthMap['待續'] || 0)}</div></div>
+            <div class="mini-card"><h3>已續</h3><div class="v">${fmtInt(healthMap['已續'] || 0)}</div></div>
+            <div class="mini-card"><h3>其它未續約</h3><div class="v">${fmtInt(healthMap['其它未續約'] || 0)}</div></div>
+            <div class="mini-card"><h3>未分類</h3><div class="v">${fmtInt(healthMap['未分類'] || 0)}</div></div>
+          </div>
           <div class="section-pad stack">
             <div class="table-wrap">
               <table>
                 <thead>
-                  <tr><th>健康度</th><th>筆數</th></tr>
+                  <tr><th>其它沖完未續約說明</th><th>筆數</th></tr>
                 </thead>
                 <tbody>
-                  ${health.map(r => `<tr><td>${escapeHtml(r.name)}</td><td class="num">${fmtInt(r.count)}</td></tr>`).join('')}
+                  ${notes.map(r => `<tr><td>${escapeHtml(r.name)}</td><td class="num">${fmtInt(r.count)}</td></tr>`).join('') || '<tr><td colspan="2" class="center">本期無額外說明</td></tr>'}
                 </tbody>
               </table>
             </div>
