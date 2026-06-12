@@ -1518,6 +1518,21 @@ class SleeperService
         return $out;
     }
 
+    private function buildFieldActivityCompare($current, $base, $label)
+    {
+        $fields = ['totalVisits', 'visitedCustomers', 'totalKm', 'fuelAmount', 'salesPerVisit', 'salesPerKm', 'visitSalesCorrelation'];
+        $out = ['label' => $label];
+        foreach ($fields as $field) {
+            $curr = (float)($current[$field] ?? 0);
+            $prev = (float)($base[$field] ?? 0);
+            $delta = $curr - $prev;
+            $precision = $field === 'visitSalesCorrelation' ? 4 : 0;
+            $out[$field . 'Delta'] = round($delta, $precision);
+            $out[$field . 'Pct'] = $prev != 0 ? round($delta / $prev * 100, 1) : ($curr != 0 ? 100.0 : 0.0);
+        }
+        return $out;
+    }
+
     private function buildDeltaLeaders($currentMap, $prevMap, $type)
     {
         $keys = array_unique(array_merge(array_keys($currentMap), array_keys($prevMap)));
@@ -1686,6 +1701,10 @@ class SleeperService
             $buckets['yoy']['count']
         );
 
+        $fieldCurrent = $this->buildFieldActivityReport($meta, $buckets['current']);
+        $fieldPrevious = $this->buildFieldActivityReport($prevMeta, $buckets['previous']);
+        $fieldYoy = $this->buildFieldActivityReport($yoyMeta, $buckets['yoy']);
+
         $topSales = array_values(array_slice($buckets['current']['sales'], 0, 8));
         $topCustomers = array_values(array_slice($buckets['current']['customers'], 0, 10));
         $topProjects = array_values(array_slice($buckets['current']['projects'], 0, 10));
@@ -1727,7 +1746,15 @@ class SleeperService
                 'growthProjects' => $growthProjects,
                 'growthProducts' => $growthProducts,
                 'monthTrend' => $monthTrend,
-                'fieldActivity' => $this->buildFieldActivityReport($meta, $buckets['current']),
+                'fieldActivity' => $fieldCurrent,
+                'fieldBases' => [
+                    'previous' => $fieldPrevious['summary'] ?? [],
+                    'yoy' => $fieldYoy['summary'] ?? []
+                ],
+                'fieldComparisons' => [
+                    'primary' => $this->buildFieldActivityCompare($fieldCurrent['summary'] ?? [], $fieldPrevious['summary'] ?? [], $meta['primaryLabel']),
+                    'yoy' => $this->buildFieldActivityCompare($fieldCurrent['summary'] ?? [], $fieldYoy['summary'] ?? [], 'YOY')
+                ],
                 'insights' => [
                     'leader' => count($topSales) ? $topSales[0]['name'] . ' 目前領先，' . (int)floor($topSales[0]['amount'] / 10000) . ' 萬。' : '本期尚無業務資料。',
                     'concentration' => '前 3 業務占比 ' . (int)floor($currentSummary['top3SalesPct']) . '%，最大客戶占比 ' . (int)floor($currentSummary['topCustomerPct']) . '%。',

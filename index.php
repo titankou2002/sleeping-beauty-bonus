@@ -1498,6 +1498,12 @@ function renderStrategyReport(d) {
   var growthProjects = d.growthProjects || [];
   var growthProducts = d.growthProducts || [];
   var fieldActivity = d.fieldActivity || {};
+  var fieldBases = d.fieldBases || {};
+  var fieldBasePrev = fieldBases.previous || {};
+  var fieldBaseYoy = fieldBases.yoy || {};
+  var fieldComparisons = d.fieldComparisons || {};
+  var fieldPrimary = fieldComparisons.primary || {};
+  var fieldYoy = fieldComparisons.yoy || {};
   var fieldSummary = fieldActivity.summary || {};
   var topVisitedCustomers = fieldActivity.topVisitedCustomers || [];
   var underVisitedCustomers = fieldActivity.underVisitedCustomers || [];
@@ -1531,6 +1537,13 @@ function renderStrategyReport(d) {
     '<div class="kpi-card"><div class="label">油資</div><div class="value">' + fmtReportWan(fieldSummary.fuelAmount || 0) + '</div><div class="sub">本期油資</div></div>' +
     '<div class="kpi-card"><div class="label">每次拜訪產值</div><div class="value">' + fmtReportWan(fieldSummary.salesPerVisit || 0) + '</div><div class="sub">業績 / 拜訪</div></div>' +
     '<div class="kpi-card"><div class="label">拜訪業績關連</div><div class="value">' + fmtReportPct((fieldSummary.visitSalesCorrelation || 0) * 100) + '</div><div class="sub">客戶拜訪 vs 業績</div></div>' +
+    '</div>';
+
+  html += '<div class="compare-strip">' +
+    buildCompareCard(fieldPrimary.label || '前期比較', fmtReportInt(fieldSummary.totalVisits || 0), d.previousLabel || '前期', fmtReportInt(fieldBasePrev.totalVisits || 0), d.yoyLabel || '去年同期', fmtReportInt(fieldBaseYoy.totalVisits || 0), fieldPrimary.totalVisitsPct, fieldYoy.totalVisitsPct) +
+    buildCompareCard('拜訪客戶數', fmtReportInt(fieldSummary.visitedCustomers || 0), d.previousLabel || '前期', fmtReportInt(fieldBasePrev.visitedCustomers || 0), d.yoyLabel || '去年同期', fmtReportInt(fieldBaseYoy.visitedCustomers || 0), fieldPrimary.visitedCustomersPct, fieldYoy.visitedCustomersPct) +
+    buildCompareCard('外勤公里數', fmtReportInt(fieldSummary.totalKm || 0), d.previousLabel || '前期', fmtReportInt(fieldBasePrev.totalKm || 0), d.yoyLabel || '去年同期', fmtReportInt(fieldBaseYoy.totalKm || 0), fieldPrimary.totalKmPct, fieldYoy.totalKmPct) +
+    buildCompareCard('每次拜訪產值', fmtReportWan(fieldSummary.salesPerVisit || 0), d.previousLabel || '前期', fmtReportWan(fieldBasePrev.salesPerVisit || 0), d.yoyLabel || '去年同期', fmtReportWan(fieldBaseYoy.salesPerVisit || 0), fieldPrimary.salesPerVisitPct, fieldYoy.salesPerVisitPct) +
     '</div>';
 
   html += '<div class="report-grid">';
