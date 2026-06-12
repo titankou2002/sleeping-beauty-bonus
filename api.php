@@ -2192,6 +2192,14 @@ class SleeperService
         usort($sizeRanks, function ($a, $b) {
             return $b['amount'] <=> $a['amount'];
         });
+        foreach ($categoryRanks as &$row) {
+            $row['sharePct'] = ($strategy['summary']['total'] ?? 0) > 0 ? ($row['amount'] / $strategy['summary']['total'] * 100) : 0;
+        }
+        unset($row);
+        foreach ($sizeRanks as &$row) {
+            $row['sharePct'] = ($strategy['summary']['total'] ?? 0) > 0 ? ($row['amount'] / $strategy['summary']['total'] * 100) : 0;
+        }
+        unset($row);
         usort($topProducts, function ($a, $b) {
             return ($b['amount'] <=> $a['amount']) ?: ($b['pings'] <=> $a['pings']);
         });
@@ -2199,6 +2207,10 @@ class SleeperService
             $row['sharePct'] = ($strategy['summary']['total'] ?? 0) > 0 ? ($row['amount'] / $strategy['summary']['total'] * 100) : 0;
         }
         unset($row);
+
+        $meetingSales = array_values(array_filter($strategy['topSales'] ?? [], function ($row) {
+            return trim((string)($row['name'] ?? '')) !== '高弘治';
+        }));
 
         $rows = [];
         for ($m = 1; $m <= 12; $m++) {
@@ -2237,7 +2249,7 @@ class SleeperService
                 'monthCompare' => $rows,
                 'topCustomers' => array_slice($strategy['topCustomers'] ?? [], 0, 10),
                 'topProjects' => array_slice($strategy['topProjects'] ?? [], 0, 10),
-                'topSales' => array_slice($strategy['topSales'] ?? [], 0, 10),
+                'topSales' => array_slice($meetingSales, 0, 10),
                 'seriesRanking' => $seriesRanks,
                 'categoryRanking' => array_values($categoryRanks),
                 'sizeRanking' => array_values($sizeRanks),

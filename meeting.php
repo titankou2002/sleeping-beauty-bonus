@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>睡美人月會報表</title>
+  <title>高雅瓷月報表</title>
   <style>
     :root {
       --bg: #0a0a0a;
@@ -45,11 +45,6 @@
       font-size: 28px;
       font-weight: 900;
       letter-spacing: 0.02em;
-    }
-    .title-wrap p {
-      margin: 6px 0 0;
-      color: var(--muted);
-      font-size: 13px;
     }
     .controls {
       display: flex;
@@ -199,6 +194,12 @@
       gap: 16px;
       padding: 12px;
     }
+    .analysis-grid {
+      display: grid;
+      grid-template-columns: 1fr 360px;
+      gap: 16px;
+      padding: 12px;
+    }
     .chart-card {
       border: 1px solid var(--line);
       border-radius: 14px;
@@ -245,7 +246,7 @@
     }
     .product-grid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 14px;
       padding: 12px;
     }
@@ -254,18 +255,31 @@
       border-radius: 16px;
       padding: 14px;
       background: rgba(255,255,255,0.03);
-      display: grid;
-      grid-template-columns: 92px 1fr;
+      display: flex;
+      flex-direction: column;
       gap: 14px;
-      align-items: start;
+    }
+    .product-hero {
+      width: 100%;
+      height: 160px;
+      border-radius: 14px;
+      overflow: hidden;
+      background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+      border: 1px solid rgba(255,255,255,0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     .product-thumb {
-      width: 92px;
-      height: 92px;
+      width: 100%;
+      height: 100%;
       border-radius: 12px;
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.08);
       object-fit: contain;
+    }
+    .product-body {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
     }
     .product-name {
       font-size: 16px;
@@ -315,14 +329,135 @@
       color: var(--muted);
       font-size: 12px;
     }
+    .donut-wrap {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+    .donut {
+      width: 180px;
+      height: 180px;
+      border-radius: 50%;
+      flex: 0 0 180px;
+      position: relative;
+      background: conic-gradient(var(--accent) 0deg, rgba(255,255,255,0.08) 0deg);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05);
+    }
+    .donut::after {
+      content: "";
+      position: absolute;
+      inset: 24px;
+      border-radius: 50%;
+      background: var(--paper);
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .donut-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 1;
+      text-align: center;
+      pointer-events: none;
+    }
+    .donut-center .big {
+      font-size: 22px;
+      font-weight: 900;
+      color: var(--accent-strong);
+    }
+    .legend {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .legend-row {
+      display: grid;
+      grid-template-columns: 14px 1fr auto auto;
+      gap: 10px;
+      align-items: center;
+      font-size: 13px;
+    }
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+    .series-card-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 12px;
+    }
+    .series-card {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 16px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015));
+    }
+    .series-head {
+      display: grid;
+      grid-template-columns: 72px 1.2fr 1fr 1fr;
+      gap: 14px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .series-rank {
+      width: 56px;
+      height: 56px;
+      border-radius: 16px;
+      border: 1px solid rgba(194,157,102,0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      font-weight: 900;
+      color: var(--accent-strong);
+      background: rgba(194,157,102,0.08);
+    }
+    .series-title {
+      font-size: 18px;
+      font-weight: 900;
+      margin-bottom: 4px;
+    }
+    .series-meta {
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .series-kpis {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .series-kpi {
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.025);
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .series-kpi .t {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .series-kpi .v {
+      font-size: 18px;
+      font-weight: 900;
+    }
     @media (max-width: 980px) {
       .kpi-grid, .mini-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .analysis-grid { grid-template-columns: 1fr; }
+      .product-grid { grid-template-columns: 1fr; }
+      .series-head { grid-template-columns: 1fr; }
     }
     @media (max-width: 640px) {
       .page { padding: 12px; }
       .kpi-grid, .mini-grid { grid-template-columns: 1fr; }
       .kpi-cell:nth-child(4n) { border-right: 1px solid var(--line); }
-      .series-line, .product-grid, .chart-grid { grid-template-columns: 1fr; }
+      .series-line, .product-grid, .chart-grid, .analysis-grid { grid-template-columns: 1fr; }
+      .donut-wrap { flex-direction: column; align-items: flex-start; }
     }
   </style>
 </head>
@@ -330,8 +465,7 @@
   <div class="page">
     <div class="topbar">
       <div class="title-wrap">
-        <h1>睡美人月會報表</h1>
-        <p>先照 Excel 會議版做，後續再拆老闆輸出模式。</p>
+        <h1>高雅瓷月報表</h1>
       </div>
       <div class="controls">
         <select id="year"></select>
@@ -347,6 +481,7 @@
   <script>
     const API_BASE = 'api.php';
     const now = new Date();
+    const defaultMeetingDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const yearSel = document.getElementById('year');
     const monthSel = document.getElementById('month');
     for (let y = now.getFullYear(); y >= 2024; y--) {
@@ -355,8 +490,8 @@
     for (let m = 1; m <= 12; m++) {
       monthSel.innerHTML += `<option value="${m}">${m} 月</option>`;
     }
-    yearSel.value = now.getFullYear();
-    monthSel.value = now.getMonth() + 1;
+    yearSel.value = defaultMeetingDate.getFullYear();
+    monthSel.value = defaultMeetingDate.getMonth() + 1;
 
     function truncNum(n) {
       n = Number(n || 0);
@@ -374,6 +509,13 @@
     }
     function escapeHtml(s) {
       return String(s || '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    }
+    function pctRaw(n) {
+      return Math.max(0, Number(n || 0));
+    }
+    function palette(i) {
+      const colors = ['#d8b273', '#34d399', '#60a5fa', '#f59e0b', '#ef4444', '#a78bfa', '#22c55e', '#f97316'];
+      return colors[i % colors.length];
     }
 
     function apiGet(action, params) {
@@ -409,11 +551,6 @@
               <div class="kpi-label">交易筆數</div>
               <div class="kpi-value">${fmtInt(s.txCount)}</div>
               <div class="kpi-sub">筆</div>
-            </div>
-            <div class="kpi-cell yellow">
-              <div class="kpi-label">最大客戶占比</div>
-              <div class="kpi-value">${fmtPct(s.topCustomerPct)}</div>
-              <div class="kpi-sub">客戶集中度</div>
             </div>
             <div class="kpi-cell">
               <div class="kpi-label">本月主力類別</div>
@@ -497,50 +634,80 @@
       const rows = d.seriesRanking || [];
       return `
         <section class="sheet">
-          <div class="sheet-title">${d.year}.${d.month} 熱銷系列排名表</div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>名次</th>
-                  <th>總坪數</th>
-                  <th>金額</th>
-                  <th>佔比</th>
-                  <th>廠牌</th>
-                  <th>系列</th>
-                  <th>中文系列</th>
-                  <th>明細</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${rows.map((r, idx) => `
-                  <tr>
-                    <td class="center">${idx + 1}</td>
-                    <td class="num">${fmtInt(r.totalPings)}</td>
-                    <td class="num">${fmtWan(r.totalAmount)}</td>
-                    <td class="num">${fmtPct(r.sharePct)}</td>
-                    <td class="center">${escapeHtml(r.brand || '—')}</td>
-                    <td class="center">${escapeHtml(r.series || '—')}</td>
-                    <td class="center">${escapeHtml(r.seriesCn || '—')}</td>
-                    <td>
-                      <div class="series-lines">
-                        ${(r.items || []).slice(0, 6).map(item => `
-                          <div class="series-line">
-                            <div class="series-sku">${escapeHtml(item.sku)}</div>
-                            <div>${escapeHtml(item.name || '—')}</div>
-                            <div class="num">${fmtInt(item.pings)}</div>
-                            <div class="num">${fmtWan(item.amount)}</div>
-                            <div class="num">${fmtPct((r.totalAmount || 0) > 0 ? (item.amount || 0) / r.totalAmount * 100 : 0)}</div>
-                          </div>
-                        `).join('')}
-                      </div>
-                    </td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
+          <div class="sheet-title">${d.year}.${d.month} 熱銷系列分析</div>
+          <div class="series-card-list">
+            ${rows.map((r, idx) => `
+              <div class="series-card">
+                <div class="series-head">
+                  <div class="series-rank">${idx + 1}</div>
+                  <div>
+                    <div class="series-title">${escapeHtml(r.seriesCn || r.series || '未分類系列')}</div>
+                    <div class="series-meta">${escapeHtml(r.brand || '未分類廠牌')} / ${escapeHtml(r.series || '—')}</div>
+                  </div>
+                  <div class="series-kpis">
+                    <div class="series-kpi"><div class="t">總坪數</div><div class="v">${fmtInt(r.totalPings)}</div></div>
+                    <div class="series-kpi"><div class="t">銷售金額</div><div class="v">${fmtWan(r.totalAmount)}</div></div>
+                    <div class="series-kpi"><div class="t">本月佔比</div><div class="v">${fmtPct(r.sharePct)}</div></div>
+                  </div>
+                </div>
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr><th>SKU</th><th>品名 / 尺寸</th><th>坪數</th><th>金額</th><th>系列占比</th></tr>
+                    </thead>
+                    <tbody>
+                      ${(r.items || []).slice(0, 6).map(item => `
+                        <tr>
+                          <td class="series-sku">${escapeHtml(item.sku)}</td>
+                          <td>${escapeHtml(item.name || '—')}</td>
+                          <td class="num">${fmtInt(item.pings)}</td>
+                          <td class="num">${fmtWan(item.amount)}</td>
+                          <td class="num">${fmtPct((r.totalAmount || 0) > 0 ? (item.amount || 0) / r.totalAmount * 100 : 0)}</td>
+                        </tr>
+                      `).join('')}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            `).join('')}
           </div>
         </section>
+      `;
+    }
+
+    function buildDonutCard(title, rows, total, kind) {
+      const list = (rows || []).slice(0, 6);
+      const safeTotal = Math.max(1, Number(total || 0));
+      let cursor = 0;
+      const gradient = list.map((row, idx) => {
+        const pct = (Number(row.amount || 0) / safeTotal) * 100;
+        const color = palette(idx);
+        const start = cursor;
+        cursor += pct;
+        return `${color} ${start}% ${cursor}%`;
+      }).join(', ');
+      return `
+        <div class="chart-card">
+          <div class="hint" style="margin-bottom:12px">${title}</div>
+          <div class="donut-wrap">
+            <div class="donut" style="background:conic-gradient(${gradient || 'rgba(255,255,255,0.08) 0 100%'})">
+              <div class="donut-center">
+                <div class="big">${fmtWan(total)}</div>
+                <div class="hint">${kind}</div>
+              </div>
+            </div>
+            <div class="legend">
+              ${list.map((row, idx) => `
+                <div class="legend-row">
+                  <span class="legend-dot" style="background:${palette(idx)}"></span>
+                  <span>${escapeHtml(row.name)}</span>
+                  <span>${fmtWan(row.amount)}</span>
+                  <span>${fmtPct(row.sharePct)}</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
       `;
     }
 
@@ -550,7 +717,7 @@
       return `
         <section class="sheet">
           <div class="sheet-title">產品大類與尺寸分析</div>
-          <div class="chart-grid">
+          <div class="analysis-grid">
             <div class="chart-card">
               <div class="table-wrap">
                 <table>
@@ -558,6 +725,7 @@
                     <tr>
                       <th>產品大類</th>
                       <th>銷售金額</th>
+                      <th>金額佔比</th>
                       <th>銷售坪數</th>
                       <th>交易筆數</th>
                     </tr>
@@ -567,6 +735,7 @@
                       <tr>
                         <td>${escapeHtml(r.name)}</td>
                         <td class="num">${fmtWan(r.amount)}</td>
+                        <td class="num">${fmtPct(r.sharePct)}</td>
                         <td class="num">${fmtInt(r.pings)}</td>
                         <td class="num">${fmtInt(r.count)}</td>
                       </tr>
@@ -575,6 +744,9 @@
                 </table>
               </div>
             </div>
+            ${buildDonutCard('產品大類占比', rows, (d.summary || {}).sales || 0, '依銷售金額')}
+          </div>
+          <div class="analysis-grid">
             <div class="chart-card">
               <div class="table-wrap">
                 <table>
@@ -582,6 +754,7 @@
                     <tr>
                       <th>尺寸</th>
                       <th>銷售金額</th>
+                      <th>金額佔比</th>
                       <th>銷售坪數</th>
                       <th>交易筆數</th>
                     </tr>
@@ -591,6 +764,7 @@
                       <tr>
                         <td>${escapeHtml(r.name)}</td>
                         <td class="num">${fmtWan(r.amount)}</td>
+                        <td class="num">${fmtPct(r.sharePct)}</td>
                         <td class="num">${fmtInt(r.pings)}</td>
                         <td class="num">${fmtInt(r.count)}</td>
                       </tr>
@@ -599,6 +773,7 @@
                 </table>
               </div>
             </div>
+            ${buildDonutCard('尺寸占比', sizeRows, (d.summary || {}).sales || 0, '依銷售金額')}
           </div>
         </section>
       `;
@@ -758,13 +933,15 @@
         <section class="sheet">
           <div class="sheet-title">熱銷產品分析</div>
           <div class="section-pad">
-            <div class="hint" style="margin-bottom:12px">把單片圖、金額、坪數、佔比放在一起，看得比純表格快。</div>
+            <div class="hint" style="margin-bottom:12px">把單片圖統一橫向呈現，搭配金額、坪數、筆數、佔比一起看。</div>
           </div>
           <div class="product-grid">
             ${rows.map(row => `
               <div class="product-card">
-                <img class="product-thumb" src="${escapeHtml(driveUrlToDirect(row.imageUrl || ''))}" alt="" onerror="this.style.display='none'">
-                <div>
+                <div class="product-hero">
+                  <img class="product-thumb" src="${escapeHtml(driveUrlToDirect(row.imageUrl || ''))}" alt="" onerror="this.closest('.product-hero').style.display='none'">
+                </div>
+                <div class="product-body">
                   <div class="product-name">${escapeHtml(row.sku)}</div>
                   <div class="product-meta">
                     <span class="pill">${escapeHtml(row.series || '未分類')}</span>
