@@ -2142,6 +2142,11 @@ class SleeperService
         for ($m = 1; $m <= 12; $m++) {
             $monthTotals[$m] = ['current' => 0, 'previous' => 0];
         }
+        $meetingCurrentTotal = 0;
+        $meetingYoyTotal = 0;
+        $meetingCurrentPings = 0;
+        $meetingCurrentTxCount = 0;
+        $meetingSleeperTotal = 0;
         $seriesRanks = [];
         $categoryRanks = [];
         $sizeRanks = [];
@@ -2156,12 +2161,21 @@ class SleeperService
             $pings = $this->optFloat($this->getVal($row, $idx['pings']));
             $txCount = (int)$this->getVal($row, $idx['count']);
             $profile = isset($profiles[$sku]) ? $profiles[$sku] : null;
-            if ($profile && !empty($profile['isDiscontinued'])) continue;
 
             if ($rowYear === $year) $monthTotals[$rowMonth]['current'] += $amount;
             if ($rowYear === ($year - 1)) $monthTotals[$rowMonth]['previous'] += $amount;
+            if ($rowYear === ($year - 1) && $rowMonth === $month) {
+                $meetingYoyTotal += $amount;
+            }
 
             if ($rowYear !== $year || $rowMonth !== $month) continue;
+
+            $meetingCurrentTotal += $amount;
+            $meetingCurrentPings += $pings;
+            $meetingCurrentTxCount += $txCount;
+            if ($profile && (!empty($profile['isSleeper']) || !empty($profile['isDiscontinued']))) {
+                $meetingSleeperTotal += $amount;
+            }
 
             $seriesKey = ($profile['brand'] ?? '') . '|' . ($profile['series'] ?? '') . '|' . ($profile['seriesCn'] ?? '');
             if (!isset($seriesRanks[$seriesKey])) {
@@ -2274,8 +2288,8 @@ class SleeperService
 
         $contractSummary = $this->getContractMeetingSummary($year, $month);
         $summary = $strategy['summary'];
-        $baseYoy = $strategy['bases']['yoy'] ?? [];
-        $nextMonthGoal = max(0, (($baseYoy['total'] ?? 0) - ($summary['total'] ?? 0)));
+        $meetingSalesYoyPct = $meetingYoyTotal > 0 ? (($meetingCurrentTotal - $meetingYoyTotal) / $meetingYoyTotal * 100) : 0;
+        $meetingSleeperPct = $meetingCurrentTotal > 0 ? ($meetingSleeperTotal / $meetingCurrentTotal * 100) : 0;
 
         return [
             'success' => true,
@@ -2284,15 +2298,16 @@ class SleeperService
                 'month' => $month,
                 'label' => sprintf('%d.%d', $year, $month),
                 'summary' => [
-                    'sales' => $summary['total'] ?? 0,
-                    'salesYoyBase' => $baseYoy['total'] ?? 0,
-                    'salesYoyPct' => $strategy['comparisons']['yoy']['totalPct'] ?? 0,
-                    'pings' => $summary['pings'] ?? 0,
-                    'txCount' => $summary['txCount'] ?? 0,
-                    'avgTicket' => $summary['avgTicket'] ?? 0,
+                    'sales' => round($meetingCurrentTotal),
+                    'salesYoyBase' => round($meetingYoyTotal),
+                    'salesYoyPct' => round($meetingSalesYoyPct, 1),
+                    'pings' => round($meetingCurrentPings, 2),
+                    'txCount' => (int)$meetingCurrentTxCount,
+                    'avgTicket' => $meetingCurrentTxCount > 0 ? round($meetingCurrentTotal / $meetingCurrentTxCount) : 0,
                     'top3Pct' => $summary['top3SalesPct'] ?? 0,
                     'topCustomerPct' => $summary['topCustomerPct'] ?? 0,
-                    'nextMonthGoal' => $nextMonthGoal
+                    'sleeperSales' => round($meetingSleeperTotal),
+                    'sleeperPct' => round($meetingSleeperPct, 1)
                 ],
                 'monthCompare' => $rows,
                 'topCustomers' => array_slice($strategy['topCustomers'] ?? [], 0, 10),

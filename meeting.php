@@ -701,6 +701,11 @@
               <div class="kpi-value">${fmtInt(s.txCount)}</div>
               <div class="kpi-sub">筆</div>
             </div>
+            <div class="kpi-cell yellow">
+              <div class="kpi-label">睡美人業績</div>
+              <div class="kpi-value">${fmtWan(s.sleeperSales)}</div>
+              <div class="kpi-sub">佔總業績 ${fmtPct(s.sleeperPct)}</div>
+            </div>
           </div>
         </section>
       `;
