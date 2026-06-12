@@ -1677,9 +1677,9 @@ class SleeperService
         }
 
         $buckets = [
-            'current' => ['sales' => [], 'customers' => [], 'projects' => [], 'products' => [], 'series' => [], 'total' => 0, 'pings' => 0, 'count' => 0, 'sleeperTotal' => 0],
-            'previous' => ['sales' => [], 'customers' => [], 'projects' => [], 'products' => [], 'series' => [], 'total' => 0, 'pings' => 0, 'count' => 0, 'sleeperTotal' => 0],
-            'yoy' => ['sales' => [], 'customers' => [], 'projects' => [], 'products' => [], 'series' => [], 'total' => 0, 'pings' => 0, 'count' => 0, 'sleeperTotal' => 0]
+            'current' => ['sales' => [], 'customers' => [], 'projects' => [], 'products' => [], 'series' => [], 'total' => 0, 'pings' => 0, 'count' => 0, 'sleeperTotal' => 0, 'projectTotal' => 0],
+            'previous' => ['sales' => [], 'customers' => [], 'projects' => [], 'products' => [], 'series' => [], 'total' => 0, 'pings' => 0, 'count' => 0, 'sleeperTotal' => 0, 'projectTotal' => 0],
+            'yoy' => ['sales' => [], 'customers' => [], 'projects' => [], 'products' => [], 'series' => [], 'total' => 0, 'pings' => 0, 'count' => 0, 'sleeperTotal' => 0, 'projectTotal' => 0]
         ];
 
         for ($i = 1; $i < count($raw); $i++) {
@@ -1707,7 +1707,8 @@ class SleeperService
             $profile = isset($productProfiles[$sku]) ? $productProfiles[$sku] : null;
             $customer = $this->displayCustomerName($this->getVal($row, $idx['customer']));
             $project = trim($idx['project'] !== -1 ? $this->getVal($row, $idx['project']) : '');
-            if ($project === '') $project = '未指定專案';
+            $hasProject = $project !== '';
+            if (!$hasProject) $project = '非專案';
             $sales = $this->normalizeSalesRep($idx['sales'] !== -1 ? $this->getVal($row, $idx['sales']) : '');
             if (isset(self::$salesMerge[$sales])) $sales = self::$salesMerge[$sales];
             $pings = $idx['pings'] !== -1 ? $this->optFloat($this->getVal($row, $idx['pings'])) : 0;
@@ -1726,10 +1727,12 @@ class SleeperService
             $buckets[$bucketName]['customers'][$customer]['pings'] += $pings;
             $buckets[$bucketName]['customers'][$customer]['count'] += $txCount;
 
-            if (!isset($buckets[$bucketName]['projects'][$project])) $buckets[$bucketName]['projects'][$project] = ['name' => $project, 'amount' => 0, 'pings' => 0, 'count' => 0];
-            $buckets[$bucketName]['projects'][$project]['amount'] += $amount;
-            $buckets[$bucketName]['projects'][$project]['pings'] += $pings;
-            $buckets[$bucketName]['projects'][$project]['count'] += $txCount;
+            if ($hasProject) {
+                if (!isset($buckets[$bucketName]['projects'][$project])) $buckets[$bucketName]['projects'][$project] = ['name' => $project, 'amount' => 0, 'pings' => 0, 'count' => 0];
+                $buckets[$bucketName]['projects'][$project]['amount'] += $amount;
+                $buckets[$bucketName]['projects'][$project]['pings'] += $pings;
+                $buckets[$bucketName]['projects'][$project]['count'] += $txCount;
+            }
 
             $productKey = $sku . '|' . $series;
             if (!isset($buckets[$bucketName]['products'][$productKey])) {
@@ -1747,6 +1750,10 @@ class SleeperService
             $buckets[$bucketName]['total'] += $amount;
             $buckets[$bucketName]['pings'] += $pings;
             $buckets[$bucketName]['count'] += $txCount;
+            if ($hasProject) {
+                if (!isset($buckets[$bucketName]['projectTotal'])) $buckets[$bucketName]['projectTotal'] = 0;
+                $buckets[$bucketName]['projectTotal'] += $amount;
+            }
             if ($profile && (!empty($profile['isSleeper']) || !empty($profile['isDiscontinued']))) {
                 $buckets[$bucketName]['sleeperTotal'] += $amount;
             }
@@ -1786,10 +1793,16 @@ class SleeperService
         );
         $currentSummary['sleeperSales'] = round($buckets['current']['sleeperTotal']);
         $currentSummary['sleeperPct'] = $currentSummary['total'] > 0 ? round($buckets['current']['sleeperTotal'] / $currentSummary['total'] * 100, 1) : 0;
+        $currentSummary['projectSales'] = round($buckets['current']['projectTotal']);
+        $currentSummary['projectPct'] = $currentSummary['total'] > 0 ? round($buckets['current']['projectTotal'] / $currentSummary['total'] * 100, 1) : 0;
         $prevSummary['sleeperSales'] = round($buckets['previous']['sleeperTotal']);
         $prevSummary['sleeperPct'] = $prevSummary['total'] > 0 ? round($buckets['previous']['sleeperTotal'] / $prevSummary['total'] * 100, 1) : 0;
+        $prevSummary['projectSales'] = round($buckets['previous']['projectTotal']);
+        $prevSummary['projectPct'] = $prevSummary['total'] > 0 ? round($buckets['previous']['projectTotal'] / $prevSummary['total'] * 100, 1) : 0;
         $yoySummary['sleeperSales'] = round($buckets['yoy']['sleeperTotal']);
         $yoySummary['sleeperPct'] = $yoySummary['total'] > 0 ? round($buckets['yoy']['sleeperTotal'] / $yoySummary['total'] * 100, 1) : 0;
+        $yoySummary['projectSales'] = round($buckets['yoy']['projectTotal']);
+        $yoySummary['projectPct'] = $yoySummary['total'] > 0 ? round($buckets['yoy']['projectTotal'] / $yoySummary['total'] * 100, 1) : 0;
 
         $fieldCurrent = $this->buildFieldActivityReport($meta, $buckets['current']);
         $fieldPrevious = $this->buildFieldActivityReport($prevMeta, $buckets['previous']);
@@ -2242,6 +2255,7 @@ class SleeperService
         $meetingCurrentPings = 0;
         $meetingCurrentTxCount = 0;
         $meetingSleeperTotal = 0;
+        $meetingProjectTotal = 0;
         $seriesRanks = [];
         $categoryRanks = [];
         $sizeRanks = [];
@@ -2270,6 +2284,9 @@ class SleeperService
             $meetingCurrentTxCount += $txCount;
             if ($profile && (!empty($profile['isSleeper']) || !empty($profile['isDiscontinued']))) {
                 $meetingSleeperTotal += $amount;
+            }
+            if (trim($this->getVal($row, 4)) !== '') {
+                $meetingProjectTotal += $amount;
             }
 
             $seriesKey = ($profile['brand'] ?? '') . '|' . ($profile['series'] ?? '') . '|' . ($profile['seriesCn'] ?? '');
@@ -2385,6 +2402,7 @@ class SleeperService
         $summary = $strategy['summary'];
         $meetingSalesYoyPct = $meetingYoyTotal > 0 ? (($meetingCurrentTotal - $meetingYoyTotal) / $meetingYoyTotal * 100) : 0;
         $meetingSleeperPct = $meetingCurrentTotal > 0 ? ($meetingSleeperTotal / $meetingCurrentTotal * 100) : 0;
+        $meetingProjectPct = $meetingCurrentTotal > 0 ? ($meetingProjectTotal / $meetingCurrentTotal * 100) : 0;
 
         return [
             'success' => true,
@@ -2402,7 +2420,9 @@ class SleeperService
                     'top3Pct' => $summary['top3SalesPct'] ?? 0,
                     'topCustomerPct' => $summary['topCustomerPct'] ?? 0,
                     'sleeperSales' => round($meetingSleeperTotal),
-                    'sleeperPct' => round($meetingSleeperPct, 1)
+                    'sleeperPct' => round($meetingSleeperPct, 1),
+                    'projectSales' => round($meetingProjectTotal),
+                    'projectPct' => round($meetingProjectPct, 1)
                 ],
                 'monthCompare' => $rows,
                 'topCustomers' => array_slice($strategy['topCustomers'] ?? [], 0, 10),
@@ -2880,6 +2900,14 @@ class SleeperService
         return $name;
     }
 
+    private function extractProjectFromNote($note)
+    {
+        $note = trim((string)$note);
+        if ($note === '') return '';
+        if (mb_strpos($note, '專案') === false) return '';
+        return $note;
+    }
+
     private function optFloat($v)
     {
         if ($v instanceof DateTime) return 0;
@@ -3128,9 +3156,8 @@ class SleeperService
                 $salesName = $this->normalizeSalesRep($idx['sales'] !== -1 ? $this->getVal($row, $idx['sales']) : '');
                 $custCode = $idx['custCode'] !== -1 ? trim($this->getVal($row, $idx['custCode'])) : '';
                 $productName = $idx['productName'] !== -1 ? trim($this->getVal($row, $idx['productName'])) : '';
-                $projectName = $idx['project'] !== -1 ? trim($this->getVal($row, $idx['project'])) : '';
                 $note = $idx['note'] !== -1 ? trim($this->getVal($row, $idx['note'])) : '';
-                if ($projectName === '') $projectName = $note;
+                $projectName = $this->extractProjectFromNote($note);
 
                 if ($this->isSampleRow($custCode, $custName, $productName . ' ' . $note, $amount)) continue;
 
@@ -3468,15 +3495,6 @@ try {
                 echo json_encode($res);
             } catch (Exception $e) {
                 echo json_encode(['success' => false, 'msg' => 'meeting-report 錯誤: ' . $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
-            }
-            break;
-
-        case 'scan-project-flags':
-            try {
-                $res = $svc->scanProjectFlags();
-                echo json_encode($res);
-            } catch (Exception $e) {
-                echo json_encode(['success' => false, 'msg' => 'scan-project-flags 錯誤: ' . $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
             }
             break;
 

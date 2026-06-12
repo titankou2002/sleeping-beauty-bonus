@@ -759,6 +759,11 @@
               <div class="kpi-value">${fmtWan(s.sleeperSales)}</div>
               <div class="kpi-sub">佔總業績 ${fmtPct(s.sleeperPct)}</div>
             </div>
+            <div class="kpi-cell">
+              <div class="kpi-label">專案銷售</div>
+              <div class="kpi-value">${fmtWan(s.projectSales)}</div>
+              <div class="kpi-sub">佔總業績 ${fmtPct(s.projectPct)}</div>
+            </div>
           </div>
         </section>
       `;
