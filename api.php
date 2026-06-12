@@ -3035,7 +3035,14 @@ class SleeperService
                 if ($productName && !$item['productName']) $item['productName'] = $productName;
 
                 if ($isReturn) {
-                    $item['returnQty'] += abs($qty);
+                    $absQty = abs($qty);
+                    $item['returnQty'] += $absQty;
+                    $item['qty'] -= $absQty;
+                    $item['pings'] -= $absQty / $perPing;
+                    if ($amount != 0) {
+                        $item['amount'] += ($amount < 0 ? $amount : -abs($amount));
+                    }
+                    $item['totalQty'] = $item['qty'];
                     continue;
                 }
 
@@ -3044,7 +3051,7 @@ class SleeperService
                 $item['pings'] += $absQty / $perPing;
                 $item['amount'] += $amount;
                 $item['count'] += 1;
-                $item['totalQty'] += $absQty;
+                $item['totalQty'] = $item['qty'];
                 if (!$item['lastTxDate'] || $d > $item['lastTxDate']) {
                     $item['lastTxDate'] = $d;
                 }
@@ -3086,7 +3093,7 @@ class SleeperService
                     $item['lastTxDate'] ? $item['lastTxDate']->format('Y/m/d') : '',
                     $item['productName'],
                     $updatedAt,
-                    'v3-sales-owner-project'
+                    'v4-net-returns'
                 ];
             }
 
