@@ -720,9 +720,9 @@
     function driveUrlToDirect(url) {
       const s = String(url || '');
       let m = s.match(/\/file\/d\/([^\/]+)/);
-      if (m) return 'https://drive.google.com/uc?export=view&id=' + m[1];
+      if (m) return 'https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w1200';
       m = s.match(/[?&]id=([^&]+)/);
-      if (m) return 'https://drive.google.com/uc?export=view&id=' + m[1];
+      if (m) return 'https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w1200';
       return s;
     }
     function escapeHtml(s) {
