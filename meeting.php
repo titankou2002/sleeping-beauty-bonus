@@ -166,7 +166,7 @@
     }
     .health-grid {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       gap: 12px;
       padding: 12px;
     }
@@ -175,7 +175,7 @@
       border-radius: 16px;
       padding: 16px;
       background: rgba(255,255,255,0.025);
-      min-height: 132px;
+      min-height: 120px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
@@ -197,6 +197,10 @@
     .health-card.is-danger .n {
       color: var(--red);
     }
+    .health-card.is-danger .k, .health-line.is-danger .status { color: var(--red); }
+    .health-card.is-warn .n, .health-line.is-warn .status { color: #facc15; }
+    .health-card.is-good .n, .health-line.is-good .status { color: var(--green); }
+    .health-card.is-info .n, .health-line.is-info .status { color: var(--blue); }
     .rank-board {
       display: flex;
       flex-direction: column;
@@ -267,7 +271,7 @@
     }
     .analysis-grid {
       display: grid;
-      grid-template-columns: 1fr 440px;
+      grid-template-columns: minmax(0, 1fr) 520px;
       gap: 16px;
       padding: 12px;
     }
@@ -351,8 +355,8 @@
       border-radius: 4px;
     }
     .product-grid {
-      display: flex;
-      flex-direction: column;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 14px;
       padding: 12px;
     }
@@ -361,13 +365,14 @@
       border-radius: 16px;
       padding: 14px;
       background: rgba(255,255,255,0.03);
-      display: grid;
-      grid-template-columns: 240px 1fr;
-      gap: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-height: 100%;
     }
     .product-hero {
       width: 100%;
-      height: 160px;
+      aspect-ratio: 16 / 9;
       border-radius: 14px;
       overflow: hidden;
       background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
@@ -376,11 +381,18 @@
       align-items: center;
       justify-content: center;
     }
+    .product-hero.is-empty {
+      border-style: dashed;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
     .product-thumb {
       width: 100%;
       height: 100%;
-      border-radius: 12px;
       object-fit: contain;
+      object-position: center;
+      background: #181818;
     }
     .product-body {
       display: flex;
@@ -419,6 +431,9 @@
       font-size: 15px;
       font-weight: 800;
     }
+    .product-note {
+      min-height: 34px;
+    }
     .series-lines {
       display: flex;
       flex-direction: column;
@@ -439,6 +454,7 @@
       display: flex;
       gap: 16px;
       align-items: center;
+      min-width: 0;
     }
     .donut {
       width: 220px;
@@ -478,13 +494,21 @@
       display: flex;
       flex-direction: column;
       gap: 10px;
+      min-width: 0;
     }
     .legend-row {
       display: grid;
-      grid-template-columns: 14px minmax(140px, 1fr) 70px 56px;
+      grid-template-columns: 14px minmax(100px, 1fr) 78px 62px;
       gap: 10px;
       align-items: center;
       font-size: 13px;
+      min-width: 0;
+    }
+    .legend-row span:nth-child(2) {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .legend-dot {
       width: 10px;
@@ -589,14 +613,47 @@
       color: var(--accent-strong);
       white-space: nowrap;
     }
+    .expander-icon {
+      margin-left: 8px;
+      opacity: 0.8;
+    }
     .expander-body {
       padding: 0 12px 12px;
+    }
+    .contract-lines {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-top: 8px;
+    }
+    .health-line {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 72px 120px;
+      gap: 10px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(255,255,255,0.025);
+      align-items: center;
+    }
+    .health-line .customer {
+      font-weight: 800;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .health-line .status,
+    .health-line .elapsed {
+      font-size: 13px;
+      font-weight: 800;
+      text-align: right;
     }
     @media (max-width: 980px) {
       .kpi-grid, .mini-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .health-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .analysis-grid { grid-template-columns: 1fr; }
-      .product-card { grid-template-columns: 1fr; }
+      .product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .series-head { grid-template-columns: 1fr; }
     }
     @media (max-width: 640px) {
@@ -606,7 +663,8 @@
       .series-line, .chart-grid, .analysis-grid { grid-template-columns: 1fr; }
       .donut-wrap { flex-direction: column; align-items: flex-start; }
       .rank-row { grid-template-columns: 1fr; }
-      .product-card { grid-template-columns: 1fr; }
+      .product-grid { grid-template-columns: 1fr; }
+      .health-line { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -692,14 +750,9 @@
               <div class="kpi-sub">YOY ${fmtPct(s.salesYoyPct)}</div>
             </div>
             <div class="kpi-cell">
-              <div class="kpi-label">本月坪數</div>
-              <div class="kpi-value">${fmtInt(s.pings)}</div>
-              <div class="kpi-sub">坪</div>
-            </div>
-            <div class="kpi-cell">
-              <div class="kpi-label">交易筆數</div>
-              <div class="kpi-value">${fmtInt(s.txCount)}</div>
-              <div class="kpi-sub">筆</div>
+              <div class="kpi-label">坪數 / 交易筆數</div>
+              <div class="kpi-value">${fmtInt(s.pings)} / ${fmtInt(s.txCount)}</div>
+              <div class="kpi-sub">坪 / 筆</div>
             </div>
             <div class="kpi-cell yellow">
               <div class="kpi-label">睡美人業績</div>
@@ -901,83 +954,79 @@
       return `
         <section class="sheet">
           <div class="sheet-title">產品大類與尺寸分析</div>
-          <details class="expander" open>
-            <summary>
-              <div>
-                <div class="expander-title">產品大類占比</div>
-                <div class="expander-sub">先看大類結構，需要時再展開細項。</div>
-              </div>
-              <div class="expander-meta">${rows.length} 類</div>
-            </summary>
-            <div class="expander-body">
-              <div class="analysis-grid">
-                <div class="chart-card">
-                  <div class="table-wrap">
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>產品大類</th>
-                          <th>銷售金額</th>
-                          <th>金額佔比</th>
-                          <th>銷售坪數</th>
-                          <th>交易筆數</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        ${rows.map(r => `
-                          <tr>
-                            <td>${escapeHtml(r.name)}</td>
-                            <td class="num">${fmtWan(r.amount)}</td>
-                            <td class="num">${fmtPct(r.sharePct)}</td>
-                            <td class="num">${fmtInt(r.pings)}</td>
-                            <td class="num">${fmtInt(r.count)}</td>
-                          </tr>
-                        `).join('')}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-                ${buildDonutCard('產品大類占比', rows, (d.summary || {}).sales || 0, '依銷售金額')}
-              </div>
-            </div>
-          </details>
+          <div class="section-pad">
+            ${buildDonutCard('產品大類占比', rows, (d.summary || {}).sales || 0, '依銷售金額')}
+          </div>
           <details class="expander">
             <summary>
               <div>
-                <div class="expander-title">尺寸占比</div>
-                <div class="expander-sub">預設先看圓餅圖，需要時再展開尺寸細項。</div>
+                <div class="expander-title">產品大類細節</div>
+                <div class="expander-sub">點開看品類金額、佔比、坪數與筆數。</div>
               </div>
-              <div class="expander-meta">${sizeRows.length} 種尺寸</div>
+              <div class="expander-meta">${rows.length} 類<span class="expander-icon">⌄</span></div>
             </summary>
             <div class="expander-body">
-              <div class="analysis-grid">
-                <div class="chart-card">
-                  <div class="table-wrap">
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>尺寸</th>
-                          <th>銷售金額</th>
-                          <th>金額佔比</th>
-                          <th>銷售坪數</th>
-                          <th>交易筆數</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        ${sizeRows.map(r => `
-                          <tr>
-                            <td>${escapeHtml(r.name)}</td>
-                            <td class="num">${fmtWan(r.amount)}</td>
-                            <td class="num">${fmtPct(r.sharePct)}</td>
-                            <td class="num">${fmtInt(r.pings)}</td>
-                            <td class="num">${fmtInt(r.count)}</td>
-                          </tr>
-                        `).join('')}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-                ${buildDonutCard('尺寸占比', sizeRows, (d.summary || {}).sales || 0, '依銷售金額')}
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>產品大類</th>
+                      <th>銷售金額</th>
+                      <th>金額佔比</th>
+                      <th>銷售坪數</th>
+                      <th>交易筆數</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${rows.map(r => `
+                      <tr>
+                        <td>${escapeHtml(r.name)}</td>
+                        <td class="num">${fmtWan(r.amount)}</td>
+                        <td class="num">${fmtPct(r.sharePct)}</td>
+                        <td class="num">${fmtInt(r.pings)}</td>
+                        <td class="num">${fmtInt(r.count)}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </details>
+          <div class="section-pad">
+            ${buildDonutCard('尺寸占比', sizeRows, (d.summary || {}).sales || 0, '依銷售金額')}
+          </div>
+          <details class="expander">
+            <summary>
+              <div>
+                <div class="expander-title">尺寸細節</div>
+                <div class="expander-sub">點開看尺寸金額、佔比、坪數與筆數。</div>
+              </div>
+              <div class="expander-meta">${sizeRows.length} 種尺寸<span class="expander-icon">⌄</span></div>
+            </summary>
+            <div class="expander-body">
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>尺寸</th>
+                      <th>銷售金額</th>
+                      <th>金額佔比</th>
+                      <th>銷售坪數</th>
+                      <th>交易筆數</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${sizeRows.map(r => `
+                      <tr>
+                        <td>${escapeHtml(r.name)}</td>
+                        <td class="num">${fmtWan(r.amount)}</td>
+                        <td class="num">${fmtPct(r.sharePct)}</td>
+                        <td class="num">${fmtInt(r.pings)}</td>
+                        <td class="num">${fmtInt(r.count)}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
               </div>
             </div>
           </details>
@@ -997,32 +1046,22 @@
       const pendingRows = detailGroups.pendingRenewal || [];
       const renewedRows = detailGroups.renewed || [];
       const otherOpenRows = detailGroups.otherOpen || [];
-      const buildContractTable = rows => `
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>客戶</th>
-                <th>健康度</th>
-                <th>逾期 / 到期狀態</th>
-                <th>餘額</th>
-                <th>業務</th>
-                <th>最後票期</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rows.map(r => `
-                <tr>
-                  <td>${escapeHtml(r.customer)}</td>
-                  <td class="center">${escapeHtml(r.health)}</td>
-                  <td class="center">${escapeHtml(r.elapsed || '—')}</td>
-                  <td class="num">${fmtWan(r.balance)}</td>
-                  <td class="center">${escapeHtml(r.sales || '—')}</td>
-                  <td class="center">${fmtDate(r.lastDue)}</td>
-                </tr>
-              `).join('') || '<tr><td colspan="6" class="center">本期無資料</td></tr>'}
-            </tbody>
-          </table>
+      const contractLineClass = health => {
+        const text = String(health || '');
+        if (text.includes('嚴重')) return 'is-danger';
+        if (text.includes('逾期') || text.includes('待續')) return 'is-warn';
+        if (text.includes('已續')) return 'is-info';
+        return 'is-good';
+      };
+      const buildContractLines = rows => `
+        <div class="contract-lines">
+          ${rows.map(r => `
+            <div class="health-line ${contractLineClass(r.health)}">
+              <div class="customer">${escapeHtml(r.customer)}</div>
+              <div class="status">${escapeHtml(r.health || '—')}</div>
+              <div class="elapsed">${escapeHtml(r.elapsed || fmtDate(r.lastDue))}</div>
+            </div>
+          `).join('') || '<div class="hint">本期無資料</div>'}
         </div>
       `;
       return `
@@ -1034,58 +1073,82 @@
             <div class="mini-card"><h3>合約餘額</h3><div class="v">${fmtWan(s.balance)}</div></div>
           </div>
           <div class="health-grid">
-            <div class="health-card"><div class="k">正常</div><div class="n">${fmtInt(healthMap['正常'] || 0)}</div><div class="d">穩定履約</div></div>
+            <details class="health-card is-good expander">
+              <summary>
+                <div>
+                  <div class="k">正常</div>
+                  <div class="n">${fmtInt(healthMap['正常'] || 0)}</div>
+                  <div class="d">點開看正常客戶</div>
+                </div>
+                <div class="expander-icon">⌄</div>
+              </summary>
+              <div class="expander-body">${buildContractLines((detailGroups.normal || []))}</div>
+            </details>
+            <details class="health-card is-warn expander">
+              <summary>
+                <div>
+                  <div class="k">逾期</div>
+                  <div class="n">${fmtInt(healthMap['逾期'] || 0)}</div>
+                  <div class="d">點開看逾期天數</div>
+                </div>
+                <div class="expander-icon">⌄</div>
+              </summary>
+              <div class="expander-body">${buildContractLines(overdueSevereRows.filter(r => String(r.health || '').includes('逾期')))}</div>
+            </details>
             <details class="health-card is-danger expander">
               <summary>
                 <div>
-                  <div class="k">逾期 / 嚴重</div>
-                  <div class="n">${fmtInt(overdueSevereCount)}</div>
-                  <div class="d">點開看逾期明細</div>
+                  <div class="k">嚴重</div>
+                  <div class="n">${fmtInt(healthMap['嚴重'] || 0)}</div>
+                  <div class="d">點開看嚴重逾期</div>
                 </div>
+                <div class="expander-icon">⌄</div>
               </summary>
-              <div class="expander-body">${buildContractTable(overdueSevereRows)}</div>
+              <div class="expander-body">${buildContractLines(overdueSevereRows.filter(r => String(r.health || '').includes('嚴重')))}</div>
             </details>
-            <details class="health-card expander">
+            <details class="health-card is-warn expander">
               <summary>
                 <div>
                   <div class="k">待續約</div>
                   <div class="n">${fmtInt(healthMap['待續'] || 0)}</div>
                   <div class="d">點開看待續時間</div>
                 </div>
+                <div class="expander-icon">⌄</div>
               </summary>
-              <div class="expander-body">${buildContractTable(pendingRows)}</div>
+              <div class="expander-body">${buildContractLines(pendingRows)}</div>
             </details>
-            <details class="health-card expander">
+            <details class="health-card is-info expander">
               <summary>
                 <div>
                   <div class="k">已續約</div>
                   <div class="n">${fmtInt(healthMap['已續'] || 0)}</div>
                   <div class="d">點開看本期完成</div>
                 </div>
+                <div class="expander-icon">⌄</div>
               </summary>
-              <div class="expander-body">${buildContractTable(renewedRows)}</div>
-            </details>
-            <details class="health-card expander">
-              <summary>
-                <div>
-                  <div class="k">未續約 / 另列說明</div>
-                  <div class="n">${fmtInt((healthMap['其它未續約'] || 0) + notes.reduce((sum, r) => sum + Number(r.count || 0), 0))}</div>
-                  <div class="d">點開看其它未續明細</div>
-                </div>
-              </summary>
-              <div class="expander-body">
-                ${buildContractTable(otherOpenRows)}
-                <div class="table-wrap" style="margin-top:12px">
-                  <table>
-                    <thead><tr><th>其它沖完未續約說明</th><th>筆數</th></tr></thead>
-                    <tbody>
-                      ${notes.map(r => `<tr><td>${escapeHtml(r.name)}</td><td class="num">${fmtInt(r.count)}</td></tr>`).join('') || '<tr><td colspan="2" class="center">本期無額外說明</td></tr>'}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              <div class="expander-body">${buildContractLines(renewedRows)}</div>
             </details>
           </div>
+          <details class="expander" style="margin:0 12px 12px">
+            <summary>
+              <div>
+                <div class="expander-title">未續約 / 另列說明</div>
+                <div class="expander-sub">把其它未續約與沖完未續約說明集中在這裡。</div>
+              </div>
+              <div class="expander-meta">${fmtInt((healthMap['其它未續約'] || 0) + notes.reduce((sum, r) => sum + Number(r.count || 0), 0))}<span class="expander-icon">⌄</span></div>
+            </summary>
+            <div class="expander-body">
+              ${buildContractLines(otherOpenRows)}
+              <div class="table-wrap" style="margin-top:12px">
+                <table>
+                  <thead><tr><th>其它沖完未續約說明</th><th>筆數</th></tr></thead>
+                  <tbody>
+                    ${notes.map(r => `<tr><td>${escapeHtml(r.name)}</td><td class="num">${fmtInt(r.count)}</td></tr>`).join('') || '<tr><td colspan="2" class="center">本期無額外說明</td></tr>'}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </details>
         </section>
       `;
     }
@@ -1172,19 +1235,23 @@
     }
 
     function buildHotProductsSheet(d) {
-      const rows = d.topProductsDetailed || [];
+      const rows = (d.topProductsDetailed || []).slice(0, 9);
       return `
         <section class="sheet">
           <div class="sheet-title">熱銷產品分析</div>
           <div class="section-pad">
-            <div class="hint" style="margin-bottom:12px">把單片圖統一橫向呈現，搭配金額、坪數、筆數、佔比一起看。</div>
+            <div class="hint" style="margin-bottom:12px">九宮格看前 9 名，圖片統一橫向，資訊放在圖片下方。</div>
           </div>
           <div class="product-grid">
             ${rows.map(row => `
               <div class="product-card">
-                <div class="product-hero">
-                  <img class="product-thumb" src="${escapeHtml(driveUrlToDirect(row.imageUrl || ''))}" alt="" onerror="this.closest('.product-hero').style.display='none'">
-                </div>
+                ${row.imageUrl ? `
+                  <div class="product-hero">
+                    <img class="product-thumb" src="${escapeHtml(driveUrlToDirect(row.imageUrl || ''))}" alt="" onerror="this.remove(); this.parentNode.classList.add('is-empty'); this.parentNode.textContent='無圖片';">
+                  </div>
+                ` : `
+                  <div class="product-hero is-empty">無圖片</div>
+                `}
                 <div class="product-body">
                   <div class="product-name">${escapeHtml(row.sku)}</div>
                   <div class="product-meta">
@@ -1192,7 +1259,7 @@
                     <span class="pill">${escapeHtml(row.category || '未分類')}</span>
                     <span class="pill">${escapeHtml(row.size || '未標尺寸')}</span>
                   </div>
-                  <div class="item-sub" style="margin-bottom:10px">${escapeHtml(row.name || '未命名產品')}</div>
+                  <div class="item-sub product-note">${escapeHtml(row.name || '未命名產品')}</div>
                   <div class="product-stats">
                     <div class="stat-box"><div class="t">銷售金額</div><div class="v">${fmtWan(row.amount)}</div></div>
                     <div class="stat-box"><div class="t">銷售坪數</div><div class="v">${fmtInt(row.pings)}</div></div>

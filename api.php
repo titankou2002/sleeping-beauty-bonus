@@ -1665,11 +1665,24 @@ class SleeperService
         $metaMap = $this->getMetaMap();
         $monthTrend = [];
         for ($m = 1; $m <= 12; $m++) $monthTrend[$m] = 0;
+        $trailingTrendMap = [];
+        $cursor = new DateTime(sprintf('%04d-%02d-01', (int)$meta['year'], max($meta['months'])));
+        for ($i = 11; $i >= 0; $i--) {
+            $probe = clone $cursor;
+            $probe->modify("-{$i} month");
+            $key = $probe->format('Y-n');
+            $trailingTrendMap[$key] = [
+                'year' => (int)$probe->format('Y'),
+                'month' => (int)$probe->format('n'),
+                'label' => $probe->format('Y/n'),
+                'amount' => 0
+            ];
+        }
 
         $buckets = [
-            'current' => ['sales' => [], 'customers' => [], 'projects' => [], 'products' => [], 'series' => [], 'total' => 0, 'pings' => 0, 'count' => 0],
-            'previous' => ['sales' => [], 'customers' => [], 'projects' => [], 'products' => [], 'series' => [], 'total' => 0, 'pings' => 0, 'count' => 0],
-            'yoy' => ['sales' => [], 'customers' => [], 'projects' => [], 'products' => [], 'series' => [], 'total' => 0, 'pings' => 0, 'count' => 0]
+            'current' => ['sales' => [], 'customers' => [], 'projects' => [], 'products' => [], 'series' => [], 'total' => 0, 'pings' => 0, 'count' => 0, 'sleeperTotal' => 0],
+            'previous' => ['sales' => [], 'customers' => [], 'projects' => [], 'products' => [], 'series' => [], 'total' => 0, 'pings' => 0, 'count' => 0, 'sleeperTotal' => 0],
+            'yoy' => ['sales' => [], 'customers' => [], 'projects' => [], 'products' => [], 'series' => [], 'total' => 0, 'pings' => 0, 'count' => 0, 'sleeperTotal' => 0]
         ];
 
         for ($i = 1; $i < count($raw); $i++) {
@@ -1679,6 +1692,10 @@ class SleeperService
 
             $amount = $this->optFloat($this->getVal($row, $idx['amount']));
             if ($rowYear === (int)$meta['year']) $monthTrend[$rowMonth] += $amount;
+            $trendKey = $rowYear . '-' . $rowMonth;
+            if (isset($trailingTrendMap[$trendKey])) {
+                $trailingTrendMap[$trendKey]['amount'] += $amount;
+            }
 
             $bucketName = null;
             if ($this->matchesStrategyPeriod($rowYear, $rowMonth, $meta)) $bucketName = 'current';
@@ -1688,7 +1705,6 @@ class SleeperService
 
             $sku = $this->cleanSku($this->getVal($row, $idx['code']));
             $profile = isset($productProfiles[$sku]) ? $productProfiles[$sku] : null;
-            if ($profile && !empty($profile['isDiscontinued'])) continue;
             $customer = $this->displayCustomerName($this->getVal($row, $idx['customer']));
             $project = trim($idx['project'] !== -1 ? $this->getVal($row, $idx['project']) : '');
             if ($project === '') $project = '未指定專案';
@@ -1731,6 +1747,9 @@ class SleeperService
             $buckets[$bucketName]['total'] += $amount;
             $buckets[$bucketName]['pings'] += $pings;
             $buckets[$bucketName]['count'] += $txCount;
+            if ($profile && (!empty($profile['isSleeper']) || !empty($profile['isDiscontinued']))) {
+                $buckets[$bucketName]['sleeperTotal'] += $amount;
+            }
         }
 
         $sortDesc = function (&$arr) {
@@ -1765,6 +1784,12 @@ class SleeperService
             $buckets['yoy']['pings'],
             $buckets['yoy']['count']
         );
+        $currentSummary['sleeperSales'] = round($buckets['current']['sleeperTotal']);
+        $currentSummary['sleeperPct'] = $currentSummary['total'] > 0 ? round($buckets['current']['sleeperTotal'] / $currentSummary['total'] * 100, 1) : 0;
+        $prevSummary['sleeperSales'] = round($buckets['previous']['sleeperTotal']);
+        $prevSummary['sleeperPct'] = $prevSummary['total'] > 0 ? round($buckets['previous']['sleeperTotal'] / $prevSummary['total'] * 100, 1) : 0;
+        $yoySummary['sleeperSales'] = round($buckets['yoy']['sleeperTotal']);
+        $yoySummary['sleeperPct'] = $yoySummary['total'] > 0 ? round($buckets['yoy']['sleeperTotal'] / $yoySummary['total'] * 100, 1) : 0;
 
         $fieldCurrent = $this->buildFieldActivityReport($meta, $buckets['current']);
         $fieldPrevious = $this->buildFieldActivityReport($prevMeta, $buckets['previous']);
@@ -1811,6 +1836,7 @@ class SleeperService
                 'growthProjects' => $growthProjects,
                 'growthProducts' => $growthProducts,
                 'monthTrend' => $monthTrend,
+                'trailingTrend' => array_values($trailingTrendMap),
                 'fieldActivity' => $fieldCurrent,
                 'fieldBases' => [
                     'previous' => $fieldPrevious['summary'] ?? [],
@@ -2039,6 +2065,7 @@ class SleeperService
                 'topRisk' => [],
                 'notes' => [],
                 'detailGroups' => [
+                    'normal' => [],
                     'overdueSevere' => [],
                     'pendingRenewal' => [],
                     'renewed' => [],
@@ -2069,6 +2096,7 @@ class SleeperService
         $topRisk = [];
         $notes = [];
         $detailGroups = [
+            'normal' => [],
             'overdueSevere' => [],
             'pendingRenewal' => [],
             'renewed' => [],
@@ -2128,6 +2156,7 @@ class SleeperService
             if (in_array($bucket, ['逾期', '嚴重'], true)) $detailGroups['overdueSevere'][] = $detailRow;
             elseif ($bucket === '待續') $detailGroups['pendingRenewal'][] = $detailRow;
             elseif ($bucket === '已續') $detailGroups['renewed'][] = $detailRow;
+            elseif ($bucket === '正常') $detailGroups['normal'][] = $detailRow;
             elseif ($bucket === '其它未續約') $detailGroups['otherOpen'][] = $detailRow;
 
             if (in_array($bucket, ['逾期', '嚴重', '待續'], true) || $bal > 300000) {
@@ -2169,6 +2198,7 @@ class SleeperService
             'topRisk' => array_slice($topRisk, 0, 10),
             'notes' => array_slice($noteRows, 0, 12),
             'detailGroups' => [
+                'normal' => array_slice($detailGroups['normal'], 0, 30),
                 'overdueSevere' => array_slice($detailGroups['overdueSevere'], 0, 30),
                 'pendingRenewal' => array_slice($detailGroups['pendingRenewal'], 0, 30),
                 'renewed' => array_slice($detailGroups['renewed'], 0, 30),

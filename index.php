@@ -1471,6 +1471,22 @@ function buildTrendChart(monthTrend, activeMonth) {
   return html;
 }
 
+function buildTrailingTrendChart(rows) {
+  rows = rows || [];
+  if (!rows.length) return '<div class="chart-sub">本期尚無資料</div>';
+  var max = 1;
+  rows.forEach(function(row) { max = Math.max(max, row.amount || 0); });
+  return '<div class="trend-wrap">' + rows.map(function(row) {
+    var val = row.amount || 0;
+    var h = Math.max(8, Math.round(val / max * 150));
+    return '<div class="trend-col">' +
+      '<div class="trend-value">' + (val > 0 ? fmtReportWan(val) : '0萬') + '</div>' +
+      '<div class="trend-bar" style="height:' + h + 'px"></div>' +
+      '<div class="trend-label">' + row.label + '</div>' +
+      '</div>';
+  }).join('') + '</div>';
+}
+
 function buildCompareCard(label, currentValue, previousLabel, previousValue, yoyLabel, yoyValue, primaryPct, yoyPct) {
   return '<div class="compare-card">' +
     '<div class="compare-label">' + label + '</div>' +
@@ -1493,6 +1509,7 @@ function renderStrategyReport(d) {
   var topProjects = d.topProjects || [];
   var topProducts = d.topProducts || [];
   var topSeries = d.topSeries || [];
+  var trailingTrend = d.trailingTrend || [];
   var growthSales = d.growthSales || [];
   var growthCustomers = d.growthCustomers || [];
   var growthProjects = d.growthProjects || [];
@@ -1518,16 +1535,17 @@ function renderStrategyReport(d) {
 
   var html = '<div class="kpi-row">' +
     '<div class="kpi-card kpi-gold"><div class="label">本期銷售額</div><div class="value">' + fmtReportWan(s.total || 0) + '</div><div class="sub">' + d.label + '</div></div>' +
-    '<div class="kpi-card kpi-green"><div class="label">本期銷售坪數</div><div class="value">' + fmtReportInt(s.pings || 0) + '</div><div class="sub">坪</div></div>' +
-    '<div class="kpi-card kpi-blue"><div class="label">交易筆數</div><div class="value">' + fmtReportInt(s.txCount || 0) + '</div><div class="sub">筆</div></div>' +
-    '<div class="kpi-card"><div class="label">平均單筆金額</div><div class="value">' + fmtReportWan(s.avgTicket || 0) + '</div><div class="sub">客單價</div></div>' +
-    '<div class="kpi-card kpi-red"><div class="label">前 3 業務占比</div><div class="value">' + fmtReportPct(s.top3SalesPct || 0) + '</div><div class="sub">集中度</div></div>' +
-    '<div class="kpi-card"><div class="label">最大客戶占比</div><div class="value">' + fmtReportPct(s.topCustomerPct || 0) + '</div><div class="sub">依賴度</div></div>' +
+    '<div class="kpi-card"><div class="label">睡美人業績</div><div class="value">' + fmtReportWan(s.sleeperSales || 0) + '</div><div class="sub">佔比 ' + fmtReportPct(s.sleeperPct || 0) + '</div></div>' +
+    '<div class="kpi-card kpi-green"><div class="label">銷售坪數 / 交易筆數</div><div class="value">' + fmtReportInt(s.pings || 0) + ' / ' + fmtReportInt(s.txCount || 0) + '</div><div class="sub">坪 / 筆</div></div>' +
+    '<div class="kpi-card kpi-blue"><div class="label">去年同期</div><div class="value">' + fmtReportWan(baseYoy.total || 0) + '</div><div class="sub">YOY ' + fmtDeltaPct(yoy.totalPct || 0) + '</div></div>' +
     '</div>';
 
   html += '<div class="compare-strip">' +
-    buildCompareCard(primary.label || '前期比較', fmtReportWan(s.total || 0), d.previousLabel || '前期', fmtReportWan(basePrev.total || 0), d.yoyLabel || '去年同期', fmtReportWan(baseYoy.total || 0), primary.totalPct, yoy.totalPct) +
-    buildCompareCard('交易效率', fmtReportWan(s.avgTicket || 0), d.previousLabel || '前期', fmtReportWan(basePrev.avgTicket || 0), d.yoyLabel || '去年同期', fmtReportWan(baseYoy.avgTicket || 0), primary.avgTicketPct, yoy.avgTicketPct) +
+    '<details class="chart-card full-span" open><summary style="cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center"><div><div class="chart-title">MOM</div><div class="chart-sub">點開看過去 12 個月長條對比。</div></div><div class="' + deltaClass(primary.totalPct) + '">' + fmtDeltaPct(primary.totalPct || 0) + '</div></summary><div style="padding-top:12px">' +
+      '<div class="compare-sub">' + d.previousLabel + ' ' + fmtReportWan(basePrev.total || 0) + ' ・ <span class="' + deltaClass(primary.totalPct) + '">' + fmtDeltaPct(primary.totalPct || 0) + '</span></div>' +
+      '<div class="compare-sub">' + d.yoyLabel + ' ' + fmtReportWan(baseYoy.total || 0) + ' ・ <span class="' + deltaClass(yoy.totalPct) + '">' + fmtDeltaPct(yoy.totalPct || 0) + '</span></div>' +
+      buildTrailingTrendChart(trailingTrend) +
+    '</div></details>' +
     '</div>';
 
   html += '<div class="kpi-row">' +
