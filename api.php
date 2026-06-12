@@ -2076,7 +2076,9 @@ class SleeperService
             'underVisitedCustomers' => array_slice($underVisited, 0, 10),
             'highVisitLowSalesCustomers' => array_slice($highVisitLowSales, 0, 10),
             'repEfficiency' => array_slice($repRows, 0, 10),
-            'taskMix' => array_slice($taskRows, 0, 8)
+            'taskMix' => array_slice($taskRows, 0, 8),
+            'allCustomers' => $customerRows,
+            'allReps' => $repRows
         ];
     }
 
@@ -2266,6 +2268,7 @@ class SleeperService
             'sku' => $this->findHeader($h, ['產品編號']),
             'customer' => $this->findHeader($h, ['客戶名稱']),
             'project' => $this->findHeader($h, ['專案名稱']),
+            'sales' => $this->findHeader($h, ['負責業務', '業務']),
             'amount' => $this->findHeader($h, ['銷售金額']),
             'pings' => $this->findHeader($h, ['銷售坪數']),
             'count' => $this->findHeader($h, ['交易筆數'])
@@ -2287,6 +2290,9 @@ class SleeperService
         $meetingProjectTotal = 0;
         $currentCustomerAmounts = [];
         $countryRanks = [];
+        $customerDetails = [];
+        $salesCustomerBreakdown = [];
+        $countryBrandRanks = ['義大利' => [], '西班牙' => []];
         $seriesRanks = [];
         $categoryRanks = [];
         $sizeRanks = [];
@@ -2299,6 +2305,9 @@ class SleeperService
             $sku = $this->cleanSku($this->getVal($row, $idx['sku']));
             $customer = $idx['customer'] !== -1 ? $this->displayCustomerName($this->getVal($row, $idx['customer'])) : '未知客戶';
             $projectName = $idx['project'] !== -1 ? trim($this->getVal($row, $idx['project'])) : '';
+            $sales = $idx['sales'] !== -1 ? $this->normalizeSalesRep($this->getVal($row, $idx['sales'])) : '未指定';
+            if (isset(self::$salesMerge[$sales])) $sales = self::$salesMerge[$sales];
+            if ($sales === '') $sales = '未指定';
             $amount = $this->optFloat($this->getVal($row, $idx['amount']));
             $pings = $this->optFloat($this->getVal($row, $idx['pings']));
             $txCount = (int)$this->getVal($row, $idx['count']);
@@ -2319,6 +2328,32 @@ class SleeperService
             if ($customer !== '未知客戶') {
                 if (!isset($currentCustomerAmounts[$customer])) $currentCustomerAmounts[$customer] = 0;
                 $currentCustomerAmounts[$customer] += $amount;
+                if (!isset($customerDetails[$customer])) {
+                    $customerDetails[$customer] = ['name' => $customer, 'items' => []];
+                }
+                $detailKey = ($projectName !== '' ? $projectName : '非專案') . '|' . $sku;
+                if (!isset($customerDetails[$customer]['items'][$detailKey])) {
+                    $customerDetails[$customer]['items'][$detailKey] = [
+                        'project' => $projectName !== '' ? $projectName : '非專案',
+                        'sku' => $sku,
+                        'name' => trim(($profile['productName'] ?? '') . ' ' . ($profile['size'] ?? '')),
+                        'count' => 0,
+                        'amount' => 0,
+                        'pings' => 0
+                    ];
+                }
+                $customerDetails[$customer]['items'][$detailKey]['count'] += $txCount;
+                $customerDetails[$customer]['items'][$detailKey]['amount'] += $amount;
+                $customerDetails[$customer]['items'][$detailKey]['pings'] += $pings;
+            }
+            if (!isset($salesCustomerBreakdown[$sales])) {
+                $salesCustomerBreakdown[$sales] = ['name' => $sales, 'customers' => []];
+            }
+            if ($customer !== '未知客戶') {
+                if (!isset($salesCustomerBreakdown[$sales]['customers'][$customer])) {
+                    $salesCustomerBreakdown[$sales]['customers'][$customer] = ['name' => $customer, 'amount' => 0];
+                }
+                $salesCustomerBreakdown[$sales]['customers'][$customer]['amount'] += $amount;
             }
             if ($profile && (!empty($profile['isSleeper']) || !empty($profile['isDiscontinued']))) {
                 $meetingSleeperTotal += $amount;
@@ -2333,6 +2368,26 @@ class SleeperService
             $countryRanks[$country]['amount'] += $amount;
             $countryRanks[$country]['pings'] += $pings;
             $countryRanks[$country]['count'] += $txCount;
+            if (isset($countryBrandRanks[$country])) {
+                $brand = trim($profile['brand'] ?? '') ?: '未分類廠牌';
+                $seriesName = trim(($profile['seriesCn'] ?? '') ?: ($profile['series'] ?? '')) ?: '未分類系列';
+                if (!isset($countryBrandRanks[$country][$brand])) {
+                    $countryBrandRanks[$country][$brand] = [
+                        'name' => $brand,
+                        'amount' => 0,
+                        'pings' => 0,
+                        'seriesSet' => [],
+                        'seriesRows' => []
+                    ];
+                }
+                $countryBrandRanks[$country][$brand]['amount'] += $amount;
+                $countryBrandRanks[$country][$brand]['pings'] += $pings;
+                $countryBrandRanks[$country][$brand]['seriesSet'][$seriesName] = true;
+                if (!isset($countryBrandRanks[$country][$brand]['seriesRows'][$seriesName])) {
+                    $countryBrandRanks[$country][$brand]['seriesRows'][$seriesName] = ['name' => $seriesName, 'amount' => 0];
+                }
+                $countryBrandRanks[$country][$brand]['seriesRows'][$seriesName]['amount'] += $amount;
+            }
 
             $seriesKey = ($profile['brand'] ?? '') . '|' . ($profile['series'] ?? '') . '|' . ($profile['seriesCn'] ?? '');
             if (!isset($seriesRanks[$seriesKey])) {
@@ -2426,6 +2481,61 @@ class SleeperService
         usort($countryRanks, function ($a, $b) {
             return $b['amount'] <=> $a['amount'];
         });
+        foreach ($customerDetails as &$detail) {
+            $detail['items'] = array_values($detail['items']);
+            usort($detail['items'], function ($a, $b) {
+                if ($a['project'] === $b['project']) return $b['amount'] <=> $a['amount'];
+                return strcmp($a['project'], $b['project']);
+            });
+            $customerTotal = array_sum(array_map(function ($item) { return $item['amount']; }, $detail['items']));
+            foreach ($detail['items'] as &$item) {
+                $item['sharePct'] = $customerTotal > 0 ? ($item['amount'] / $customerTotal * 100) : 0;
+            }
+            unset($item);
+        }
+        unset($detail);
+        foreach ($salesCustomerBreakdown as &$rep) {
+            $rep['customers'] = array_values($rep['customers']);
+            usort($rep['customers'], function ($a, $b) {
+                return $b['amount'] <=> $a['amount'];
+            });
+            $repTotal = array_sum(array_map(function ($row) { return $row['amount']; }, $rep['customers']));
+            $cum = 0;
+            $cover = 0;
+            foreach ($rep['customers'] as &$custRow) {
+                $custRow['sharePct'] = $repTotal > 0 ? ($custRow['amount'] / $repTotal * 100) : 0;
+                if ($cum < 90) {
+                    $cum += $custRow['sharePct'];
+                    $cover++;
+                }
+            }
+            unset($custRow);
+            $rep['top90CustomerCount'] = $cover;
+        }
+        unset($rep);
+        foreach ($countryBrandRanks as $country => &$brands) {
+            $countryTotal = 0;
+            foreach ($brands as $tmpRow) $countryTotal += $tmpRow['amount'];
+            foreach ($brands as &$brandRow) {
+                $brandRow['seriesCount'] = count($brandRow['seriesSet']);
+                $brandRow['sharePct'] = $countryTotal > 0 ? ($brandRow['amount'] / $countryTotal * 100) : 0;
+                $brandRow['seriesRows'] = array_values($brandRow['seriesRows']);
+                usort($brandRow['seriesRows'], function ($a, $b) {
+                    return $b['amount'] <=> $a['amount'];
+                });
+                foreach ($brandRow['seriesRows'] as &$seriesRow) {
+                    $seriesRow['sharePct'] = $brandRow['amount'] > 0 ? ($seriesRow['amount'] / $brandRow['amount'] * 100) : 0;
+                }
+                unset($seriesRow);
+                unset($brandRow['seriesSet']);
+            }
+            unset($brandRow);
+            usort($brands, function ($a, $b) {
+                return $b['amount'] <=> $a['amount'];
+            });
+            $brands = array_slice(array_values($brands), 0, 8);
+        }
+        unset($brands);
         usort($topProducts, function ($a, $b) {
             return ($b['amount'] <=> $a['amount']) ?: ($b['pings'] <=> $a['pings']);
         });
@@ -2452,6 +2562,11 @@ class SleeperService
 
         $contractSummary = $this->getContractMeetingSummary($year, $month);
         $summary = $strategy['summary'];
+        $fieldCurrent = $strategy['fieldActivity'] ?? ['summary' => []];
+        $visitMap = [];
+        foreach (($fieldCurrent['allCustomers'] ?? []) as $visitRow) {
+            $visitMap[$visitRow['name']] = $visitRow;
+        }
         $meetingSalesYoyPct = $meetingYoyTotal > 0 ? (($meetingCurrentTotal - $meetingYoyTotal) / $meetingYoyTotal * 100) : 0;
         $meetingSleeperPct = $meetingCurrentTotal > 0 ? ($meetingSleeperTotal / $meetingCurrentTotal * 100) : 0;
         $meetingProjectPct = $meetingCurrentTotal > 0 ? ($meetingProjectTotal / $meetingCurrentTotal * 100) : 0;
@@ -2492,6 +2607,42 @@ class SleeperService
             $bucket['salesSharePct'] = $meetingCurrentTotal > 0 ? ($bucket['amount'] / $meetingCurrentTotal * 100) : 0;
         }
         unset($bucket);
+        foreach ($shipmentBuckets as &$bucket) {
+            $bucket['customers'] = [];
+        }
+        foreach ($currentCustomerAmounts as $customerName => $amount) {
+            foreach ($shipmentBuckets as &$bucket) {
+                $hit = $bucket['max'] === null
+                    ? ($amount >= $bucket['min'])
+                    : ($amount >= $bucket['min'] && $amount < $bucket['max']);
+                if ($hit) {
+                    $visitRow = $visitMap[$customerName] ?? ['visits' => 0, 'visitDays' => 0];
+                    $bucket['customers'][] = [
+                        'name' => $customerName,
+                        'shortName' => mb_substr($customerName, 0, 2, 'UTF-8'),
+                        'amount' => $amount,
+                        'visits' => $visitRow['visits'] ?? 0,
+                        'visitDays' => $visitRow['visitDays'] ?? 0
+                    ];
+                    break;
+                }
+            }
+            unset($bucket);
+        }
+        foreach ($shipmentBuckets as &$bucket) {
+            usort($bucket['customers'], function ($a, $b) {
+                return $b['amount'] <=> $a['amount'];
+            });
+            $visitTotal = array_sum(array_map(function ($row) { return $row['visits']; }, $bucket['customers']));
+            $bucket['visitTotal'] = $visitTotal;
+            $bucket['avgVisitsPerCustomer'] = $bucket['count'] > 0
+                ? round($visitTotal / $bucket['count'], 1)
+                : 0;
+            $bucket['salesPerVisit'] = $visitTotal > 0
+                ? round($bucket['amount'] / $visitTotal)
+                : 0;
+        }
+        unset($bucket);
 
         $brandSales = [
             'italy' => ['name' => '義大利', 'amount' => 0],
@@ -2525,6 +2676,18 @@ class SleeperService
             $threeYearCumulative[] = ['year' => $cmpYear, 'months' => $cumulative, 'total' => $cum];
         }
 
+        $meetingSales = array_map(function ($row) use ($salesCustomerBreakdown) {
+            $name = $row['name'] ?? '';
+            $row['customers'] = $salesCustomerBreakdown[$name]['customers'] ?? [];
+            $row['top90CustomerCount'] = $salesCustomerBreakdown[$name]['top90CustomerCount'] ?? 0;
+            return $row;
+        }, $meetingSales);
+        $topCustomersDetailed = array_map(function ($row) use ($customerDetails) {
+            $name = $row['name'] ?? '';
+            $row['items'] = $customerDetails[$name]['items'] ?? [];
+            return $row;
+        }, array_slice($strategy['topCustomers'] ?? [], 0, 10));
+
         return [
             'success' => true,
             'data' => [
@@ -2555,16 +2718,17 @@ class SleeperService
                 'threeYearCumulative' => $threeYearCumulative,
                 'brandSales' => array_values($brandSales),
                 'shipmentBuckets' => $shipmentBuckets,
-                'topCustomers' => array_slice($strategy['topCustomers'] ?? [], 0, 10),
+                'topCustomers' => $topCustomersDetailed,
                 'topProjects' => array_slice($strategy['topProjects'] ?? [], 0, 10),
                 'topSales' => array_slice($meetingSales, 0, 10),
                 'seriesRanking' => $seriesRanks,
                 'countryRanking' => array_values($countryRanks),
+                'countryBrandRanking' => $countryBrandRanks,
                 'categoryRanking' => array_values($categoryRanks),
                 'sizeRanking' => array_values($sizeRanks),
                 'topProductsDetailed' => array_slice(array_values($topProducts), 0, 12),
                 'contracts' => $contractSummary,
-                'fieldActivity' => $strategy['fieldActivity'] ?? ['summary' => []],
+                'fieldActivity' => $fieldCurrent,
                 'insights' => $strategy['insights'] ?? []
             ]
         ];

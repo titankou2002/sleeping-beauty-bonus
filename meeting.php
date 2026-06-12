@@ -294,6 +294,12 @@
       padding: 14px;
       background: rgba(255,255,255,0.025);
     }
+    .chart-card.wide {
+      min-width: 0;
+    }
+    .chart-card.wider {
+      grid-column: span 2;
+    }
     .bar-chart {
       display: flex;
       align-items: flex-end;
@@ -339,6 +345,8 @@
     }
     .bar.prev { background: rgba(255,255,255,0.18); }
     .bar.curr { background: linear-gradient(180deg, var(--accent-strong), rgba(194,157,102,0.35)); }
+    .bar.curr.up { background: linear-gradient(180deg, rgba(74,222,128,0.95), rgba(34,197,94,0.35)); }
+    .bar.curr.down { background: linear-gradient(180deg, rgba(248,113,113,0.95), rgba(239,68,68,0.35)); }
     .bar-chart.triple {
       gap: 8px;
     }
@@ -649,6 +657,172 @@
     .expander-body {
       padding: 0 12px 12px;
     }
+    .bucket-grid,
+    .brand-grid,
+    .top-grid,
+    .sales-grid {
+      display: grid;
+      gap: 12px;
+    }
+    .bucket-grid { grid-template-columns: 0.95fr 1.65fr; }
+    .brand-grid { grid-template-columns: 1.05fr 1fr 1fr; }
+    .top-grid,
+    .sales-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .bucket-summary,
+    .simple-line,
+    .brand-line,
+    .customer-item-line,
+    .sales-customer-line {
+      display: grid;
+      gap: 10px;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: rgba(255,255,255,0.025);
+    }
+    .bucket-summary {
+      grid-template-columns: minmax(84px, 110px) minmax(0, 1fr) 84px;
+    }
+    .bucket-title,
+    .brand-title,
+    .customer-line-title,
+    .sales-line-title {
+      font-size: 15px;
+      font-weight: 900;
+    }
+    .bucket-meta,
+    .brand-meta,
+    .customer-line-sub,
+    .sales-line-sub {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 4px;
+    }
+    .bucket-badge {
+      color: var(--accent-strong);
+      font-size: 22px;
+      font-weight: 900;
+      text-align: right;
+    }
+    .click-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(194,157,102,0.35);
+      color: var(--accent-strong);
+      font-size: 11px;
+      font-weight: 800;
+      margin-top: 6px;
+    }
+    .short-chip-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding-top: 8px;
+    }
+    .short-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.03);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .short-chip strong {
+      color: var(--accent-strong);
+    }
+    .country-brand-col {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .country-brand-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .country-brand-head .k {
+      font-size: 18px;
+      font-weight: 900;
+    }
+    .country-brand-head .v {
+      color: var(--accent-strong);
+      font-size: 18px;
+      font-weight: 900;
+    }
+    .brand-line {
+      grid-template-columns: minmax(0, 1fr) 88px;
+    }
+    .brand-kpis {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .brand-kpis span strong {
+      color: var(--text);
+    }
+    .yoy-tag {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 44px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 900;
+      background: rgba(255,255,255,0.05);
+    }
+    .yoy-tag.up { color: #86efac; }
+    .yoy-tag.down { color: #fca5a5; }
+    .yoy-tag.flat { color: var(--muted); }
+    .bar-yoy {
+      margin-top: 6px;
+      font-size: 11px;
+      font-weight: 900;
+      text-align: center;
+    }
+    .bar-yoy.up { color: #86efac; }
+    .bar-yoy.down { color: #fca5a5; }
+    .bar-yoy.flat { color: var(--muted); }
+    .simple-line {
+      grid-template-columns: minmax(0, 1.35fr) 86px 128px;
+    }
+    .simple-line .item-main {
+      font-weight: 800;
+      min-width: 0;
+      line-height: 1.45;
+    }
+    .simple-line .status {
+      font-weight: 900;
+      text-align: center;
+      white-space: nowrap;
+    }
+    .simple-line .metric {
+      font-size: 13px;
+      font-weight: 800;
+      text-align: right;
+      white-space: nowrap;
+    }
+    .simple-line.is-danger .status { color: var(--red); }
+    .simple-line.is-warn .status { color: #facc15; }
+    .simple-line.is-good .status { color: var(--green); }
+    .simple-line.is-info .status { color: var(--blue); }
+    .customer-item-line {
+      grid-template-columns: minmax(0, 1.2fr) 84px 84px 64px;
+    }
+    .sales-customer-line {
+      grid-template-columns: minmax(0, 1fr) 84px 64px;
+    }
     .contract-lines {
       display: flex;
       flex-direction: column;
@@ -691,6 +865,10 @@
       .analysis-grid { grid-template-columns: 1fr; }
       .product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .series-head { grid-template-columns: 1fr; }
+      .bucket-grid,
+      .brand-grid,
+      .top-grid,
+      .sales-grid { grid-template-columns: 1fr; }
     }
     @media (max-width: 640px) {
       .page { padding: 12px; }
@@ -701,6 +879,11 @@
       .rank-row { grid-template-columns: 1fr; }
       .product-grid { grid-template-columns: 1fr; }
       .health-line { grid-template-columns: 1fr; }
+      .bucket-summary,
+      .simple-line,
+      .brand-line,
+      .customer-item-line,
+      .sales-customer-line { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -834,8 +1017,8 @@
                         <td class="center">${r.month}月</td>
                         <td class="num">${fmtWan(r.previous)}</td>
                         <td class="num">${fmtWan(r.current)}</td>
-                        <td class="num">${fmtWan((r.current || 0) - (r.previous || 0))}</td>
-                        <td class="num">${fmtPct(r.yoyPct)}</td>
+                        <td class="num"><span class="yoy-tag ${trendClass((r.current || 0) - (r.previous || 0))}">${fmtWan((r.current || 0) - (r.previous || 0))}</span></td>
+                        <td class="num"><span class="yoy-tag ${trendClass(r.yoyPct)}">${fmtPct(r.yoyPct)}</span></td>
                       </tr>
                     `).join('')}
                   </tbody>
@@ -859,10 +1042,11 @@
                   <div class="bar-col">
                     <div class="bar-pair">
                       <div class="bar prev" style="height:${Math.max(8, Math.round((r.previous || 0) / max * 100))}%"></div>
-                      <div class="bar curr" style="height:${Math.max(8, Math.round((r.current || 0) / max * 100))}%"></div>
+                      <div class="bar curr ${trendClass(r.yoyPct)}" style="height:${Math.max(8, Math.round((r.current || 0) / max * 100))}%"></div>
                     </div>
                     <div class="bar-label">${r.month}月</div>
                     <div class="bar-val">${fmtWan(r.current)}</div>
+                    <div class="bar-yoy ${trendClass(r.yoyPct)}">${fmtPct(r.yoyPct)}</div>
                   </div>
                 `).join('')}
               </div>
@@ -889,6 +1073,12 @@
     function buildHealthShipmentSheet(d) {
       const s = d.summary || {};
       const buckets = d.shipmentBuckets || [];
+      const donutRows = buckets.map(row => ({
+        name: row.name,
+        amount: Number(row.count || 0),
+        sharePct: Number(row.customerSharePct || 0)
+      }));
+      const totalHomes = buckets.reduce((sum, row) => sum + Number(row.count || 0), 0);
       return `
         <section class="sheet">
           <div class="sheet-title">簽約健康度與出貨家數</div>
@@ -898,37 +1088,31 @@
             <div class="mini-card"><h3>簽約店健康度</h3><div class="v">${fmtPct(s.signedHealthPct)}</div><div class="hint">實銷 / 簽約總額</div></div>
             <div class="mini-card"><h3>追平去年達成率</h3><div class="v">${fmtPct(s.catchUpPct)}</div><div class="hint">本月 / 去年同期</div></div>
           </div>
-          <div class="chart-grid">
-            <div class="chart-card">
-              <div class="hint" style="margin-bottom:12px">出貨家數分級</div>
-              <div class="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>分級</th>
-                      <th>家數</th>
-                      <th>家數佔比</th>
-                      <th>業績佔比</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${buckets.map(row => `
-                      <tr>
-                        <td>${escapeHtml(row.name)}</td>
-                        <td class="num">${fmtInt(row.count)}</td>
-                        <td class="num">${fmtPct(row.customerSharePct)}</td>
-                        <td class="num">${fmtPct(row.salesSharePct)}</td>
-                      </tr>
-                    `).join('')}
-                  </tbody>
-                </table>
+          <div class="bucket-grid section-pad">
+            ${buildDonutCard('出貨家數結構', donutRows, totalHomes, '依出貨家數', fmtInt)}
+            <div class="chart-card wide">
+              <div class="hint" style="margin-bottom:12px">家數 / 佔比 / 拜訪效率 / 單次拜訪產值</div>
+              <div class="item-list">
+                ${buckets.map(row => `
+                  <details class="expander">
+                    <summary>
+                      <div>
+                        <div class="bucket-title">${escapeHtml(row.name)}</div>
+                        <div class="bucket-meta">家數 ${fmtInt(row.count)} / 家數佔比 ${fmtPct(row.customerSharePct)} / 業績佔比 ${fmtPct(row.salesSharePct)} / 平均拜訪 ${fmtInt(row.avgVisitsPerCustomer || 0)} 次 / 單次拜訪產值 ${fmtWan(row.salesPerVisit || 0)}</div>
+                        <div class="click-badge">點家數看客戶</div>
+                      </div>
+                      <div class="bucket-badge">${fmtWan(row.amount)}</div>
+                    </summary>
+                    <div class="expander-body">
+                      <div class="short-chip-list">
+                        ${(row.customers || []).map(c => `
+                          <span class="short-chip">${escapeHtml(c.shortName)} <strong>${fmtWan(c.amount)}</strong> ${fmtInt(c.visits || 0)}次</span>
+                        `).join('') || '<span class="hint">本級距無客戶</span>'}
+                      </div>
+                    </div>
+                  </details>
+                `).join('')}
               </div>
-            </div>
-            <div class="chart-card">
-              <div class="hint" style="margin-bottom:12px">出貨家數結構</div>
-              ${buildRankBoard(buckets, 'amount', fmtWan, function(item) {
-                return '家數 ' + fmtInt(item.count) + ' / 家數佔比 ' + fmtPct(item.customerSharePct) + ' / 業績佔比 ' + fmtPct(item.salesSharePct);
-              })}
             </div>
           </div>
         </section>
@@ -938,17 +1122,59 @@
     function buildBrandCountrySheet(d) {
       const brandRows = d.brandSales || [];
       const total = brandRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+      const countryBrands = d.countryBrandRanking || {};
+      const countryKeys = ['義大利', '西班牙'];
       return `
         <section class="sheet">
-          <div class="sheet-title">廠牌銷售分類</div>
+          <div class="sheet-title">國別與廠牌分析</div>
           <div class="chart-grid">
             ${buildDonutCard('義大利 / 西班牙', brandRows.map(r => ({...r, name: r.name || '未分類'})), total, '依銷售金額')}
             <div class="chart-card">
-              <div class="hint" style="margin-bottom:12px">品牌國別排名</div>
+              <div class="hint" style="margin-bottom:12px">國別銷售排名</div>
               ${buildRankBoard(brandRows.map(r => ({...r, amount: Number(r.amount || 0)})), 'amount', fmtWan, function(item) {
                 return '佔整體 ' + fmtPct(item.sharePct || 0);
               })}
             </div>
+          </div>
+          <div class="brand-grid section-pad">
+            ${countryKeys.map(country => {
+              const rows = countryBrands[country] || [];
+              const countryTotal = rows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+              return `
+                <div class="chart-card country-brand-col">
+                  <div class="country-brand-head">
+                    <div class="k">${country}廠牌</div>
+                    <div class="v">${fmtWan(countryTotal)}</div>
+                  </div>
+                  ${(rows || []).slice(0, 8).map(row => `
+                    <details class="expander">
+                      <summary>
+                        <div>
+                          <div class="brand-title">${escapeHtml(row.name)}</div>
+                          <div class="brand-kpis">
+                            <span>系列數 <strong>${fmtInt(row.seriesCount)}</strong></span>
+                            <span>銷量 <strong>${fmtInt(row.pings)}</strong></span>
+                            <span>佔比 <strong>${fmtPct(row.sharePct)}</strong></span>
+                          </div>
+                        </div>
+                        <div class="bucket-badge">${fmtWan(row.amount)}</div>
+                      </summary>
+                      <div class="expander-body">
+                        <div class="item-list">
+                          ${(row.seriesRows || []).map(series => `
+                            <div class="simple-line">
+                              <div class="item-main">${escapeHtml(series.name)}</div>
+                              <div class="metric">${fmtInt(series.pings)}</div>
+                              <div class="metric">${fmtPct(series.sharePct)}</div>
+                            </div>
+                          `).join('') || '<div class="hint">本廠牌無系列資料</div>'}
+                        </div>
+                      </div>
+                    </details>
+                  `).join('') || '<div class="hint">本期無資料</div>'}
+                </div>
+              `;
+            }).join('')}
           </div>
         </section>
       `;
@@ -956,21 +1182,25 @@
 
     function buildThreeYearCompareSheet(d, cumulative) {
       const source = cumulative ? (d.threeYearCumulative || []) : (d.threeYearCompare || []);
-      const rows = [];
+      const yearMap = {};
+      source.forEach(row => { yearMap[row.year] = row; });
       const months = cumulative ? Array.from({ length: d.month }, (_, i) => i + 1) : Array.from({ length: 12 }, (_, i) => i + 1);
-      months.forEach(month => {
-        const row = { month };
-        source.forEach(yearRow => {
-          const hit = (yearRow.months || []).find(m => Number(m.month) === month);
-          row['y' + yearRow.year] = Number(hit?.amount || 0);
-        });
-        rows.push(row);
+      const rows = months.map(month => {
+        const y24 = Number((yearMap[d.year - 2]?.months || []).find(m => Number(m.month) === month)?.amount || 0);
+        const y25 = Number((yearMap[d.year - 1]?.months || []).find(m => Number(m.month) === month)?.amount || 0);
+        const y26 = Number((yearMap[d.year]?.months || []).find(m => Number(m.month) === month)?.amount || 0);
+        const avg = (y24 + y25) / 2;
+        const delta = y26 - avg;
+        const growthPct = avg > 0 ? (delta / avg * 100) : 0;
+        return { month, y24, y25, y26, avg, delta, growthPct };
       });
-      const years = source.map(r => r.year);
-      const max = Math.max(1, ...rows.flatMap(r => years.map(y => r['y' + y] || 0)));
-      const totals = source.map(r => ({
-        year: r.year,
-        total: cumulative ? Number(r.total || 0) : Number((r.months || []).reduce((sum, m) => sum + Number(m.amount || 0), 0))
+      const max = Math.max(1, ...rows.flatMap(r => [r.y24, r.y25, r.y26]));
+      const totals = [d.year - 2, d.year - 1, d.year].map((year, idx) => ({
+        year,
+        total: cumulative
+          ? Number(yearMap[year]?.months?.slice(-1)?.[0]?.amount || 0)
+          : Number((yearMap[year]?.months || []).reduce((sum, m) => sum + Number(m.amount || 0), 0)),
+        color: palette(idx)
       }));
       return `
         <section class="sheet">
@@ -982,14 +1212,24 @@
                   <thead>
                     <tr>
                       <th>${cumulative ? '累積至' : '月份'}</th>
-                      ${years.map(y => `<th>${y}</th>`).join('')}
+                      <th>${d.year - 2}</th>
+                      <th>${d.year - 1}</th>
+                      <th>平均月銷</th>
+                      <th>${d.year}</th>
+                      <th>差額</th>
+                      <th>成長%</th>
                     </tr>
                   </thead>
                   <tbody>
                     ${rows.map(r => `
                       <tr>
                         <td class="center">${cumulative ? (r.month + '月累積') : (r.month + '月')}</td>
-                        ${years.map(y => `<td class="num">${fmtWan(r['y' + y] || 0)}</td>`).join('')}
+                        <td class="num">${fmtWan(r.y24)}</td>
+                        <td class="num">${fmtWan(r.y25)}</td>
+                        <td class="num">${fmtWan(r.avg)}</td>
+                        <td class="num">${fmtWan(r.y26)}</td>
+                        <td class="num"><span class="yoy-tag ${trendClass(r.delta)}">${fmtWan(r.delta)}</span></td>
+                        <td class="num"><span class="yoy-tag ${trendClass(r.growthPct)}">${fmtPct(r.growthPct)}</span></td>
                       </tr>
                     `).join('')}
                   </tbody>
@@ -998,25 +1238,28 @@
             </div>
             <div class="chart-card">
               <div class="chart-legend">
-                ${years.map((y, idx) => `<span class="legend-chip"><span class="legend-swatch" style="background:${palette(idx)}"></span>${y}</span>`).join('')}
+                <span class="legend-chip"><span class="legend-swatch" style="background:${palette(0)}"></span>${d.year - 2}</span>
+                <span class="legend-chip"><span class="legend-swatch" style="background:${palette(1)}"></span>${d.year - 1}</span>
+                <span class="legend-chip"><span class="legend-swatch" style="background:${palette(2)}"></span>${d.year}</span>
               </div>
               <div class="bar-chart triple">
                 ${rows.map(r => `
                   <div class="bar-col">
                     <div class="bar-triple">
-                      ${years.map((y, idx) => `
-                        <div class="bar curr" style="height:${Math.max(8, Math.round(((r['y' + y] || 0) / max) * 100))}%; background:${palette(idx)}"></div>
-                      `).join('')}
+                      <div class="bar curr" style="height:${Math.max(8, Math.round((r.y24 / max) * 100))}%; background:${palette(0)}"></div>
+                      <div class="bar curr" style="height:${Math.max(8, Math.round((r.y25 / max) * 100))}%; background:${palette(1)}"></div>
+                      <div class="bar curr ${trendClass(r.growthPct)}" style="height:${Math.max(8, Math.round((r.y26 / max) * 100))}%"></div>
                     </div>
                     <div class="bar-label">${r.month}${cumulative ? '累' : '月'}</div>
+                    <div class="bar-yoy ${trendClass(r.growthPct)}">${fmtPct(r.growthPct)}</div>
                   </div>
                 `).join('')}
               </div>
               <div class="mini-grid" style="margin-top:16px">
-                ${totals.map((row, idx) => `
+                ${totals.map(row => `
                   <div class="mini-card">
                     <h3>${row.year}</h3>
-                    <div class="v" style="color:${palette(idx)}">${fmtWan(row.total)}</div>
+                    <div class="v" style="color:${row.color}">${fmtWan(row.total)}</div>
                     <div class="hint">${cumulative ? '累積總額' : '年度總額'}</div>
                   </div>
                 `).join('')}
@@ -1060,6 +1303,13 @@
           }).join('') || '<div class="hint">本期尚無資料</div>'}
         </div>
       `;
+    }
+
+    function trendClass(n) {
+      const v = Number(n || 0);
+      if (v > 0) return 'up';
+      if (v < 0) return 'down';
+      return 'flat';
     }
 
     function buildSeriesSheet(d) {
@@ -1111,9 +1361,10 @@
       `;
     }
 
-    function buildDonutCard(title, rows, total, kind) {
+    function buildDonutCard(title, rows, total, kind, valueFmt) {
       const list = (rows || []).slice(0, 6);
       const safeTotal = Math.max(1, Number(total || 0));
+      const formatter = valueFmt || fmtWan;
       let cursor = 0;
       const gradient = list.map((row, idx) => {
         const pct = (Number(row.amount || 0) / safeTotal) * 100;
@@ -1128,7 +1379,7 @@
           <div class="donut-wrap">
             <div class="donut" style="background:conic-gradient(${gradient || 'rgba(255,255,255,0.08) 0 100%'})">
               <div class="donut-center">
-                <div class="big">${fmtWan(total)}</div>
+                <div class="big">${formatter(total)}</div>
                 <div class="hint">${kind}</div>
               </div>
             </div>
@@ -1137,7 +1388,7 @@
                 <div class="legend-row">
                   <span class="legend-dot" style="background:${palette(idx)}"></span>
                   <span>${escapeHtml(row.name)}</span>
-                  <span>${fmtWan(row.amount)}</span>
+                  <span>${formatter(row.amount)}</span>
                   <span>${fmtPct(row.sharePct)}</span>
                 </div>
               `).join('')}
@@ -1255,12 +1506,10 @@
       const buildContractLines = rows => `
         <div class="contract-lines">
           ${rows.map(r => `
-            <div class="health-line ${contractLineClass(r.health)}">
-              <div class="customer">${escapeHtml(r.customer)}</div>
-              <div class="status-wrap">
-                <div class="status">${escapeHtml(r.health || '—')}</div>
-                <div class="elapsed">${escapeHtml(r.elapsed || fmtDate(r.lastDue))}</div>
-              </div>
+            <div class="simple-line ${contractLineClass(r.health)}">
+              <div class="item-main">${escapeHtml(r.customer || '未填客戶')}</div>
+              <div class="status">${escapeHtml(r.health || '—')}</div>
+              <div class="metric">${escapeHtml(r.elapsed || fmtDate(r.lastDue))}</div>
             </div>
           `).join('') || '<div class="hint">本期無資料</div>'}
         </div>
@@ -1273,7 +1522,7 @@
             <div class="mini-card"><h3>45 天內到期</h3><div class="v">${fmtInt(s.expiringSoon)}</div></div>
             <div class="mini-card"><h3>合約餘額</h3><div class="v">${fmtWan(s.balance)}</div></div>
           </div>
-          <div class="health-grid">
+          <div class="health-grid" style="grid-template-columns:repeat(3,minmax(0,1fr));">
             <details class="health-card is-good expander">
               <summary>
                 <div>
@@ -1290,7 +1539,7 @@
                 <div>
                   <div class="k">逾期</div>
                   <div class="n">${fmtInt(healthMap['逾期'] || 0)}</div>
-                  <div class="d">點開看客戶與逾期天數</div>
+                  <div class="d">點開看客戶 / 逾期天數</div>
                 </div>
                 <div class="expander-icon">⌄</div>
               </summary>
@@ -1301,7 +1550,7 @@
                 <div>
                   <div class="k">嚴重</div>
                   <div class="n">${fmtInt(healthMap['嚴重'] || 0)}</div>
-                  <div class="d">點開看客戶與嚴重逾期</div>
+                  <div class="d">點開看客戶 / 嚴重逾期</div>
                 </div>
                 <div class="expander-icon">⌄</div>
               </summary>
@@ -1312,7 +1561,7 @@
                 <div>
                   <div class="k">待續約</div>
                   <div class="n">${fmtInt(healthMap['待續'] || 0)}</div>
-                  <div class="d">點開看客戶與待續時間</div>
+                  <div class="d">點開看客戶 / 待續時間</div>
                 </div>
                 <div class="expander-icon">⌄</div>
               </summary>
@@ -1323,7 +1572,7 @@
                 <div>
                   <div class="k">已續約</div>
                   <div class="n">${fmtInt(healthMap['已續'] || 0)}</div>
-                  <div class="d">點開看已續約名單</div>
+                  <div class="d">點開看已續約客戶</div>
                 </div>
                 <div class="expander-icon">⌄</div>
               </summary>
@@ -1412,12 +1661,36 @@
           <section class="sheet">
             <div class="sheet-title">前 10 大客戶分析</div>
             <div class="section-pad">
-              <div class="hint" style="margin-bottom:12px">客戶分析保留專案資訊作為輔助，不另外拆紅字。</div>
-              ${buildRankBoard(d.topCustomers || [], 'amount', fmtWan, function(item, idx) {
-                const linkedProject = projects[idx];
-                const p = linkedProject ? ' / 參考專案 ' + linkedProject.name : '';
-                return '交易 ' + fmtInt(item.count || 0) + ' 筆 / 坪數 ' + fmtInt(item.pings || 0) + p;
-              })}
+              <div class="hint" style="margin-bottom:12px">按客戶名下探產品、片數、金額與佔比，依案名與金額排序。</div>
+              <div class="top-grid">
+                ${(d.topCustomers || []).map((item, idx) => {
+                  const linkedProject = projects[idx];
+                  const p = linkedProject ? ' / 參考案名 ' + linkedProject.name : '';
+                  return `
+                    <details class="expander">
+                      <summary>
+                        <div>
+                          <div class="customer-line-title">${escapeHtml(item.name)}</div>
+                          <div class="customer-line-sub">交易 ${fmtInt(item.count || 0)} 筆 / 坪數 ${fmtInt(item.pings || 0)}${p}</div>
+                        </div>
+                        <div class="bucket-badge">${fmtWan(item.amount)}</div>
+                      </summary>
+                      <div class="expander-body">
+                        <div class="item-list">
+                          ${(item.items || []).map(row => `
+                            <div class="customer-item-line">
+                              <div class="item-main">${escapeHtml(row.project)} / ${escapeHtml(row.sku)}</div>
+                              <div class="metric">${fmtInt(row.count)}</div>
+                              <div class="metric">${fmtWan(row.amount)}</div>
+                              <div class="metric">${fmtPct(row.sharePct || 0)}</div>
+                            </div>
+                          `).join('') || '<div class="hint">此客戶本期無產品明細</div>'}
+                        </div>
+                      </div>
+                    </details>
+                  `;
+                }).join('')}
+              </div>
             </div>
           </section>
         ` +
@@ -1425,10 +1698,30 @@
           <section class="sheet">
             <div class="sheet-title">業務銷售排行</div>
             <div class="section-pad">
-              <div class="hint" style="margin-bottom:12px">主管會先看人，再看客與系列。</div>
-              ${buildRankBoard(d.topSales || [], 'amount', fmtWan, function(item) {
-                return '交易 ' + fmtInt(item.count || 0) + ' 筆 / 坪數 ' + fmtInt(item.pings || 0);
-              })}
+              <div class="sales-grid">
+                ${(d.topSales || []).map(item => `
+                  <details class="expander">
+                    <summary>
+                      <div>
+                        <div class="sales-line-title">${escapeHtml(item.name)}</div>
+                        <div class="sales-line-sub">交易 ${fmtInt(item.count || 0)} 筆 / 坪數 ${fmtInt(item.pings || 0)} / 90% 業績來自 ${fmtInt(item.top90CustomerCount || 0)} 客</div>
+                      </div>
+                      <div class="bucket-badge">${fmtWan(item.amount)}</div>
+                    </summary>
+                    <div class="expander-body">
+                      <div class="item-list">
+                        ${(item.customers || []).map(row => `
+                          <div class="sales-customer-line">
+                            <div class="item-main">${escapeHtml(row.name)}</div>
+                            <div class="metric">${fmtWan(row.amount)}</div>
+                            <div class="metric">${fmtPct(row.sharePct || 0)}</div>
+                          </div>
+                        `).join('') || '<div class="hint">此業務本期無客戶明細</div>'}
+                      </div>
+                    </div>
+                  </details>
+                `).join('')}
+              </div>
             </div>
           </section>
         `
@@ -1437,14 +1730,15 @@
 
     function buildHotProductsSheet(d) {
       const rows = (d.topProductsDetailed || []).slice(0, 9);
+      const padded = rows.concat(Array.from({ length: Math.max(0, 9 - rows.length) }, () => null));
       return `
         <section class="sheet">
           <div class="sheet-title">熱銷產品分析</div>
           <div class="section-pad">
-            <div class="hint" style="margin-bottom:12px">九宮格看前 9 名，圖片統一橫向，資訊放在圖片下方。</div>
+            <div class="hint" style="margin-bottom:12px">九宮格看前 9 名，圖片統一橫向，資訊都放在圖片下方。</div>
           </div>
           <div class="product-grid">
-            ${rows.map(row => `
+            ${padded.map(row => row ? `
               <div class="product-card">
                 ${row.imageUrl ? `
                   <div class="product-hero">
@@ -1460,12 +1754,25 @@
                     <span class="pill">${escapeHtml(row.category || '未分類')}</span>
                     <span class="pill">${escapeHtml(row.size || '未標尺寸')}</span>
                   </div>
-                  <div class="item-sub product-note">${escapeHtml(row.name || '未命名產品')}</div>
                   <div class="product-stats">
                     <div class="stat-box"><div class="t">銷售金額</div><div class="v">${fmtWan(row.amount)}</div></div>
                     <div class="stat-box"><div class="t">銷售坪數</div><div class="v">${fmtInt(row.pings)}</div></div>
                     <div class="stat-box"><div class="t">交易筆數</div><div class="v">${fmtInt(row.count)}</div></div>
                     <div class="stat-box"><div class="t">本月佔比</div><div class="v">${fmtPct(row.sharePct)}</div></div>
+                  </div>
+                </div>
+              </div>
+            ` : `
+              <div class="product-card">
+                <div class="product-hero is-empty">無圖片</div>
+                <div class="product-body">
+                  <div class="product-name">—</div>
+                  <div class="product-meta"><span class="pill">未補資料</span></div>
+                  <div class="product-stats">
+                    <div class="stat-box"><div class="t">銷售金額</div><div class="v">0萬</div></div>
+                    <div class="stat-box"><div class="t">銷售坪數</div><div class="v">0</div></div>
+                    <div class="stat-box"><div class="t">交易筆數</div><div class="v">0</div></div>
+                    <div class="stat-box"><div class="t">本月佔比</div><div class="v">0%</div></div>
                   </div>
                 </div>
               </div>
