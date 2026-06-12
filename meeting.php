@@ -719,8 +719,10 @@
     function fmtDate(s) { return s || '—'; }
     function driveUrlToDirect(url) {
       const s = String(url || '');
-      const m = s.match(/\/file\/d\/([^\/]+)/);
-      if (m) return 'https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w200';
+      let m = s.match(/\/file\/d\/([^\/]+)/);
+      if (m) return 'https://drive.google.com/uc?export=view&id=' + m[1];
+      m = s.match(/[?&]id=([^&]+)/);
+      if (m) return 'https://drive.google.com/uc?export=view&id=' + m[1];
       return s;
     }
     function escapeHtml(s) {

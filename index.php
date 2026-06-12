@@ -755,8 +755,12 @@ function shortCust(name) {
   return String(name || '').trim().slice(0, 2);
 }
 function driveUrlToDirect(url) {
-  var m = url.match(/\/file\/d\/([^\/]+)/);
-  return m ? 'https://drive.google.com/uc?export=view&id=' + m[1] : url;
+  var s = String(url || '');
+  var m = s.match(/\/file\/d\/([^\/]+)/);
+  if (m) return 'https://drive.google.com/uc?export=view&id=' + m[1];
+  m = s.match(/[?&]id=([^&]+)/);
+  if (m) return 'https://drive.google.com/uc?export=view&id=' + m[1];
+  return s;
 }
 
 function onEditChange(rowIdx) {
