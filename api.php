@@ -24,6 +24,7 @@ class GoogleSheetsClient
     private $tokenExpires = 0;
     private $sheetIdCache = [];
     private $sheetPropsCache = [];
+    private $sheetValueCache = [];
 
     public function __construct($ssId = null)
     {
@@ -32,10 +33,15 @@ class GoogleSheetsClient
 
     public function readSheet($sheetName)
     {
+        if (isset($this->sheetValueCache[$sheetName])) {
+            return $this->sheetValueCache[$sheetName];
+        }
         $range = urlencode("'{$sheetName}'!A:ZZ");
         $url = "https://sheets.googleapis.com/v4/spreadsheets/{$this->ssId}/values/{$range}";
         $res = $this->api('GET', $url);
-        return isset($res['values']) ? $res['values'] : [];
+        $rows = isset($res['values']) ? $res['values'] : [];
+        $this->sheetValueCache[$sheetName] = $rows;
+        return $rows;
     }
 
     public function writeRows($sheetName, $startRow, $rows)
@@ -47,6 +53,7 @@ class GoogleSheetsClient
             'values' => $rows,
             'majorDimension' => 'ROWS'
         ]);
+        unset($this->sheetValueCache[$sheetName]);
     }
 
     public function appendRows($sheetName, $rows)
@@ -57,6 +64,7 @@ class GoogleSheetsClient
             'values' => $rows,
             'majorDimension' => 'ROWS'
         ]);
+        unset($this->sheetValueCache[$sheetName]);
     }
 
     public function clearSheet($sheetName)
@@ -64,6 +72,7 @@ class GoogleSheetsClient
         $range = urlencode("'{$sheetName}'!A:ZZ");
         $url = "https://sheets.googleapis.com/v4/spreadsheets/{$this->ssId}/values/{$range}:clear";
         $this->api('POST', $url, (object)[]);
+        unset($this->sheetValueCache[$sheetName]);
     }
 
     public function formatSalesYearCacheSheet($sheetName)
@@ -95,6 +104,7 @@ class GoogleSheetsClient
             'values' => [[$value]],
             'majorDimension' => 'ROWS'
         ]);
+        unset($this->sheetValueCache[$sheetName]);
     }
 
     public function updateRowRange($sheetName, $row, $colStart, $values)
@@ -107,6 +117,7 @@ class GoogleSheetsClient
             'values' => [$values],
             'majorDimension' => 'ROWS'
         ]);
+        unset($this->sheetValueCache[$sheetName]);
     }
 
     public function writeBlock($sheetName, $startRow, $colStart, $rows)
@@ -120,6 +131,7 @@ class GoogleSheetsClient
             'values' => $rows,
             'majorDimension' => 'ROWS'
         ]);
+        unset($this->sheetValueCache[$sheetName]);
     }
 
     private function colIndexToLetter($i)
