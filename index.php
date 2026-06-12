@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>睡美人戰情室</title>
+  <title>高雅瓷戰情室</title>
   <link rel="icon" href="favicon.png" type="image/png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -553,11 +553,11 @@ input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-colo
     <header class="topbar">
       <div class="topbar-inner">
         <img src="logo.svg" alt="eliTile" class="top-logo">
-        <h1 class="logo">睡美人戰情室</h1>
+        <h1 class="logo">高雅瓷戰情室</h1>
         <div class="tab-bar">
-          <button class="tab-btn active" id="tab-bonus" onclick="switchTab('bonus')">獎金試算</button>
-          <button class="tab-btn" id="tab-products" onclick="switchTab('products')">產品總覽</button>
-          <button class="tab-btn" id="tab-reports" onclick="switchTab('reports')">戰略報表</button>
+          <button class="tab-btn active" id="tab-products" onclick="switchTab('products')">產品總覽</button>
+          <button class="tab-btn" id="tab-reports" onclick="switchTab('reports')">銷售報表</button>
+          <button class="tab-btn" id="tab-bonus" onclick="switchTab('bonus')">睡美人銷售</button>
         </div>
       </div>
     </header>
@@ -601,8 +601,8 @@ input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-colo
       </select>
       <button class="sort-dir-btn" id="sort-dir-btn" onclick="toggleSortDir()">↓</button>
       <span class="prod-sub-tabs" id="prod-sub-tabs">
-        <button class="sub-tab active" id="sub-sleeper" onclick="switchProdTab('sleeper')">睡美人</button>
-        <button class="sub-tab" id="sub-normal" onclick="switchProdTab('normal')">正常品</button>
+        <button class="sub-tab active" id="sub-normal" onclick="switchProdTab('normal')">正常品</button>
+        <button class="sub-tab" id="sub-sleeper" onclick="switchProdTab('sleeper')">睡美人</button>
         <button class="sub-tab" id="sub-discontinued" onclick="switchProdTab('discontinued')">不續辦</button>
       </span>
       <button class="btn btn-primary" onclick="loadProducts()">載入產品</button>
@@ -657,8 +657,6 @@ document.getElementById('filter-month').value = currentMonth;
 document.getElementById('filter-year').value = currentYear;
 document.getElementById('report-year').value = currentYear;
 updateReportPeriodOptions();
-loadDashboard();
-loadSalesList();
 
 function showLoading(show) {
   document.getElementById('loading').classList.toggle('hidden', !show);
@@ -920,8 +918,8 @@ function recalcAll() {
 function fmt(n) { n = n || 0; return (n / 10000).toFixed(1) + '萬'; }
 function fmtNum(n) { return isNaN(n) ? '0萬' : (n / 10000).toFixed(1) + '萬'; }
 
-var currentTab = 'bonus';
-var currentProdTab = 'sleeper';
+var currentTab = 'products';
+var currentProdTab = 'normal';
 var sortDir = -1;
 window._strategyReport = null;
 function toggleSortDir() {
@@ -943,11 +941,14 @@ function switchTab(tab) {
   if (tab === 'products') {
     var el = document.getElementById('filter-grade');
     el.style.display = currentProdTab === 'sleeper' ? '' : 'none';
-    if (!window._sleeperData) loadProducts();
+    if (!window._normalData) loadProducts();
     else renderProducts();
   } else if (tab === 'reports') {
     if (!window._strategyReport) loadStrategyReport();
     else renderStrategyReport(window._strategyReport);
+  } else if (tab === 'bonus') {
+    loadDashboard();
+    loadSalesList();
   }
 }
 
@@ -991,6 +992,8 @@ function switchProdTab(tab) {
   document.getElementById('filter-grade').style.display = tab === 'sleeper' ? '' : 'none';
   renderProducts();
 }
+
+switchTab('products');
 
 function loadProducts() {
   showLoading(true);
@@ -1042,8 +1045,8 @@ function renderProducts() {
       var db = b.daysSinceLastSale === null ? -1 : b.daysSinceLastSale;
       cmp = da - db;
     } else if (sortBy === 'saleCount') {
-      var ca = (a.buyers && a.buyers.length) || 0;
-      var cb = (b.buyers && b.buyers.length) || 0;
+      var ca = a.saleCount || 0;
+      var cb = b.saleCount || 0;
       cmp = ca - cb;
     } else if (sortBy === 'daysSinceLastSale') {
       var da = a.daysSinceLastSale === null ? 99999 : a.daysSinceLastSale;
@@ -1082,11 +1085,16 @@ function renderProducts() {
       frozenClass = 'frozen-hot'; frozenText = p.daysSinceLastSale + ' 天前';
     }
 
-    var buyerHtml = '';
-    if (p.buyers && p.buyers.length > 0) {
-      buyerHtml = '<div class="prod-buyers"><div class="ps-label">歷史買家</div><div class="buyer-chips">' +
-        p.buyers.map(function(b) {
-          return '<span class="buyer-chip">' + shortCust(b.name) + ' ' + b.pings + '坪</span>';
+    var customerHtml = '';
+    if (p.customers && p.customers.length > 0) {
+      customerHtml = '<div class="prod-buyers"><div class="ps-label">客戶銷售</div><div style="display:grid;gap:6px;margin-top:6px">' +
+        p.customers.map(function(c) {
+          return '<div style="display:grid;grid-template-columns:minmax(0,1fr) 72px 72px 52px;gap:8px;font-size:12px;align-items:center">' +
+            '<div style="color:var(--text);font-weight:700;min-width:0">' + shortCust(c.name) + '</div>' +
+            '<div style="color:var(--text2);text-align:right">' + Math.round(c.qty || 0) + '片</div>' +
+            '<div style="color:var(--gold);text-align:right">' + fmt(c.amount || 0) + '</div>' +
+            '<div style="color:var(--text2);text-align:right">' + truncNum(c.sharePct || 0) + '%</div>' +
+          '</div>';
         }).join('') + '</div></div>';
     }
 
@@ -1094,22 +1102,24 @@ function renderProducts() {
     var mosClass = p.mosLevel === 2 ? 'text-red' : (p.mosLevel === 1 ? 'text-gold' : 'text-green');
 
     var gradeHtml = p.grade ? '<div class="grade-badge grade-' + p.grade + '">' + p.grade + '</div>' : '';
+    var thumbHtml = p.imageUrl
+      ? '<img src="' + driveUrlToDirect(p.imageUrl) + '" alt="" style="width:72px;height:72px;object-fit:contain;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid var(--border-light)" onerror="this.style.display=\'none\';this.parentNode.innerHTML=\'<div style=&quot;width:72px;height:72px;border:1px dashed var(--border-light);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:11px&quot;>無圖</div>\'">'
+      : '<div style="width:72px;height:72px;border:1px dashed var(--border-light);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:11px">無圖</div>';
     html += '<div class="product-card">' +
-      '<div class="prod-grade">' + gradeHtml +
-        '<div style="font-size:11px;color:var(--text2);margin-top:6px">' + p.perPing + '片/坪</div>' +
+      '<div class="prod-grade">' + gradeHtml + thumbHtml +
       '</div>' +
       '<div class="prod-info">' +
-        '<div class="prod-title">' + (p.series || '未分類') + '</div>' +
-        '<div class="prod-sku">' + p.sku + '</div>' +
+        '<div class="prod-title">' + p.sku + ' · ' + (p.series || '未分類') + '</div>' +
+        '<div class="prod-sku">' + (p.productName || '—') + '</div>' +
         '<div class="prod-stats">' +
           '<div class="prod-stat"><div class="ps-label">歷史銷售</div><div class="ps-value">' + p.totalPings + ' 坪</div></div>' +
           '<div class="prod-stat"><div class="ps-label">目前陳列</div><div class="ps-value text-gold" style="cursor:pointer; text-decoration:underline;" onclick="showDisplayDetails(\'' + p.sku + '\')">🖼️ ' + (p.displayCount || 0) + ' 家</div></div>' +
           '<div class="prod-stat"><div class="ps-label">庫存</div><div class="ps-value">' + p.stockPing + ' 坪</div></div>' +
-          '<div class="prod-stat"><div class="ps-label">成本/片</div><div class="ps-value text-gold">$' + p.costPerPiece + '</div></div>' +
+          '<div class="prod-stat"><div class="ps-label">平均毛利率</div><div class="ps-value text-gold">' + truncNum(p.avgMarginPct || 0) + '%</div></div>' +
           '<div class="prod-stat"><div class="ps-label">去化月數 (MOS)</div><div class="ps-value ' + mosClass + '">' + mosText + '</div></div>' +
           '<div class="prod-stat"><div class="ps-label">最後銷售</div><div class="ps-value">' + p.lastSaleStr + '</div></div>' +
         '</div>' +
-        buyerHtml +
+        customerHtml +
       '</div>' +
       '<div class="prod-right">' +
         '<div class="label" style="font-size:11px;color:var(--text2);font-weight:700;margin-bottom:4px">庫存佔用成本</div>' +
@@ -1475,13 +1485,19 @@ function buildTrailingTrendChart(rows) {
   rows = rows || [];
   if (!rows.length) return '<div class="chart-sub">本期尚無資料</div>';
   var max = 1;
-  rows.forEach(function(row) { max = Math.max(max, row.amount || 0); });
+  rows.forEach(function(row) {
+    max = Math.max(max, row.current || 0, row.previous || 0);
+  });
   return '<div class="trend-wrap">' + rows.map(function(row) {
-    var val = row.amount || 0;
-    var h = Math.max(8, Math.round(val / max * 150));
+    var curr = row.current || 0;
+    var prev = row.previous || 0;
+    var currH = Math.max(8, Math.round(curr / max * 150));
+    var prevH = Math.max(8, Math.round(prev / max * 150));
     return '<div class="trend-col">' +
-      '<div class="trend-value">' + (val > 0 ? fmtReportWan(val) : '0萬') + '</div>' +
-      '<div class="trend-bar" style="height:' + h + 'px"></div>' +
+      '<div style="display:flex;gap:6px;align-items:flex-end;height:170px">' +
+      '<div style="flex:1;text-align:center"><div class="trend-value">' + (prev > 0 ? fmtReportWan(prev) : '0萬') + '</div><div class="trend-bar" style="height:' + prevH + 'px;background:#4a4a4a"></div></div>' +
+      '<div style="flex:1;text-align:center"><div class="trend-value">' + (curr > 0 ? fmtReportWan(curr) : '0萬') + '</div><div class="trend-bar" style="height:' + currH + 'px"></div></div>' +
+      '</div>' +
       '<div class="trend-label">' + row.label + '</div>' +
       '</div>';
   }).join('') + '</div>';
@@ -1541,7 +1557,7 @@ function renderStrategyReport(d) {
     '</div>';
 
   html += '<div class="compare-strip">' +
-    '<details class="chart-card full-span" open><summary style="cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center"><div><div class="chart-title">MOM</div><div class="chart-sub">點開看過去 12 個月長條對比。</div></div><div class="' + deltaClass(primary.totalPct) + '">' + fmtDeltaPct(primary.totalPct || 0) + '</div></summary><div style="padding-top:12px">' +
+    '<details class="chart-card full-span" open><summary style="cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center"><div><div class="chart-title">MOM</div><div class="chart-sub">點開看今年 1 月起，和去年同期同月的雙柱比較。</div></div><div class="' + deltaClass(primary.totalPct) + '">' + fmtDeltaPct(primary.totalPct || 0) + '</div></summary><div style="padding-top:12px">' +
       '<div class="compare-sub">' + d.previousLabel + ' ' + fmtReportWan(basePrev.total || 0) + ' ・ <span class="' + deltaClass(primary.totalPct) + '">' + fmtDeltaPct(primary.totalPct || 0) + '</span></div>' +
       '<div class="compare-sub">' + d.yoyLabel + ' ' + fmtReportWan(baseYoy.total || 0) + ' ・ <span class="' + deltaClass(yoy.totalPct) + '">' + fmtDeltaPct(yoy.totalPct || 0) + '</span></div>' +
       buildTrailingTrendChart(trailingTrend) +
@@ -1553,15 +1569,12 @@ function renderStrategyReport(d) {
     '<div class="kpi-card"><div class="label">到訪客戶數</div><div class="value">' + fmtReportInt(fieldSummary.visitedCustomers || 0) + '</div><div class="sub">已拜訪客戶</div></div>' +
     '<div class="kpi-card"><div class="label">外勤公里數</div><div class="value">' + fmtReportInt(fieldSummary.totalKm || 0) + '</div><div class="sub">km</div></div>' +
     '<div class="kpi-card"><div class="label">油資</div><div class="value">' + fmtReportWan(fieldSummary.fuelAmount || 0) + '</div><div class="sub">本期油資</div></div>' +
-    '<div class="kpi-card"><div class="label">每次拜訪產值</div><div class="value">' + fmtReportWan(fieldSummary.salesPerVisit || 0) + '</div><div class="sub">業績 / 拜訪</div></div>' +
-    '<div class="kpi-card"><div class="label">拜訪業績關連</div><div class="value">' + fmtReportPct((fieldSummary.visitSalesCorrelation || 0) * 100) + '</div><div class="sub">客戶拜訪 vs 業績</div></div>' +
     '</div>';
 
   html += '<div class="compare-strip">' +
     buildCompareCard(fieldPrimary.label || '前期比較', fmtReportInt(fieldSummary.totalVisits || 0), d.previousLabel || '前期', fmtReportInt(fieldBasePrev.totalVisits || 0), d.yoyLabel || '去年同期', fmtReportInt(fieldBaseYoy.totalVisits || 0), fieldPrimary.totalVisitsPct, fieldYoy.totalVisitsPct) +
     buildCompareCard('拜訪客戶數', fmtReportInt(fieldSummary.visitedCustomers || 0), d.previousLabel || '前期', fmtReportInt(fieldBasePrev.visitedCustomers || 0), d.yoyLabel || '去年同期', fmtReportInt(fieldBaseYoy.visitedCustomers || 0), fieldPrimary.visitedCustomersPct, fieldYoy.visitedCustomersPct) +
     buildCompareCard('外勤公里數', fmtReportInt(fieldSummary.totalKm || 0), d.previousLabel || '前期', fmtReportInt(fieldBasePrev.totalKm || 0), d.yoyLabel || '去年同期', fmtReportInt(fieldBaseYoy.totalKm || 0), fieldPrimary.totalKmPct, fieldYoy.totalKmPct) +
-    buildCompareCard('每次拜訪產值', fmtReportWan(fieldSummary.salesPerVisit || 0), d.previousLabel || '前期', fmtReportWan(fieldBasePrev.salesPerVisit || 0), d.yoyLabel || '去年同期', fmtReportWan(fieldBaseYoy.salesPerVisit || 0), fieldPrimary.salesPerVisitPct, fieldYoy.salesPerVisitPct) +
     '</div>';
 
   html += '<div class="report-grid">';

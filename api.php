@@ -1666,16 +1666,13 @@ class SleeperService
         $monthTrend = [];
         for ($m = 1; $m <= 12; $m++) $monthTrend[$m] = 0;
         $trailingTrendMap = [];
-        $cursor = new DateTime(sprintf('%04d-%02d-01', (int)$meta['year'], max($meta['months'])));
-        for ($i = 11; $i >= 0; $i--) {
-            $probe = clone $cursor;
-            $probe->modify("-{$i} month");
-            $key = $probe->format('Y-n');
-            $trailingTrendMap[$key] = [
-                'year' => (int)$probe->format('Y'),
-                'month' => (int)$probe->format('n'),
-                'label' => $probe->format('Y/n'),
-                'amount' => 0
+        $selectedMonth = max($meta['months']);
+        for ($m = 1; $m <= $selectedMonth; $m++) {
+            $trailingTrendMap[$m] = [
+                'month' => $m,
+                'label' => $m . '月',
+                'current' => 0,
+                'previous' => 0
             ];
         }
 
@@ -1692,9 +1689,12 @@ class SleeperService
 
             $amount = $this->optFloat($this->getVal($row, $idx['amount']));
             if ($rowYear === (int)$meta['year']) $monthTrend[$rowMonth] += $amount;
-            $trendKey = $rowYear . '-' . $rowMonth;
-            if (isset($trailingTrendMap[$trendKey])) {
-                $trailingTrendMap[$trendKey]['amount'] += $amount;
+            if (isset($trailingTrendMap[$rowMonth])) {
+                if ($rowYear === (int)$meta['year']) {
+                    $trailingTrendMap[$rowMonth]['current'] += $amount;
+                } elseif ($rowYear === ((int)$meta['year'] - 1)) {
+                    $trailingTrendMap[$rowMonth]['previous'] += $amount;
+                }
             }
 
             $bucketName = null;
@@ -2479,6 +2479,7 @@ class SleeperService
 
         $displaysMap = $this->getActiveDisplaysMap();
         $stockMap = $this->getStockMap();
+        $profileMap = $this->getProductProfileMap();
         $metaMap = $this->getMetaMap();
 
         $salesStats = $this->loadSalesStats($metaMap);
@@ -2486,7 +2487,9 @@ class SleeperService
         $products = [];
 
         foreach ($sleeperMap as $sku => $slp) {
+            $profile = isset($profileMap[$sku]) ? $profileMap[$sku] : [];
             $meta = isset($metaMap[$sku]) ? $metaMap[$sku] : ['series' => '', 'perPing' => 36];
+            $series = trim($profile['seriesCn'] ?? '') ?: trim($profile['series'] ?? '') ?: trim($meta['series'] ?? '');
             $stockPing = isset($stockMap[$sku]) ? $stockMap[$sku] : 0;
             $costPerPing = $slp['cost'] * ($meta['perPing'] ?: 36);
             $inventoryCost = round($stockPing * $costPerPing);
@@ -2496,20 +2499,16 @@ class SleeperService
             $lastSaleStr = '從未銷售';
             if ($stats && $stats['lastDate']) {
                 $daysSinceLastSale = (int)$now->diff($stats['lastDate'])->days;
-                $lastSaleStr = $stats['lastDate']->format('Y/m');
+                $lastSaleStr = $this->formatRocDate($stats['lastDate'], false);
             }
 
             $totalPings = $stats ? round($stats['totalPings'] * 10) / 10 : 0;
-            $buyers = [];
-            if ($stats) {
-                $sorted = $stats['buyerMap'];
-                arsort($sorted);
-                $i = 0;
-                foreach ($sorted as $name => $pings) {
-                    if ($i++ >= 5) break;
-                    $buyers[] = ['name' => $name, 'pings' => round($pings * 10) / 10];
-                }
-            }
+            $customers = $this->buildProductCustomerRows($stats);
+            $totalAmount = $stats ? round($stats['totalAmount']) : 0;
+            $totalQty = $stats ? round($stats['totalQty']) : 0;
+            $avgMarginPct = ($stats && $stats['totalAmount'] > 0)
+                ? round((($stats['totalAmount'] - ($stats['totalQty'] * $slp['cost'])) / $stats['totalAmount']) * 100, 1)
+                : 0;
 
             // Stagnancy diagnostics & actions
             $pings6M = $stats ? $stats['pings6M'] : 0;
@@ -2552,17 +2551,21 @@ class SleeperService
 
             $products[] = [
                 'sku' => $sku,
-                'series' => $meta['series'],
+                'series' => $series,
+                'productName' => $profile['productName'] ?? '',
                 'grade' => $slp['grade'],
-                'costPerPiece' => $slp['cost'],
                 'perPing' => $meta['perPing'],
                 'stockPing' => round($stockPing * 10) / 10,
                 'inventoryCost' => $inventoryCost,
                 'totalPings' => $totalPings,
+                'totalAmount' => $totalAmount,
+                'totalQty' => $totalQty,
                 'saleCount' => $stats ? $stats['count'] : 0,
                 'daysSinceLastSale' => $daysSinceLastSale,
                 'lastSaleStr' => $lastSaleStr,
-                'buyers' => $buyers,
+                'avgMarginPct' => $avgMarginPct,
+                'customers' => $customers,
+                'imageUrl' => $profile['imageUrl'] ?? '',
                 'mos' => $mos,
                 'action' => $action,
                 'actionColor' => $actionColor,
@@ -2618,6 +2621,7 @@ class SleeperService
         $displaysMap = $this->getActiveDisplaysMap();
         $stockMap = $this->getStockMap();
         $metaMap = $this->getMetaMap();
+        $profileMap = $this->getProductProfileMap();
         $salesStats = $this->loadSalesStats($metaMap);
 
         $now = new DateTime();
@@ -2632,20 +2636,16 @@ class SleeperService
             $lastSaleStr = '從未銷售';
             if ($stats && $stats['lastDate']) {
                 $daysSinceLastSale = (int)$now->diff($stats['lastDate'])->days;
-                $lastSaleStr = $stats['lastDate']->format('Y/m');
+                $lastSaleStr = $this->formatRocDate($stats['lastDate'], false);
             }
 
             $totalPings = $stats ? round($stats['totalPings'] * 10) / 10 : 0;
-            $buyers = [];
-            if ($stats) {
-                $sorted = $stats['buyerMap'];
-                arsort($sorted);
-                $i = 0;
-                foreach ($sorted as $name => $pings) {
-                    if ($i++ >= 5) break;
-                    $buyers[] = ['name' => $name, 'pings' => round($pings * 10) / 10];
-                }
-            }
+            $customers = $this->buildProductCustomerRows($stats);
+            $totalAmount = $stats ? round($stats['totalAmount']) : 0;
+            $totalQty = $stats ? round($stats['totalQty']) : 0;
+            $avgMarginPct = ($stats && $stats['totalAmount'] > 0)
+                ? round((($stats['totalAmount'] - ($stats['totalQty'] * $info['cost'])) / $stats['totalAmount']) * 100, 1)
+                : 0;
 
             // Stagnancy diagnostics & actions
             $pings6M = $stats ? $stats['pings6M'] : 0;
@@ -2695,11 +2695,15 @@ class SleeperService
                 'stockPing' => round($stockPing * 10) / 10,
                 'inventoryCost' => $inventoryCost,
                 'totalPings' => $totalPings,
+                'totalAmount' => $totalAmount,
+                'totalQty' => $totalQty,
                 'saleCount' => $stats ? $stats['count'] : 0,
                 'daysSinceLastSale' => $daysSinceLastSale,
                 'lastSaleStr' => $lastSaleStr,
-                'buyers' => $buyers,
-                'imageUrl' => $info['imageUrl'],
+                'avgMarginPct' => $avgMarginPct,
+                'customers' => $customers,
+                'imageUrl' => $info['imageUrl'] ?: ($profileMap[$sku]['imageUrl'] ?? ''),
+                'productName' => $profileMap[$sku]['productName'] ?? '',
                 'mos' => $mos,
                 'action' => $action,
                 'actionColor' => $actionColor,
@@ -2755,6 +2759,7 @@ class SleeperService
         $displaysMap = $this->getActiveDisplaysMap();
         $stockMap = $this->getStockMap();
         $metaMap = $this->getMetaMap();
+        $profileMap = $this->getProductProfileMap();
         $salesStats = $this->loadSalesStats($metaMap);
 
         $now = new DateTime();
@@ -2769,20 +2774,16 @@ class SleeperService
             $lastSaleStr = '從未銷售';
             if ($stats && $stats['lastDate']) {
                 $daysSinceLastSale = (int)$now->diff($stats['lastDate'])->days;
-                $lastSaleStr = $stats['lastDate']->format('Y/m');
+                $lastSaleStr = $this->formatRocDate($stats['lastDate'], false);
             }
 
             $totalPings = $stats ? round($stats['totalPings'] * 10) / 10 : 0;
-            $buyers = [];
-            if ($stats) {
-                $sorted = $stats['buyerMap'];
-                arsort($sorted);
-                $j = 0;
-                foreach ($sorted as $name => $pings) {
-                    if ($j++ >= 5) break;
-                    $buyers[] = ['name' => $name, 'pings' => round($pings * 10) / 10];
-                }
-            }
+            $customers = $this->buildProductCustomerRows($stats);
+            $totalAmount = $stats ? round($stats['totalAmount']) : 0;
+            $totalQty = $stats ? round($stats['totalQty']) : 0;
+            $avgMarginPct = ($stats && $stats['totalAmount'] > 0)
+                ? round((($stats['totalAmount'] - ($stats['totalQty'] * $info['cost'])) / $stats['totalAmount']) * 100, 1)
+                : 0;
 
             // Stagnancy diagnostics & actions
             $pings6M = $stats ? $stats['pings6M'] : 0;
@@ -2832,10 +2833,15 @@ class SleeperService
                 'stockPing' => round($stockPing * 10) / 10,
                 'inventoryCost' => $inventoryCost,
                 'totalPings' => $totalPings,
+                'totalAmount' => $totalAmount,
+                'totalQty' => $totalQty,
                 'saleCount' => $stats ? $stats['count'] : 0,
                 'daysSinceLastSale' => $daysSinceLastSale,
                 'lastSaleStr' => $lastSaleStr,
-                'buyers' => $buyers,
+                'avgMarginPct' => $avgMarginPct,
+                'customers' => $customers,
+                'imageUrl' => $profileMap[$sku]['imageUrl'] ?? '',
+                'productName' => $profileMap[$sku]['productName'] ?? '',
                 'mos' => $mos,
                 'action' => $action,
                 'actionColor' => $actionColor,
@@ -2907,6 +2913,16 @@ class SleeperService
         return null;
     }
 
+    private function formatRocDate($dt, $withDay = true)
+    {
+        if (!($dt instanceof DateTime)) return '';
+        $rocYear = (int)$dt->format('Y') - 1911;
+        if ($rocYear <= 0) return $withDay ? $dt->format('Y/m/d') : $dt->format('Y/m');
+        return $withDay
+            ? sprintf('%03d/%02d/%02d', $rocYear, (int)$dt->format('m'), (int)$dt->format('d'))
+            : sprintf('%03d/%02d', $rocYear, (int)$dt->format('m'));
+    }
+
     private function findHeader($headers, $candidates)
     {
         if (!$headers || count($headers) === 0) return -1;
@@ -2931,6 +2947,24 @@ class SleeperService
     private function getVal($row, $idx)
     {
         return isset($row[$idx]) ? $row[$idx] : '';
+    }
+
+    private function buildProductCustomerRows($stats)
+    {
+        if (!$stats || empty($stats['customerStats'])) return [];
+        $rows = array_values($stats['customerStats']);
+        usort($rows, function ($a, $b) { return $b['amount'] <=> $a['amount']; });
+        $totalAmount = max(1, (float)($stats['totalAmount'] ?? 0));
+        $out = [];
+        foreach (array_slice($rows, 0, 5) as $row) {
+            $out[] = [
+                'name' => $row['name'],
+                'qty' => round($row['qty']),
+                'amount' => round($row['amount']),
+                'sharePct' => round(($row['amount'] / $totalAmount) * 100, 1)
+            ];
+        }
+        return $out;
     }
 
     private function padToColumn($data, $colIndex)
@@ -3234,38 +3268,61 @@ class SleeperService
         $limit6M->modify('-180 days');
 
         try {
-            $cacheRows = $this->getSalesYearCacheRows();
-            if ($cacheRows && count($cacheRows) > 0) {
-                foreach ($cacheRows as $cRow) {
-                    $sku = $this->cleanSku($this->getVal($cRow, 2));
-                    if (!$sku) continue;
+            $raw = $this->gs->readSheet(CACHE_SHEET);
+            if ($raw && count($raw) > 1) {
+                $h = $raw[0];
+                $idxCode = $this->findHeader($h, ['產品編號']);
+                $idxCust = $this->findHeader($h, ['客戶名稱', '客戶']);
+                $idxQty = $this->findHeader($h, ['銷售片數']);
+                $idxPings = $this->findHeader($h, ['銷售坪數']);
+                $idxAmt = $this->findHeader($h, ['銷售金額']);
+                $idxCount = $this->findHeader($h, ['交易筆數']);
+                $idxLastDate = $this->findHeader($h, ['最後交易日']);
+                if ($idxCode !== -1 && $idxCust !== -1 && $idxPings !== -1 && $idxAmt !== -1 && $idxLastDate !== -1) {
+                    for ($i = 1; $i < count($raw); $i++) {
+                        $cRow = $raw[$i];
+                        $sku = $this->cleanSku($this->getVal($cRow, $idxCode));
+                        if (!$sku) continue;
 
-                    $hasSalesCol = trim($this->getVal($cRow, 4)) !== '' && !is_numeric($this->getVal($cRow, 4));
-                    $pingsIdx = $hasSalesCol ? 6 : 5;
-                    $countIdx = $hasSalesCol ? 8 : 7;
-                    $lastDateIdx = $hasSalesCol ? 11 : 10;
+                        $pings = $this->optFloat($this->getVal($cRow, $idxPings));
+                        $qty = $idxQty !== -1 ? $this->optFloat($this->getVal($cRow, $idxQty)) : 0;
+                        $amount = $idxAmt !== -1 ? $this->optFloat($this->getVal($cRow, $idxAmt)) : 0;
+                        $txCount = $idxCount !== -1 ? (int)$this->getVal($cRow, $idxCount) : 0;
+                        $d = $this->parseDate($this->getVal($cRow, $idxLastDate));
+                        $cust = $this->displayCustomerName($this->getVal($cRow, $idxCust));
 
-                    $pings = $this->optFloat($this->getVal($cRow, $pingsIdx));
-                    $lastDateStr = trim($this->getVal($cRow, $lastDateIdx));
-                    $d = $lastDateStr ? $this->parseDate($lastDateStr) : null;
-                    $cust = trim($this->getVal($cRow, 3));
-
-                    if (!isset($salesStats[$sku])) {
-                        $salesStats[$sku] = ['lastDate' => null, 'totalPings' => 0, 'pings6M' => 0, 'buyerMap' => [], 'count' => 0];
-                    }
-                    $s = &$salesStats[$sku];
-                    $s['count'] += (int)$this->getVal($cRow, $countIdx);
-                    if ($d) {
-                        if (!$s['lastDate'] || $d > $s['lastDate']) $s['lastDate'] = $d;
-                        if ($d >= $limit6M) {
-                            $s['pings6M'] += $pings;
+                        if (!isset($salesStats[$sku])) {
+                            $salesStats[$sku] = [
+                                'lastDate' => null,
+                                'totalPings' => 0,
+                                'pings6M' => 0,
+                                'buyerMap' => [],
+                                'count' => 0,
+                                'totalAmount' => 0,
+                                'totalQty' => 0,
+                                'customerStats' => []
+                            ];
                         }
+                        $s = &$salesStats[$sku];
+                        $s['count'] += $txCount;
+                        $s['totalPings'] += $pings;
+                        $s['totalQty'] += $qty;
+                        $s['totalAmount'] += $amount;
+                        if ($d) {
+                            if (!$s['lastDate'] || $d > $s['lastDate']) $s['lastDate'] = $d;
+                            if ($d >= $limit6M) $s['pings6M'] += $pings;
+                        }
+                        if (!isset($s['buyerMap'][$cust])) $s['buyerMap'][$cust] = 0;
+                        $s['buyerMap'][$cust] += $pings;
+                        if (!isset($s['customerStats'][$cust])) {
+                            $s['customerStats'][$cust] = ['name' => $cust, 'qty' => 0, 'amount' => 0, 'pings' => 0];
+                        }
+                        $s['customerStats'][$cust]['qty'] += $qty;
+                        $s['customerStats'][$cust]['amount'] += $amount;
+                        $s['customerStats'][$cust]['pings'] += $pings;
                     }
-                    $s['totalPings'] += $pings;
-                    if (!isset($s['buyerMap'][$cust])) $s['buyerMap'][$cust] = 0;
-                    $s['buyerMap'][$cust] += $pings;
+                    $cacheLoaded = true;
                 }
-                $cacheLoaded = true;
             }
         } catch (Exception $e) {
             // suppress
@@ -3303,19 +3360,35 @@ class SleeperService
 
                     $perPing = isset($metaMap[$sku]) ? ($metaMap[$sku]['perPing'] ?: 36) : 36;
                     $pings = $qty / $perPing;
+                    $customerName = $this->displayCustomerName($custName);
 
                     if (!isset($salesStats[$sku])) {
-                        $salesStats[$sku] = ['lastDate' => null, 'totalPings' => 0, 'pings6M' => 0, 'buyerMap' => [], 'count' => 0];
+                        $salesStats[$sku] = [
+                            'lastDate' => null,
+                            'totalPings' => 0,
+                            'pings6M' => 0,
+                            'buyerMap' => [],
+                            'count' => 0,
+                            'totalAmount' => 0,
+                            'totalQty' => 0,
+                            'customerStats' => []
+                        ];
                     }
                     $s = &$salesStats[$sku];
                     $s['count']++;
                     if (!$s['lastDate'] || $d > $s['lastDate']) $s['lastDate'] = $d;
-                    if ($d >= $limit6M) {
-                        $s['pings6M'] += $pings;
-                    }
+                    if ($d >= $limit6M) $s['pings6M'] += $pings;
                     $s['totalPings'] += $pings;
-                    if (!isset($s['buyerMap'][$custName])) $s['buyerMap'][$custName] = 0;
-                    $s['buyerMap'][$custName] += $pings;
+                    $s['totalQty'] += $qty;
+                    $s['totalAmount'] += $amt;
+                    if (!isset($s['buyerMap'][$customerName])) $s['buyerMap'][$customerName] = 0;
+                    $s['buyerMap'][$customerName] += $pings;
+                    if (!isset($s['customerStats'][$customerName])) {
+                        $s['customerStats'][$customerName] = ['name' => $customerName, 'qty' => 0, 'amount' => 0, 'pings' => 0];
+                    }
+                    $s['customerStats'][$customerName]['qty'] += $qty;
+                    $s['customerStats'][$customerName]['amount'] += $amt;
+                    $s['customerStats'][$customerName]['pings'] += $pings;
                 }
             }
         }
