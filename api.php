@@ -1972,7 +1972,13 @@ class SleeperService
                 'healthCounts' => [],
                 'summary' => ['active' => 0, 'expiringSoon' => 0, 'overdue' => 0, 'balance' => 0],
                 'topRisk' => [],
-                'notes' => []
+                'notes' => [],
+                'detailGroups' => [
+                    'overdueSevere' => [],
+                    'pendingRenewal' => [],
+                    'renewed' => [],
+                    'otherOpen' => []
+                ]
             ];
         }
 
@@ -1997,11 +2003,18 @@ class SleeperService
         ];
         $topRisk = [];
         $notes = [];
+        $detailGroups = [
+            'overdueSevere' => [],
+            'pendingRenewal' => [],
+            'renewed' => [],
+            'otherOpen' => []
+        ];
         $active = 0;
         $expiringSoon = 0;
         $overdue = 0;
         $balance = 0;
         $targetMonth = new DateTime(sprintf('%04d-%02d-01', $year, $month));
+        $today = new DateTime('today');
 
         for ($i = 1; $i < count($rows); $i++) {
             $row = $rows[$i];
@@ -2025,9 +2038,32 @@ class SleeperService
                 if ($diffDays >= 0 && $diffDays <= 45) $expiringSoon += 1;
             }
 
+            $elapsedText = '未填票期';
+            if ($due) {
+                $todayDiff = (int)$today->diff($due)->format('%r%a');
+                if ($todayDiff < 0) $elapsedText = '逾期 ' . abs($todayDiff) . ' 天';
+                elseif ($todayDiff > 0) $elapsedText = $todayDiff . ' 天後到期';
+                else $elapsedText = '今天到期';
+            }
+
             if ($healthMeta['note'] !== '') {
                 $notes[$healthMeta['note']] = isset($notes[$healthMeta['note']]) ? $notes[$healthMeta['note']] + 1 : 1;
             }
+
+            $detailRow = [
+                'customer' => $customer,
+                'health' => $bucket,
+                'balance' => $bal,
+                'sales' => $sales,
+                'lastDue' => $due ? $due->format('Y/m/d') : '',
+                'elapsed' => $elapsedText,
+                'note' => $healthMeta['note']
+            ];
+
+            if (in_array($bucket, ['逾期', '嚴重'], true)) $detailGroups['overdueSevere'][] = $detailRow;
+            elseif ($bucket === '待續') $detailGroups['pendingRenewal'][] = $detailRow;
+            elseif ($bucket === '已續') $detailGroups['renewed'][] = $detailRow;
+            elseif ($bucket === '其它未續約') $detailGroups['otherOpen'][] = $detailRow;
 
             if (in_array($bucket, ['逾期', '嚴重', '待續'], true) || $bal > 300000) {
                 $topRisk[] = [
@@ -2043,6 +2079,12 @@ class SleeperService
         usort($topRisk, function ($a, $b) {
             return ($b['balance'] <=> $a['balance']);
         });
+        foreach ($detailGroups as &$group) {
+            usort($group, function ($a, $b) {
+                return ($b['balance'] <=> $a['balance']);
+            });
+        }
+        unset($group);
         $noteRows = [];
         foreach ($notes as $text => $count) {
             $noteRows[] = ['name' => $text, 'count' => $count];
@@ -2060,7 +2102,13 @@ class SleeperService
                 'balance' => $balance
             ],
             'topRisk' => array_slice($topRisk, 0, 10),
-            'notes' => array_slice($noteRows, 0, 12)
+            'notes' => array_slice($noteRows, 0, 12),
+            'detailGroups' => [
+                'overdueSevere' => array_slice($detailGroups['overdueSevere'], 0, 30),
+                'pendingRenewal' => array_slice($detailGroups['pendingRenewal'], 0, 30),
+                'renewed' => array_slice($detailGroups['renewed'], 0, 30),
+                'otherOpen' => array_slice($detailGroups['otherOpen'], 0, 30)
+            ]
         ];
     }
 
