@@ -52,6 +52,19 @@
       flex-wrap: wrap;
       align-items: center;
     }
+    .mode-switch {
+      display: inline-flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .mode-btn {
+      min-width: 112px;
+    }
+    .mode-btn.is-active {
+      background: linear-gradient(180deg, rgba(194,157,102,0.36), rgba(194,157,102,0.16));
+      border-color: rgba(240,203,132,0.7);
+      color: var(--accent-strong);
+    }
     select, button, a.btn-link {
       height: 42px;
       border: 1px solid rgba(194,157,102,0.45);
@@ -326,6 +339,20 @@
     }
     .bar.prev { background: rgba(255,255,255,0.18); }
     .bar.curr { background: linear-gradient(180deg, var(--accent-strong), rgba(194,157,102,0.35)); }
+    .bar-chart.triple {
+      gap: 8px;
+    }
+    .bar-triple {
+      width: 100%;
+      height: 180px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 4px;
+    }
+    .bar-chart.triple .bar {
+      width: calc(33.333% - 3px);
+    }
     .bar-label {
       color: var(--muted);
       font-size: 12px;
@@ -698,6 +725,7 @@
     const API_BASE = 'api.php';
     const now = new Date();
     const defaultMeetingDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    let currentMeetingTab = 'monthly';
     const yearSel = document.getElementById('year');
     const monthSel = document.getElementById('month');
     for (let y = now.getFullYear(); y >= 2024; y--) {
@@ -835,6 +863,161 @@
                     </div>
                     <div class="bar-label">${r.month}月</div>
                     <div class="bar-val">${fmtWan(r.current)}</div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
+    function buildMeetingTabs() {
+      return `
+        <section class="sheet">
+          <div class="sheet-title">報表模式</div>
+          <div class="section-pad">
+            <div class="mode-switch">
+              <button class="mode-btn ${currentMeetingTab === 'monthly' ? 'is-active' : ''}" onclick="switchMeetingTab('monthly')">月報</button>
+              <button class="mode-btn ${currentMeetingTab === 'cumulative' ? 'is-active' : ''}" onclick="switchMeetingTab('cumulative')">年度累積</button>
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
+    function buildHealthShipmentSheet(d) {
+      const s = d.summary || {};
+      const buckets = d.shipmentBuckets || [];
+      return `
+        <section class="sheet">
+          <div class="sheet-title">簽約健康度與出貨家數</div>
+          <div class="mini-grid">
+            <div class="mini-card"><h3>每月簽約總額</h3><div class="v">${fmtWan(s.signedMonthlyTarget)}</div><div class="hint">依合約健康名單統計</div></div>
+            <div class="mini-card"><h3>簽約店家實銷</h3><div class="v">${fmtWan(s.signedStoreSales)}</div><div class="hint">本月簽約店實際銷售</div></div>
+            <div class="mini-card"><h3>簽約店健康度</h3><div class="v">${fmtPct(s.signedHealthPct)}</div><div class="hint">實銷 / 簽約總額</div></div>
+            <div class="mini-card"><h3>追平去年達成率</h3><div class="v">${fmtPct(s.catchUpPct)}</div><div class="hint">本月 / 去年同期</div></div>
+          </div>
+          <div class="chart-grid">
+            <div class="chart-card">
+              <div class="hint" style="margin-bottom:12px">出貨家數分級</div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>分級</th>
+                      <th>家數</th>
+                      <th>家數佔比</th>
+                      <th>業績佔比</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${buckets.map(row => `
+                      <tr>
+                        <td>${escapeHtml(row.name)}</td>
+                        <td class="num">${fmtInt(row.count)}</td>
+                        <td class="num">${fmtPct(row.customerSharePct)}</td>
+                        <td class="num">${fmtPct(row.salesSharePct)}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="chart-card">
+              <div class="hint" style="margin-bottom:12px">出貨家數結構</div>
+              ${buildRankBoard(buckets, 'amount', fmtWan, function(item) {
+                return '家數 ' + fmtInt(item.count) + ' / 家數佔比 ' + fmtPct(item.customerSharePct) + ' / 業績佔比 ' + fmtPct(item.salesSharePct);
+              })}
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
+    function buildBrandCountrySheet(d) {
+      const brandRows = d.brandSales || [];
+      const total = brandRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+      return `
+        <section class="sheet">
+          <div class="sheet-title">廠牌銷售分類</div>
+          <div class="chart-grid">
+            ${buildDonutCard('義大利 / 西班牙', brandRows.map(r => ({...r, name: r.name || '未分類'})), total, '依銷售金額')}
+            <div class="chart-card">
+              <div class="hint" style="margin-bottom:12px">品牌國別排名</div>
+              ${buildRankBoard(brandRows.map(r => ({...r, amount: Number(r.amount || 0)})), 'amount', fmtWan, function(item) {
+                return '佔整體 ' + fmtPct(item.sharePct || 0);
+              })}
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
+    function buildThreeYearCompareSheet(d, cumulative) {
+      const source = cumulative ? (d.threeYearCumulative || []) : (d.threeYearCompare || []);
+      const rows = [];
+      const months = cumulative ? Array.from({ length: d.month }, (_, i) => i + 1) : Array.from({ length: 12 }, (_, i) => i + 1);
+      months.forEach(month => {
+        const row = { month };
+        source.forEach(yearRow => {
+          const hit = (yearRow.months || []).find(m => Number(m.month) === month);
+          row['y' + yearRow.year] = Number(hit?.amount || 0);
+        });
+        rows.push(row);
+      });
+      const years = source.map(r => r.year);
+      const max = Math.max(1, ...rows.flatMap(r => years.map(y => r['y' + y] || 0)));
+      const totals = source.map(r => ({
+        year: r.year,
+        total: cumulative ? Number(r.total || 0) : Number((r.months || []).reduce((sum, m) => sum + Number(m.amount || 0), 0))
+      }));
+      return `
+        <section class="sheet">
+          <div class="sheet-title">${cumulative ? '近三年年度累積比較' : '近三年月銷比較'}</div>
+          <div class="chart-grid">
+            <div class="chart-card">
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>${cumulative ? '累積至' : '月份'}</th>
+                      ${years.map(y => `<th>${y}</th>`).join('')}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${rows.map(r => `
+                      <tr>
+                        <td class="center">${cumulative ? (r.month + '月累積') : (r.month + '月')}</td>
+                        ${years.map(y => `<td class="num">${fmtWan(r['y' + y] || 0)}</td>`).join('')}
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-legend">
+                ${years.map((y, idx) => `<span class="legend-chip"><span class="legend-swatch" style="background:${palette(idx)}"></span>${y}</span>`).join('')}
+              </div>
+              <div class="bar-chart triple">
+                ${rows.map(r => `
+                  <div class="bar-col">
+                    <div class="bar-triple">
+                      ${years.map((y, idx) => `
+                        <div class="bar curr" style="height:${Math.max(8, Math.round(((r['y' + y] || 0) / max) * 100))}%; background:${palette(idx)}"></div>
+                      `).join('')}
+                    </div>
+                    <div class="bar-label">${r.month}${cumulative ? '累' : '月'}</div>
+                  </div>
+                `).join('')}
+              </div>
+              <div class="mini-grid" style="margin-top:16px">
+                ${totals.map((row, idx) => `
+                  <div class="mini-card">
+                    <h3>${row.year}</h3>
+                    <div class="v" style="color:${palette(idx)}">${fmtWan(row.total)}</div>
+                    <div class="hint">${cumulative ? '累積總額' : '年度總額'}</div>
                   </div>
                 `).join('')}
               </div>
@@ -1293,15 +1476,33 @@
     }
 
     function render(d) {
-      document.getElementById('app').innerHTML =
+      const monthlyView =
         buildKpiSheet(d) +
+        buildHealthShipmentSheet(d) +
+        buildBrandCountrySheet(d) +
         buildMonthCompareSheet(d) +
+        buildThreeYearCompareSheet(d, false) +
         buildTopSheets(d) +
         buildSeriesSheet(d) +
         buildHotProductsSheet(d) +
         buildCategorySheet(d) +
         buildContractSheet(d) +
         buildFieldSheet(d);
+      const cumulativeView =
+        buildKpiSheet(d) +
+        buildThreeYearCompareSheet(d, true) +
+        buildBrandCountrySheet(d) +
+        buildHealthShipmentSheet(d) +
+        buildTopSheets(d) +
+        buildContractSheet(d);
+      document.getElementById('app').innerHTML =
+        buildMeetingTabs() +
+        (currentMeetingTab === 'cumulative' ? cumulativeView : monthlyView);
+    }
+
+    function switchMeetingTab(tab) {
+      currentMeetingTab = tab;
+      loadMeeting();
     }
 
     function loadMeeting() {
