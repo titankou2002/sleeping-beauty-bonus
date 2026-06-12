@@ -23,6 +23,7 @@ class GoogleSheetsClient
     private $accessToken = null;
     private $tokenExpires = 0;
     private $sheetIdCache = [];
+    private $sheetPropsCache = [];
 
     public function __construct($ssId = null)
     {
@@ -39,6 +40,7 @@ class GoogleSheetsClient
 
     public function writeRows($sheetName, $startRow, $rows)
     {
+        $this->ensureSheetCapacity($sheetName, $startRow + count($rows) - 1, $this->getMaxColumnCount($rows));
         $range = urlencode("'{$sheetName}'!A{$startRow}");
         $url = "https://sheets.googleapis.com/v4/spreadsheets/{$this->ssId}/values/{$range}?valueInputOption=USER_ENTERED";
         $this->api('PUT', $url, [
@@ -110,6 +112,7 @@ class GoogleSheetsClient
     public function writeBlock($sheetName, $startRow, $colStart, $rows)
     {
         if (!$rows || !count($rows)) return;
+        $this->ensureSheetCapacity($sheetName, $startRow + count($rows) - 1, $colStart + $this->getMaxColumnCount($rows));
         $colLetter = $this->colIndexToLetter($colStart);
         $range = urlencode("'{$sheetName}'!{$colLetter}{$startRow}");
         $url = "https://sheets.googleapis.com/v4/spreadsheets/{$this->ssId}/values/{$range}?valueInputOption=USER_ENTERED";
@@ -215,19 +218,81 @@ class GoogleSheetsClient
 
     private function getSheetIdByName($sheetName)
     {
-        if (isset($this->sheetIdCache[$sheetName])) return $this->sheetIdCache[$sheetName];
+        $props = $this->getSheetPropertiesByName($sheetName);
+        return $props['sheetId'];
+    }
 
-        $url = "https://sheets.googleapis.com/v4/spreadsheets/{$this->ssId}?fields=sheets(properties(sheetId,title))";
+    private function getSheetPropertiesByName($sheetName)
+    {
+        if (isset($this->sheetPropsCache[$sheetName])) return $this->sheetPropsCache[$sheetName];
+
+        $url = "https://sheets.googleapis.com/v4/spreadsheets/{$this->ssId}?fields=sheets(properties(sheetId,title,gridProperties(rowCount,columnCount)))";
         $res = $this->api('GET', $url);
         foreach (($res['sheets'] ?? []) as $sheet) {
             $props = $sheet['properties'] ?? [];
             if (($props['title'] ?? '') === $sheetName) {
-                $this->sheetIdCache[$sheetName] = (int)$props['sheetId'];
-                return $this->sheetIdCache[$sheetName];
+                $normalized = [
+                    'sheetId' => (int)($props['sheetId'] ?? 0),
+                    'rowCount' => (int)($props['gridProperties']['rowCount'] ?? 0),
+                    'columnCount' => (int)($props['gridProperties']['columnCount'] ?? 0)
+                ];
+                $this->sheetIdCache[$sheetName] = $normalized['sheetId'];
+                $this->sheetPropsCache[$sheetName] = $normalized;
+                return $normalized;
             }
         }
 
         throw new RuntimeException("找不到工作表 ID: {$sheetName}");
+    }
+
+    private function ensureSheetCapacity($sheetName, $requiredRows, $requiredCols)
+    {
+        $props = $this->getSheetPropertiesByName($sheetName);
+        $requests = [];
+
+        if ($requiredRows > $props['rowCount']) {
+            $requests[] = [
+                'updateSheetProperties' => [
+                    'properties' => [
+                        'sheetId' => $props['sheetId'],
+                        'gridProperties' => [
+                            'rowCount' => $requiredRows
+                        ]
+                    ],
+                    'fields' => 'gridProperties.rowCount'
+                ]
+            ];
+            $props['rowCount'] = $requiredRows;
+        }
+
+        if ($requiredCols > $props['columnCount']) {
+            $requests[] = [
+                'updateSheetProperties' => [
+                    'properties' => [
+                        'sheetId' => $props['sheetId'],
+                        'gridProperties' => [
+                            'columnCount' => $requiredCols
+                        ]
+                    ],
+                    'fields' => 'gridProperties.columnCount'
+                ]
+            ];
+            $props['columnCount'] = $requiredCols;
+        }
+
+        if ($requests) {
+            $this->batchUpdate(['requests' => $requests]);
+            $this->sheetPropsCache[$sheetName] = $props;
+        }
+    }
+
+    private function getMaxColumnCount($rows)
+    {
+        $max = 0;
+        foreach ((array)$rows as $row) {
+            if (is_array($row)) $max = max($max, count($row));
+        }
+        return $max;
     }
 
     private function buildFormatRequest($sheetId, $startCol, $endCol, $type, $pattern)
