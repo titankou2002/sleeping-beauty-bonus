@@ -1001,17 +1001,17 @@ function loadProducts() {
     loaded++;
     if (loaded === total) { showLoading(false); if (!failed) renderProducts(); }
   }
-  apiGet('products', function(res) {
+  apiGet('products', {}, function(res) {
     if (res.success) window._sleeperData = res.data;
     else failed = true;
     checkDone();
   }, function() { failed = true; checkDone(); });
-  apiGet('normal-products', function(res) {
+  apiGet('normal-products', {}, function(res) {
     if (res.success) window._normalData = res.data;
     else failed = true;
     checkDone();
   }, function() { failed = true; checkDone(); });
-  apiGet('discontinued-products', function(res) {
+  apiGet('discontinued-products', {}, function(res) {
     if (res.success) window._disconProducts = res.data;
     else failed = true;
     checkDone();
@@ -1571,9 +1571,9 @@ function renderStrategyReport(d) {
   }), 'name', fmtReportWan) + '</div>';
   html += buildDonutCard('系列占比', topSeries, 'name', '系列結構\n' + topSeries.length + ' 類');
   html += '<div class="chart-card"><div class="chart-title">年度月趨勢</div><div class="chart-sub">判斷這期是在高峰、平穩，還是掉速。</div>' + buildTrendChart(d.monthTrend || {}, d.months ? d.months[0] : 0) + '</div>';
-  html += '<div class="chart-card"><div class="chart-title">業務成長貢獻</div><div class="chart-sub">相對 ' + (d.previousLabel || '前期') + '，誰拉上來、誰掉下去。</div>' + buildDeltaRows(growthSales, 'name') + '</div>';
-  html += '<div class="chart-card"><div class="chart-title">客戶成長貢獻</div><div class="chart-sub">看成長來自哪些客戶，或少在哪些客戶。</div>' + buildDeltaRows(growthCustomers, 'name') + '</div>';
-  html += '<div class="chart-card"><div class="chart-title">專案成長貢獻</div><div class="chart-sub">專案獨立看，避免混淆客戶變化。</div>' + buildDeltaRows(growthProjects, 'name') + '</div>';
+  html += '<div class="chart-card"><div class="chart-title">業務成長貢獻</div><div class="chart-sub">相對 ' + (d.previousLabel || '前期') + '，誰拉上來、誰掉下去。紅色代表低於比較基準。</div>' + buildDeltaRows(growthSales, 'name') + '</div>';
+  html += '<div class="chart-card"><div class="chart-title">客戶成長貢獻</div><div class="chart-sub">看成長來自哪些客戶，或少在哪些客戶。紅色代表低於 ' + (d.previousLabel || '前期') + '。</div>' + buildDeltaRows(growthCustomers, 'name') + '</div>';
+  html += '<div class="chart-card"><div class="chart-title">專案成長貢獻</div><div class="chart-sub">專案獨立看，避免混淆客戶變化。紅色代表低於 ' + (d.previousLabel || '前期') + '。</div>' + buildDeltaRows(growthProjects, 'name') + '</div>';
   html += '<div class="chart-card full-span"><div class="chart-title">產品成長貢獻</div><div class="chart-sub">看哪個 SKU 真正在推升或拖累本期。</div>' + buildDeltaRows(growthProducts, 'name') + '</div>';
   html += '<div class="chart-card"><div class="chart-title">客戶到訪熱度</div><div class="chart-sub">哪些客戶被拜訪最多，頻率是否合理。</div>' + buildVisitRows(topVisitedCustomers, 'name', 'visits', fmtReportInt, function(item) { return '業績 ' + fmtReportWan(item.salesAmount || 0) + ' / 最近 ' + (item.lastVisit || '無'); }) + '</div>';
   html += '<div class="chart-card"><div class="chart-title">很少去但有業績</div><div class="chart-sub">高業績但拜訪偏少，優先補拜訪。</div>' + buildVisitRows(underVisitedCustomers, 'name', 'salesAmount', fmtReportWan, function(item) { return '拜訪 ' + fmtReportInt(item.visits || 0) + ' 次'; }) + '</div>';

@@ -86,7 +86,7 @@
     }
     .kpi-grid {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
     }
     .kpi-cell {
       border-right: 1px solid var(--line);
@@ -390,7 +390,7 @@
     .product-thumb {
       width: 100%;
       height: 100%;
-      object-fit: contain;
+      object-fit: cover;
       object-position: center;
       background: #181818;
     }
@@ -452,7 +452,7 @@
     }
     .donut-wrap {
       display: flex;
-      gap: 16px;
+      gap: 24px;
       align-items: center;
       min-width: 0;
     }
@@ -498,7 +498,7 @@
     }
     .legend-row {
       display: grid;
-      grid-template-columns: 14px minmax(100px, 1fr) 78px 62px;
+      grid-template-columns: 14px minmax(120px, 1fr) 88px 72px;
       gap: 10px;
       align-items: center;
       font-size: 13px;
@@ -594,6 +594,7 @@
       justify-content: space-between;
       gap: 16px;
       background: rgba(255,255,255,0.02);
+      width: 100%;
     }
     .expander summary::-webkit-details-marker {
       display: none;
@@ -612,6 +613,7 @@
       font-weight: 900;
       color: var(--accent-strong);
       white-space: nowrap;
+      flex-shrink: 0;
     }
     .expander-icon {
       margin-left: 8px;
@@ -628,7 +630,7 @@
     }
     .health-line {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 72px 120px;
+      grid-template-columns: minmax(0, 1fr) minmax(180px, 260px);
       gap: 10px;
       padding: 10px 12px;
       border: 1px solid var(--line);
@@ -648,6 +650,13 @@
       font-size: 13px;
       font-weight: 800;
       text-align: right;
+    }
+    .health-line .status-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      min-width: 0;
     }
     @media (max-width: 980px) {
       .kpi-grid, .mini-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1063,8 +1072,10 @@
           ${rows.map(r => `
             <div class="health-line ${contractLineClass(r.health)}">
               <div class="customer">${escapeHtml(r.customer)}</div>
-              <div class="status">${escapeHtml(r.health || '—')}</div>
-              <div class="elapsed">${escapeHtml(r.elapsed || fmtDate(r.lastDue))}</div>
+              <div class="status-wrap">
+                <div class="status">${escapeHtml(r.health || '—')}</div>
+                <div class="elapsed">${escapeHtml(r.elapsed || fmtDate(r.lastDue))}</div>
+              </div>
             </div>
           `).join('') || '<div class="hint">本期無資料</div>'}
         </div>
@@ -1094,7 +1105,7 @@
                 <div>
                   <div class="k">逾期</div>
                   <div class="n">${fmtInt(healthMap['逾期'] || 0)}</div>
-                  <div class="d">點開看逾期天數</div>
+                  <div class="d">點開看客戶與逾期天數</div>
                 </div>
                 <div class="expander-icon">⌄</div>
               </summary>
@@ -1105,7 +1116,7 @@
                 <div>
                   <div class="k">嚴重</div>
                   <div class="n">${fmtInt(healthMap['嚴重'] || 0)}</div>
-                  <div class="d">點開看嚴重逾期</div>
+                  <div class="d">點開看客戶與嚴重逾期</div>
                 </div>
                 <div class="expander-icon">⌄</div>
               </summary>
@@ -1116,7 +1127,7 @@
                 <div>
                   <div class="k">待續約</div>
                   <div class="n">${fmtInt(healthMap['待續'] || 0)}</div>
-                  <div class="d">點開看待續時間</div>
+                  <div class="d">點開看客戶與待續時間</div>
                 </div>
                 <div class="expander-icon">⌄</div>
               </summary>
@@ -1127,7 +1138,7 @@
                 <div>
                   <div class="k">已續約</div>
                   <div class="n">${fmtInt(healthMap['已續'] || 0)}</div>
-                  <div class="d">點開看本期完成</div>
+                  <div class="d">點開看已續約名單</div>
                 </div>
                 <div class="expander-icon">⌄</div>
               </summary>

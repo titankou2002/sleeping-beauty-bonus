@@ -3329,6 +3329,16 @@ class SleeperService
                         $txCount = $idxCount !== -1 ? (int)$this->getVal($cRow, $idxCount) : 0;
                         $d = $this->parseDate($this->getVal($cRow, $idxLastDate));
                         $cust = $this->displayCustomerName($this->getVal($cRow, $idxCust));
+                        $perPing = isset($metaMap[$sku]) ? ($metaMap[$sku]['perPing'] ?: 36) : 36;
+
+                        // Older cache versions may have written qty into the pings column.
+                        if ($qty > 0 && ($pings <= 0 || $pings > ($qty * 1.2))) {
+                            $pings = $qty / $perPing;
+                        }
+                        // Ignore obviously broken future dates so they don't poison last-sale output.
+                        if ($d && (int)$d->format('Y') > ((int)date('Y') + 1)) {
+                            $d = null;
+                        }
 
                         if (!isset($salesStats[$sku])) {
                             $salesStats[$sku] = [
