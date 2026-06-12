@@ -164,6 +164,77 @@
       font-size: 28px;
       font-weight: 900;
     }
+    .health-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      padding: 12px;
+    }
+    .health-card {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 16px;
+      background: rgba(255,255,255,0.025);
+      min-height: 132px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .health-card .k {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .health-card .n {
+      font-size: 42px;
+      font-weight: 900;
+      line-height: 1;
+    }
+    .health-card .d {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .health-card.is-danger .n {
+      color: var(--red);
+    }
+    .rank-board {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .rank-row {
+      display: grid;
+      grid-template-columns: 1fr 1.4fr 84px;
+      gap: 12px;
+      align-items: center;
+    }
+    .rank-name {
+      font-size: 15px;
+      font-weight: 800;
+    }
+    .rank-sub {
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .rank-track {
+      height: 14px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      overflow: hidden;
+      position: relative;
+    }
+    .rank-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(194,157,102,0.65), var(--accent-strong));
+    }
+    .rank-val {
+      text-align: right;
+      font-size: 15px;
+      font-weight: 900;
+      color: var(--accent-strong);
+    }
     .item-list {
       display: flex;
       flex-direction: column;
@@ -212,6 +283,22 @@
       gap: 10px;
       min-height: 220px;
       padding-top: 18px;
+      position: relative;
+      padding-left: 40px;
+    }
+    .bar-axis {
+      position: absolute;
+      left: 0;
+      top: 18px;
+      bottom: 28px;
+      width: 36px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: flex-end;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
     }
     .bar-col {
       flex: 1;
@@ -243,6 +330,25 @@
     .bar-val {
       font-size: 11px;
       color: var(--text);
+    }
+    .chart-legend {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      margin-bottom: 12px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .legend-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .legend-swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
     }
     .product-grid {
       display: grid;
@@ -448,16 +554,18 @@
     }
     @media (max-width: 980px) {
       .kpi-grid, .mini-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .health-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .analysis-grid { grid-template-columns: 1fr; }
       .product-grid { grid-template-columns: 1fr; }
       .series-head { grid-template-columns: 1fr; }
     }
     @media (max-width: 640px) {
       .page { padding: 12px; }
-      .kpi-grid, .mini-grid { grid-template-columns: 1fr; }
+      .kpi-grid, .mini-grid, .health-grid { grid-template-columns: 1fr; }
       .kpi-cell:nth-child(4n) { border-right: 1px solid var(--line); }
       .series-line, .product-grid, .chart-grid, .analysis-grid { grid-template-columns: 1fr; }
       .donut-wrap { flex-direction: column; align-items: flex-start; }
+      .rank-row { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -552,11 +660,6 @@
               <div class="kpi-value">${fmtInt(s.txCount)}</div>
               <div class="kpi-sub">筆</div>
             </div>
-            <div class="kpi-cell">
-              <div class="kpi-label">本月主力類別</div>
-              <div class="kpi-value">${escapeHtml((d.categoryRanking || [])[0] ? (d.categoryRanking || [])[0].name : '—')}</div>
-              <div class="kpi-sub">依銷售金額最高</div>
-            </div>
           </div>
         </section>
       `;
@@ -597,8 +700,18 @@
               </div>
             </div>
             <div class="chart-card">
-              <div class="hint" style="margin-bottom:10px">同月份雙柱比較，讀起來會比只看表快。</div>
+              <div class="chart-legend">
+                <span class="legend-chip"><span class="legend-swatch" style="background:rgba(255,255,255,0.18)"></span>${d.year - 1}</span>
+                <span class="legend-chip"><span class="legend-swatch" style="background:linear-gradient(180deg, var(--accent-strong), rgba(194,157,102,0.35))"></span>${d.year}</span>
+              </div>
               <div class="bar-chart">
+                <div class="bar-axis">
+                  <span>100%</span>
+                  <span>75%</span>
+                  <span>50%</span>
+                  <span>25%</span>
+                  <span>0%</span>
+                </div>
                 ${visibleRows.map(r => `
                   <div class="bar-col">
                     <div class="bar-pair">
@@ -627,6 +740,27 @@
             </div>
           </div>
         </section>
+      `;
+    }
+
+    function buildRankBoard(rows, valueKey, valueFmt, subBuilder) {
+      const max = Math.max(1, ...(rows || []).map(r => Number(r[valueKey] || 0)));
+      return `
+        <div class="rank-board">
+          ${(rows || []).map((r, idx) => {
+            const pct = Math.max(6, Math.round((Number(r[valueKey] || 0) / max) * 100));
+            return `
+              <div class="rank-row">
+                <div>
+                  <div class="rank-name">${escapeHtml(r.name)}</div>
+                  <div class="rank-sub">${subBuilder ? subBuilder(r, idx) : ''}</div>
+                </div>
+                <div class="rank-track"><div class="rank-fill" style="width:${pct}%"></div></div>
+                <div class="rank-val">${valueFmt(r[valueKey] || 0)}</div>
+              </div>
+            `;
+          }).join('') || '<div class="hint">本期尚無資料</div>'}
+        </div>
       `;
     }
 
@@ -795,14 +929,14 @@
             <div class="mini-card"><h3>逾期 / 嚴重</h3><div class="v red">${fmtInt(s.overdue)}</div></div>
             <div class="mini-card"><h3>合約餘額</h3><div class="v">${fmtWan(s.balance)}</div></div>
           </div>
-          <div class="mini-grid">
-            <div class="mini-card"><h3>正常</h3><div class="v">${fmtInt(healthMap['正常'] || 0)}</div></div>
-            <div class="mini-card"><h3>逾期</h3><div class="v red">${fmtInt(healthMap['逾期'] || 0)}</div></div>
-            <div class="mini-card"><h3>嚴重</h3><div class="v red">${fmtInt(healthMap['嚴重'] || 0)}</div></div>
-            <div class="mini-card"><h3>待續</h3><div class="v">${fmtInt(healthMap['待續'] || 0)}</div></div>
-            <div class="mini-card"><h3>已續</h3><div class="v">${fmtInt(healthMap['已續'] || 0)}</div></div>
-            <div class="mini-card"><h3>其它未續約</h3><div class="v">${fmtInt(healthMap['其它未續約'] || 0)}</div></div>
-            <div class="mini-card"><h3>未分類</h3><div class="v">${fmtInt(healthMap['未分類'] || 0)}</div></div>
+          <div class="health-grid">
+            <div class="health-card"><div class="k">正常</div><div class="n">${fmtInt(healthMap['正常'] || 0)}</div><div class="d">穩定履約</div></div>
+            <div class="health-card is-danger"><div class="k">逾期</div><div class="n">${fmtInt(healthMap['逾期'] || 0)}</div><div class="d">需追蹤回收</div></div>
+            <div class="health-card is-danger"><div class="k">嚴重</div><div class="n">${fmtInt(healthMap['嚴重'] || 0)}</div><div class="d">優先處理</div></div>
+            <div class="health-card"><div class="k">待續</div><div class="n">${fmtInt(healthMap['待續'] || 0)}</div><div class="d">應提早續談</div></div>
+            <div class="health-card"><div class="k">已續</div><div class="n">${fmtInt(healthMap['已續'] || 0)}</div><div class="d">本期已完成</div></div>
+            <div class="health-card"><div class="k">其它未續約</div><div class="n">${fmtInt(healthMap['其它未續約'] || 0)}</div><div class="d">另列說明</div></div>
+            <div class="health-card"><div class="k">未分類</div><div class="n">${fmtInt(healthMap['未分類'] || 0)}</div><div class="d">待補資料</div></div>
           </div>
           <div class="section-pad stack">
             <div class="table-wrap">
@@ -906,24 +1040,30 @@
     function buildTopSheets(d) {
       const projects = d.topProjects || [];
       return (
-        buildListSheet('前 10 大客戶分析', '客戶分析保留專案資訊作為輔助，不另外拆紅字。', d.topCustomers || [], (row, idx) => `
-          <div class="item-row">
-            <div>
-              <div class="item-main">${escapeHtml(row.name)}</div>
-              <div class="item-sub">交易 ${fmtInt(row.count || 0)} 筆 / 坪數 ${fmtInt(row.pings || 0)}${projects[idx] ? ' / 專案 ' + escapeHtml(projects[idx].name) : ''}</div>
+        `
+          <section class="sheet">
+            <div class="sheet-title">前 10 大客戶分析</div>
+            <div class="section-pad">
+              <div class="hint" style="margin-bottom:12px">客戶分析保留專案資訊作為輔助，不另外拆紅字。</div>
+              ${buildRankBoard(d.topCustomers || [], 'amount', fmtWan, function(item, idx) {
+                const linkedProject = projects[idx];
+                const p = linkedProject ? ' / 參考專案 ' + linkedProject.name : '';
+                return '交易 ' + fmtInt(item.count || 0) + ' 筆 / 坪數 ' + fmtInt(item.pings || 0) + p;
+              })}
             </div>
-            <div class="pill">${fmtWan(row.amount)}</div>
-          </div>
-        `) +
-        buildListSheet('業務銷售排行', '主管會先看人，再看客與系列。', d.topSales || [], row => `
-          <div class="item-row">
-            <div>
-              <div class="item-main">${escapeHtml(row.name)}</div>
-              <div class="item-sub">交易 ${fmtInt(row.count || 0)} 筆 / 坪數 ${fmtInt(row.pings || 0)}</div>
+          </section>
+        ` +
+        `
+          <section class="sheet">
+            <div class="sheet-title">業務銷售排行</div>
+            <div class="section-pad">
+              <div class="hint" style="margin-bottom:12px">主管會先看人，再看客與系列。</div>
+              ${buildRankBoard(d.topSales || [], 'amount', fmtWan, function(item) {
+                return '交易 ' + fmtInt(item.count || 0) + ' 筆 / 坪數 ' + fmtInt(item.pings || 0);
+              })}
             </div>
-            <div class="pill">${fmtWan(row.amount)}</div>
-          </div>
-        `)
+          </section>
+        `
       );
     }
 
