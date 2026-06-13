@@ -146,6 +146,11 @@
       font-weight: 700;
     }
     .red { color: var(--red); }
+    .kpi-pct { font-size: 16px; font-weight: 900; }
+    .kpi-pct.up { color: var(--red); }
+    .kpi-pct.down { color: var(--green); }
+    .kpi-pct.flat { color: var(--text); }
+    .kpi-pct.share { color: var(--accent-strong); }
     .yellow { background: linear-gradient(180deg, rgba(194,157,102,0.24), rgba(194,157,102,0.10)); }
     .soft { background: rgba(255,255,255,0.02); }
     .table-wrap {
@@ -718,6 +723,14 @@
       font-size: 12px;
       margin-top: 4px;
     }
+    .meta-num {
+      font-size: 14px;
+      font-weight: 900;
+      color: var(--text);
+    }
+    .meta-num.share {
+      color: var(--accent-strong);
+    }
     .bucket-badge {
       color: var(--accent-strong);
       font-size: 22px;
@@ -1215,7 +1228,7 @@
             <div class="kpi-cell soft">
               <div class="kpi-label">去年同期</div>
               <div class="kpi-value">${fmtWan(s.salesYoyBase)}</div>
-              <div class="kpi-sub">YOY ${fmtPct(s.salesYoyPct)}</div>
+              <div class="kpi-sub">YOY <span class="kpi-pct ${trendClass(s.salesYoyPct)}">${fmtPct(s.salesYoyPct)}</span></div>
             </div>
             <div class="kpi-cell">
               <div class="kpi-label">坪數 / 交易筆數</div>
@@ -1225,12 +1238,12 @@
             <div class="kpi-cell yellow">
               <div class="kpi-label">睡美人業績</div>
               <div class="kpi-value">${fmtWan(s.sleeperSales)}</div>
-              <div class="kpi-sub">佔總業績 ${fmtPct(s.sleeperPct)}</div>
+              <div class="kpi-sub">佔總業績 <span class="kpi-pct share">${fmtPct(s.sleeperPct)}</span></div>
             </div>
             <div class="kpi-cell">
               <div class="kpi-label">專案銷售</div>
               <div class="kpi-value">${fmtWan(s.projectSales)}</div>
-              <div class="kpi-sub">佔總業績 ${fmtPct(s.projectPct)}</div>
+              <div class="kpi-sub">佔總業績 <span class="kpi-pct share">${fmtPct(s.projectPct)}</span></div>
             </div>
           </div>
         </section>
@@ -1364,7 +1377,7 @@
                     <summary>
                       <div>
                         <div class="bucket-title">${escapeHtml(row.name)}</div>
-                        <div class="bucket-meta">家數 ${fmtInt(row.count)} / 家數佔比 ${fmtPct(row.customerSharePct)} / 業績佔比 ${fmtPct(row.salesSharePct)} / 平均拜訪 ${fmtInt(row.avgVisitsPerCustomer || 0)} 次 / 單次拜訪產值 ${fmtWan(row.salesPerVisit || 0)}</div>
+                        <div class="bucket-meta">家數 <span class="meta-num">${fmtInt(row.count)}</span> / 家數佔比 <span class="meta-num share">${fmtPct(row.customerSharePct)}</span> / 業績佔比 <span class="meta-num share">${fmtPct(row.salesSharePct)}</span> / 平均拜訪 <span class="meta-num">${fmtInt(row.avgVisitsPerCustomer || 0)}</span> 次 / 單次拜訪產值 <span class="meta-num">${fmtWan(row.salesPerVisit || 0)}</span></div>
                         <div class="click-badge">點家數看客戶 <span class="expander-icon">▾</span></div>
                       </div>
                       <div class="bucket-badge">${fmtWan(row.amount)}</div>

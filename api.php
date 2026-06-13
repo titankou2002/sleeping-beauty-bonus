@@ -900,18 +900,18 @@ class SleeperService
 
     public function getInventorySummary()
     {
-        $configRes = $this->getSleeperConfig();
-        $sleeperMap = $configRes['success'] ? $configRes['data'] : [];
+        $sleeperCostMap = $this->getSleeperCostMap();
+        $priceCostMap = $this->getPriceCostMap();
         $stockMap = $this->getStockMap();
         $metaMap = $this->getMetaMap();
 
         $totalCost = 0;
         $totalPing = 0;
         foreach ($stockMap as $sku => $stockPing) {
-            $slp = $sleeperMap[$sku] ?? null;
-            if (!$slp) continue;
+            $cost = $sleeperCostMap[$sku] ?? $priceCostMap[$sku] ?? null;
+            if ($cost === null) continue;
             $meta = $metaMap[$sku] ?? ['perPing' => 36];
-            $costPerPing = (float)$slp['cost'] * ($meta['perPing'] ?: 36);
+            $costPerPing = (float)$cost * ($meta['perPing'] ?: 36);
             $totalCost += $stockPing * $costPerPing;
             $totalPing += $stockPing;
         }
