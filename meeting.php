@@ -1317,6 +1317,20 @@
             <div class="mini-card"><h3>簽約店健康度</h3><div class="v">${fmtPct(s.signedHealthPct)}</div><div class="hint">實銷 / 簽約總額</div></div>
             <div class="mini-card"><h3>追平去年達成率</h3><div class="v">${fmtPct(s.catchUpPct)}</div><div class="hint">本月 / 去年同期</div></div>
           </div>
+          <details class="expander section-pad">
+            <summary>
+              <div>
+                <div class="expander-title">簽約健康度逐月記錄</div>
+                <div class="expander-sub">每月簽約總額 / 簽約店家實銷 / 健康度的歷史變化。</div>
+              </div>
+              <div class="expander-meta"><span class="expander-icon">⌄</span></div>
+            </summary>
+            <div class="expander-body">
+              <div class="table-wrap" id="signed-health-history">
+                <div class="hint">載入中…</div>
+              </div>
+            </div>
+          </details>
           <div class="bucket-grid section-pad">
             <div class="stack-col">
               ${buildDonutCard('出貨家數結構', donutRows, totalHomes, '依出貨家數', fmtInt)}
@@ -2102,6 +2116,33 @@
         buildFieldSheet(d);
       document.getElementById('app').innerHTML = monthlyView;
       loadAdvisor(d.year, d.month);
+      loadSignedHealthHistory();
+    }
+
+    let signedHealthHistoryCache = null;
+    function loadSignedHealthHistory() {
+      const el = document.getElementById('signed-health-history');
+      if (!el) return;
+      const render = rows => {
+        if (!rows.length) { el.innerHTML = '<div class="hint">尚無歷史記錄，每月生成顧問解讀時會自動累積。</div>'; return; }
+        el.innerHTML = `
+          <table>
+            <thead><tr><th>年月</th><th>簽約總額</th><th>簽約店家實銷</th><th>健康度</th></tr></thead>
+            <tbody>
+              ${rows.slice().reverse().map(r => {
+                const k = r.kpi || {};
+                return `<tr><td class="center">${r.year}.${r.month}</td><td class="num">${fmtWan(k.signedMonthlyTarget)}</td><td class="num">${fmtWan(k.signedStoreSales)}</td><td class="num">${fmtPct(k.signedHealthPct)}</td></tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        `;
+      };
+      if (signedHealthHistoryCache) { render(signedHealthHistoryCache); return; }
+      apiGet('report-history', {}).then(res => {
+        if (!res.success) { el.innerHTML = '<div class="hint">載入失敗：' + escapeHtml(res.msg || '未知錯誤') + '</div>'; return; }
+        signedHealthHistoryCache = res.data || [];
+        render(signedHealthHistoryCache);
+      }).catch(err => { el.innerHTML = '<div class="hint">載入失敗：' + escapeHtml(String(err)) + '</div>'; });
     }
 
     function switchMeetingTab(tab) {

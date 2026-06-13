@@ -918,6 +918,13 @@ class SleeperService
         return ['totalCost' => round($totalCost), 'totalPing' => round($totalPing, 1)];
     }
 
+    public function getReportHistory()
+    {
+        $file = AI_ADVISOR_CACHE_DIR . '/report_history.json';
+        $history = is_file($file) ? (json_decode(file_get_contents($file), true) ?: []) : [];
+        return ['success' => true, 'data' => array_values($history)];
+    }
+
     public function recordReportSnapshot($year, $month, $summary)
     {
         if (!is_dir(AI_ADVISOR_CACHE_DIR)) {
@@ -4128,6 +4135,15 @@ try {
                 echo json_encode($res);
             } catch (Exception $e) {
                 echo json_encode(['success' => false, 'msg' => 'meeting-report 錯誤: ' . $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
+            }
+            break;
+
+        case 'report-history':
+            try {
+                $res = $svc->getReportHistory();
+                echo json_encode($res, JSON_UNESCAPED_UNICODE);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'msg' => 'report-history 錯誤: ' . $e->getMessage()]);
             }
             break;
 
