@@ -223,11 +223,22 @@ select:focus { border-color: rgba(194,157,102,0.5); }
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 16px 20px;
+  padding: 12px 16px;
   display: grid;
-  grid-template-columns: 72px 1fr auto;
-  gap: 0 16px; align-items: start;
+  grid-template-columns: 56px 1fr;
+  gap: 0 14px; align-items: start;
   transition: all 0.25s;
+}
+.prod-summary-row {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px;
+}
+.prod-summary-main { flex: 1 1 100%; min-width: 0; }
+.prod-summary-stats { display: flex; flex-wrap: wrap; gap: 16px; flex: 1 1 100%; }
+.prod-detail-toggle { margin-top: 6px; }
+.prod-detail-toggle > summary { color: var(--gold); }
+@media (min-width: 600px) {
+  .prod-summary-main { flex: 0 1 auto; }
+  .prod-summary-stats { flex: 1; justify-content: flex-end; }
 }
 .product-card:hover {
   border-color: rgba(194,157,102,0.35);
@@ -534,8 +545,7 @@ input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-colo
   .topbar-inner { gap: 12px; }
   .logo { font-size: 14px; }
   .kpi-row { grid-template-columns: repeat(2, 1fr); }
-  .product-card { grid-template-columns: 60px 1fr; }
-  .prod-right { display: none; }
+  .product-card { grid-template-columns: 48px 1fr; }
   .detail-table { font-size: 12px; }
   .detail-table th, .detail-table td { padding: 8px 8px; }
   .report-grid { grid-template-columns: 1fr; }
@@ -1126,31 +1136,40 @@ function renderProducts() {
 
     var gradeHtml = p.grade ? '<div class="grade-badge grade-' + p.grade + '">' + p.grade + '</div>' : '';
     var thumbHtml = p.imageUrl
-      ? '<img src="' + driveUrlToDirect(p.imageUrl) + '" alt="" style="width:72px;height:72px;object-fit:contain;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid var(--border-light)" onerror="this.style.display=\'none\';this.parentNode.innerHTML=\'<div style=&quot;width:72px;height:72px;border:1px dashed var(--border-light);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:11px&quot;>無圖</div>\'">'
-      : '<div style="width:72px;height:72px;border:1px dashed var(--border-light);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:11px">無圖</div>';
+      ? '<img src="' + driveUrlToDirect(p.imageUrl) + '" alt="" style="width:56px;height:56px;object-fit:contain;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid var(--border-light)" onerror="this.style.display=\'none\';this.parentNode.innerHTML=\'<div style=&quot;width:56px;height:56px;border:1px dashed var(--border-light);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:11px&quot;>無圖</div>\'">'
+      : '<div style="width:56px;height:56px;border:1px dashed var(--border-light);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:11px">無圖</div>';
+
+    var stockPieces = Math.round((p.stockPing || 0) * (p.perPing || 36));
+    var lastSaleDays = p.daysSinceLastSale === null ? '從未銷售' : ('距今 ' + p.daysSinceLastSale + ' 天');
+
+    var detailHtml =
+        '<div class="prod-stats" style="margin-top:8px">' +
+          '<div class="prod-stat"><div class="ps-label">歷史銷售</div><div class="ps-value">' + p.totalPings + ' 坪</div></div>' +
+          '<div class="prod-stat"><div class="ps-label">目前陳列</div><div class="ps-value text-gold" style="cursor:pointer; text-decoration:underline;" onclick="showDisplayDetails(\'' + p.sku + '\')">🖼️ ' + (p.displayCount || 0) + ' 家</div></div>' +
+          '<div class="prod-stat"><div class="ps-label">平均毛利率</div><div class="ps-value text-gold">' + truncNum(p.avgMarginPct || 0) + '%</div></div>' +
+          '<div class="prod-stat"><div class="ps-label">去化月數 (MOS)</div><div class="ps-value ' + mosClass + '">' + mosText + '</div></div>' +
+          '<div class="prod-stat"><div class="ps-label">近6月平均月銷</div><div class="ps-value">' + (p.monthlySpeedPings || 0) + ' 坪</div></div>' +
+          '<div class="prod-stat"><div class="ps-label">庫存佔用成本</div><div class="ps-value text-gold">' + fmt(p.inventoryCost) + '</div></div>' +
+        '</div>' +
+        '<div class="prod-frozen ' + frozenClass + '" style="margin-top:8px">' + (p.stagnantReason || frozenText) + '</div>' +
+        (p.action ? '<div class="action-badge" style="background:' + p.actionColor + '15; border:1px solid ' + p.actionColor + '30; color:' + p.actionColor + '; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:800; display:inline-block; margin-top:6px">' + p.action + '</div>' : '') +
+        (restockAdviceMap[p.sku] ? '<div class="action-badge" style="background:rgba(96,165,250,0.12); border:1px solid rgba(96,165,250,0.3); color:#60a5fa; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:800; display:inline-block; margin-top:6px">🤖 ' + restockAdviceMap[p.sku].advice + '</div>' : '') +
+        customerHtml;
+
     html += '<div class="product-card">' +
       '<div class="prod-grade">' + gradeHtml + thumbHtml +
       '</div>' +
       '<div class="prod-info">' +
-        '<div class="prod-title">' + p.sku + ' · ' + (p.series || '未分類') + '</div>' +
-        '<div class="prod-sku">' + (p.productName || '—') + '</div>' +
-        '<div class="prod-stats">' +
-          '<div class="prod-stat"><div class="ps-label">歷史銷售</div><div class="ps-value">' + p.totalPings + ' 坪</div></div>' +
-          '<div class="prod-stat"><div class="ps-label">目前陳列</div><div class="ps-value text-gold" style="cursor:pointer; text-decoration:underline;" onclick="showDisplayDetails(\'' + p.sku + '\')">🖼️ ' + (p.displayCount || 0) + ' 家</div></div>' +
-          '<div class="prod-stat"><div class="ps-label">庫存</div><div class="ps-value">' + p.stockPing + ' 坪</div></div>' +
-          '<div class="prod-stat"><div class="ps-label">平均毛利率</div><div class="ps-value text-gold">' + truncNum(p.avgMarginPct || 0) + '%</div></div>' +
-          '<div class="prod-stat"><div class="ps-label">去化月數 (MOS)</div><div class="ps-value ' + mosClass + '">' + mosText + '</div></div>' +
-          '<div class="prod-stat"><div class="ps-label">近6月平均月銷</div><div class="ps-value">' + (p.monthlySpeedPings || 0) + ' 坪</div></div>' +
-          '<div class="prod-stat"><div class="ps-label">最後銷售</div><div class="ps-value">' + p.lastSaleStr + '</div></div>' +
+        '<div class="prod-summary-row">' +
+          '<div class="prod-summary-main">' +
+            '<div class="prod-title">' + p.sku + ' · ' + (p.series || '未分類') + (p.size ? ' · ' + p.size : '') + '</div>' +
+          '</div>' +
+          '<div class="prod-summary-stats">' +
+            '<div class="prod-stat"><div class="ps-label">庫存</div><div class="ps-value">' + stockPieces + ' 片 / ' + p.stockPing + ' 坪</div></div>' +
+            '<div class="prod-stat"><div class="ps-label">最後銷售</div><div class="ps-value">' + p.lastSaleStr + '（' + lastSaleDays + '）</div></div>' +
+          '</div>' +
         '</div>' +
-        customerHtml +
-      '</div>' +
-      '<div class="prod-right">' +
-        '<div class="label" style="font-size:11px;color:var(--text2);font-weight:700;margin-bottom:4px">庫存佔用成本</div>' +
-        '<div class="prod-cost">' + fmt(p.inventoryCost) + '</div>' +
-        '<div class="prod-frozen ' + frozenClass + '">' + (p.stagnantReason || frozenText) + '</div>' +
-        (p.action ? '<div class="action-badge" style="background:' + p.actionColor + '15; border:1px solid ' + p.actionColor + '30; color:' + p.actionColor + '; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:800; display:inline-block; margin-top:6px">' + p.action + '</div>' : '') +
-        (restockAdviceMap[p.sku] ? '<div class="action-badge" style="background:rgba(96,165,250,0.12); border:1px solid rgba(96,165,250,0.3); color:#60a5fa; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:800; display:inline-block; margin-top:6px">🤖 ' + restockAdviceMap[p.sku].advice + '</div>' : '') +
+        '<details class="prod-detail-toggle"><summary class="ps-label" style="cursor:pointer">更多資訊</summary>' + detailHtml + '</details>' +
       '</div>' +
     '</div>';
 

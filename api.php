@@ -961,7 +961,7 @@ class SleeperService
             }
         }
         usort($items, function ($a, $b) { return $b['inventoryCost'] <=> $a['inventoryCost']; });
-        $items = array_slice($items, 0, 40);
+        $items = array_slice($items, 0, 25);
 
         $advice = $items ? $this->callGeminiRestockAdvisor($items) : [];
 
@@ -1003,7 +1003,8 @@ class SleeperService
             'generationConfig' => [
                 'responseMimeType' => 'application/json',
                 'responseSchema' => $schema,
-                'temperature' => 0.3
+                'temperature' => 0.3,
+                'maxOutputTokens' => 8192
             ]
         ];
 
@@ -1011,23 +1012,30 @@ class SleeperService
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_POST => true,
-            CURLOPT_TIMEOUT => 60,
+            CURLOPT_TIMEOUT => 120,
             CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
             CURLOPT_POSTFIELDS => json_encode($body, JSON_UNESCAPED_UNICODE)
         ]);
         $resp = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr = curl_error($ch);
         curl_close($ch);
 
+        if ($curlErr) {
+            throw new RuntimeException("Gemini 連線錯誤: {$curlErr}");
+        }
         if ($httpCode >= 400) {
             throw new RuntimeException("Gemini API 錯誤 (HTTP {$httpCode}): {$resp}");
         }
 
         $result = json_decode($resp, true);
         $text = $result['candidates'][0]['content']['parts'][0]['text'] ?? '';
+        $finishReason = $result['candidates'][0]['finishReason'] ?? '';
+        $text = trim($text);
+        $text = preg_replace('/^```(json)?|```$/m', '', $text);
         $advice = json_decode($text, true);
         if (!is_array($advice)) {
-            throw new RuntimeException("Gemini 回應格式錯誤: {$text}");
+            throw new RuntimeException("Gemini 回應格式錯誤 (finish={$finishReason}): " . substr($text, 0, 500));
         }
         return $advice;
     }
