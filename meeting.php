@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>高雅瓷月報表</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23dc2626'/%3E%3Ctext x='32' y='46' font-family='Arial, sans-serif' font-size='40' font-weight='900' fill='%23ffffff' text-anchor='middle'%3ET%3C/text%3E%3C/svg%3E">
   <style>
     :root {
       --bg: #0a0a0a;
@@ -39,6 +40,24 @@
       align-items: center;
       justify-content: space-between;
       margin-bottom: 18px;
+    }
+    .title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-logo {
+      width: 40px;
+      height: 40px;
+      flex: 0 0 40px;
+      border-radius: 10px;
+      background: #dc2626;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      font-weight: 900;
     }
     .title-wrap h1 {
       margin: 0;
@@ -1060,6 +1079,7 @@
   <div class="page">
     <div class="topbar">
       <div class="title-wrap">
+        <div class="brand-logo">T</div>
         <h1>高雅瓷月報表</h1>
       </div>
       <div class="controls">
