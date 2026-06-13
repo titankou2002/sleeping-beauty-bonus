@@ -3021,7 +3021,8 @@ class SleeperService
             . "4. 不要寫客套話或免責聲明，直接給結論。\n"
             . "5. inventory 區塊請根據 inventoryHistory（每月存貨總成本與坪數）分析存貨金額的月度變化趨勢，是否有異常增減。\n"
             . "6. series 區塊請針對 topSeries（熱銷系列）給出該主推或觀察哪些系列的建議；category 區塊請針對 categoryRanking / sizeRanking 分析產品大類與尺寸結構是否健康。\n"
-            . "7. 嚴格依照給定的 JSON schema 輸出，不要多餘文字。\n\n"
+            . "7. health 區塊請用 80/20 法則分析 shipmentBuckets：例如「20萬以上」家數佔比 vs 業績佔比的落差，代表業績集中在少數大客戶，要分析這代表的風險與機會，並建議該往哪個級距的客戶加強拜訪或開發。\n"
+            . "8. 嚴格依照給定的 JSON schema 輸出，不要多餘文字。\n\n"
             . "資料如下：\n" . json_encode($summary, JSON_UNESCAPED_UNICODE);
 
         $url = "https://generativelanguage.googleapis.com/v1beta/models/" . GEMINI_MODEL . ":generateContent?key=" . GEMINI_API_KEY;
