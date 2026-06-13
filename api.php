@@ -918,6 +918,158 @@ class SleeperService
         return ['totalCost' => round($totalCost), 'totalPing' => round($totalPing, 1)];
     }
 
+    public function getProductRestockAdvisor($tab, $forceRefresh = false)
+    {
+        $tab = in_array($tab, ['sleeper', 'normal', 'discontinued']) ? $tab : 'sleeper';
+        if (!is_dir(AI_ADVISOR_CACHE_DIR)) {
+            @mkdir(AI_ADVISOR_CACHE_DIR, 0775, true);
+        }
+        $cacheFile = AI_ADVISOR_CACHE_DIR . "/restock_{$tab}.json";
+
+        if (!$forceRefresh && is_file($cacheFile)) {
+            $cached = json_decode(file_get_contents($cacheFile), true);
+            if ($cached) {
+                return ['success' => true, 'cached' => true, 'data' => $cached];
+            }
+        }
+
+        if ($tab === 'sleeper') $res = $this->getSleeperProductOverview();
+        elseif ($tab === 'normal') $res = $this->getNormalProductOverview();
+        else $res = $this->getDiscontinuedProductOverview();
+        if (!($res['success'] ?? false)) return $res;
+        $products = $res['data'] ?? [];
+
+        $this->recordProductHistory($tab, $products);
+
+        if (GEMINI_API_KEY === '') {
+            return ['success' => false, 'msg' => '尚未設定 GEMINI_API_KEY'];
+        }
+
+        $items = [];
+        foreach ($products as $p) {
+            if (($p['mosLevel'] ?? 0) >= 1 || ($p['stockPing'] ?? 0) <= ($p['monthlySpeedPings'] ?? 0) * 1.5) {
+                $items[] = [
+                    'sku' => $p['sku'],
+                    'series' => $p['series'] ?? '',
+                    'stockPing' => $p['stockPing'] ?? 0,
+                    'monthlySpeedPings' => $p['monthlySpeedPings'] ?? 0,
+                    'mos' => $p['mos'] ?? 0,
+                    'daysSinceLastSale' => $p['daysSinceLastSale'],
+                    'totalPings' => $p['totalPings'] ?? 0,
+                    'inventoryCost' => $p['inventoryCost'] ?? 0
+                ];
+            }
+        }
+        usort($items, function ($a, $b) { return $b['inventoryCost'] <=> $a['inventoryCost']; });
+        $items = array_slice($items, 0, 40);
+
+        $advice = $items ? $this->callGeminiRestockAdvisor($items) : [];
+
+        $payload = [
+            'generatedAt' => date('Y-m-d H:i:s'),
+            'tab' => $tab,
+            'advice' => $advice
+        ];
+        file_put_contents($cacheFile, json_encode($payload, JSON_UNESCAPED_UNICODE));
+        return ['success' => true, 'cached' => false, 'data' => $payload];
+    }
+
+    private function callGeminiRestockAdvisor($items)
+    {
+        $itemSchema = [
+            'type' => 'OBJECT',
+            'properties' => [
+                'sku' => ['type' => 'STRING'],
+                'level' => ['type' => 'STRING', 'enum' => ['restock', 'watch', 'clear', 'ok']],
+                'advice' => ['type' => 'STRING']
+            ],
+            'required' => ['sku', 'level', 'advice']
+        ];
+        $schema = ['type' => 'ARRAY', 'items' => $itemSchema];
+
+        $prompt = "你是磁磚經銷商的庫存管理顧問。以下是部分產品的庫存與銷售數據（單位：坪），請針對每一個 SKU 給出補貨/促銷建議。\n"
+            . "規則：\n"
+            . "1. level：庫存偏低、近期銷速快、應盡快補貨 = restock；庫存與銷速雖正常但需留意（如剛開始滯銷）= watch；滯銷已久、庫存偏高、建議促銷去化 = clear；狀況正常不需特別處理 = ok。\n"
+            . "2. advice 用一句話講清楚建議動作與簡單理由（20字內），可帶數字，例如「庫存僅1.2坪，月銷2坪，建議補貨3坪」。\n"
+            . "3. 每個傳入的 sku 都要回覆一筆，照原順序。\n"
+            . "4. 嚴格依照 JSON schema 輸出陣列，不要多餘文字。\n\n"
+            . "資料如下：\n" . json_encode($items, JSON_UNESCAPED_UNICODE);
+
+        $url = "https://generativelanguage.googleapis.com/v1beta/models/" . GEMINI_MODEL . ":generateContent?key=" . GEMINI_API_KEY;
+        $body = [
+            'contents' => [
+                ['role' => 'user', 'parts' => [['text' => $prompt]]]
+            ],
+            'generationConfig' => [
+                'responseMimeType' => 'application/json',
+                'responseSchema' => $schema,
+                'temperature' => 0.3
+            ]
+        ];
+
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST => true,
+            CURLOPT_TIMEOUT => 60,
+            CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+            CURLOPT_POSTFIELDS => json_encode($body, JSON_UNESCAPED_UNICODE)
+        ]);
+        $resp = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($httpCode >= 400) {
+            throw new RuntimeException("Gemini API 錯誤 (HTTP {$httpCode}): {$resp}");
+        }
+
+        $result = json_decode($resp, true);
+        $text = $result['candidates'][0]['content']['parts'][0]['text'] ?? '';
+        $advice = json_decode($text, true);
+        if (!is_array($advice)) {
+            throw new RuntimeException("Gemini 回應格式錯誤: {$text}");
+        }
+        return $advice;
+    }
+
+    public function recordProductHistory($tab, $products)
+    {
+        if (!is_dir(AI_ADVISOR_CACHE_DIR)) {
+            @mkdir(AI_ADVISOR_CACHE_DIR, 0775, true);
+        }
+        $file = AI_ADVISOR_CACHE_DIR . "/product_history_{$tab}.json";
+        $history = is_file($file) ? (json_decode(file_get_contents($file), true) ?: []) : [];
+        $key = date('Y-m');
+        $snapshot = [];
+        foreach ($products as $p) {
+            $snapshot[$p['sku']] = [
+                'totalPings' => $p['totalPings'] ?? 0,
+                'stockPing' => $p['stockPing'] ?? 0,
+                'mos' => $p['mos'] ?? 0,
+                'monthlySpeedPings' => $p['monthlySpeedPings'] ?? 0,
+                'daysSinceLastSale' => $p['daysSinceLastSale']
+            ];
+        }
+        $history[$key] = ['date' => $key, 'products' => $snapshot];
+        if (count($history) > 24) {
+            $history = array_slice($history, -24, null, true);
+        }
+        file_put_contents($file, json_encode($history, JSON_UNESCAPED_UNICODE));
+        return $history;
+    }
+
+    public function getProductHistory($tab, $sku)
+    {
+        $tab = in_array($tab, ['sleeper', 'normal', 'discontinued']) ? $tab : 'sleeper';
+        $file = AI_ADVISOR_CACHE_DIR . "/product_history_{$tab}.json";
+        $history = is_file($file) ? (json_decode(file_get_contents($file), true) ?: []) : [];
+        $rows = [];
+        foreach ($history as $key => $entry) {
+            $rows[] = array_merge(['date' => $entry['date'] ?? $key], $entry['products'][$sku] ?? []);
+        }
+        return ['success' => true, 'data' => $rows];
+    }
+
     public function getReportHistory()
     {
         $file = AI_ADVISOR_CACHE_DIR . '/report_history.json';
@@ -3731,6 +3883,11 @@ class SleeperService
                 return ['success' => false, 'error' => '年度銷售快取正在由睡美人戰情室重建中，請稍後再試。'];
             }
 
+            foreach (['sleeper', 'normal', 'discontinued'] as $tab) {
+                $f = AI_ADVISOR_CACHE_DIR . "/restock_{$tab}.json";
+                if (is_file($f)) @unlink($f);
+            }
+
             $nowYear = (int)date('Y');
             if ($years === null) {
                 $targetYears = [$nowYear, $nowYear - 1, $nowYear - 2];
@@ -4182,6 +4339,20 @@ try {
 
         case 'normal-products':
             $res = $svc->getNormalProductOverview();
+            echo json_encode($res);
+            break;
+
+        case 'product-advisor':
+            $tab = $_GET['tab'] ?? 'sleeper';
+            $refresh = !empty($_GET['refresh']);
+            $res = $svc->getProductRestockAdvisor($tab, $refresh);
+            echo json_encode($res);
+            break;
+
+        case 'product-history':
+            $tab = $_GET['tab'] ?? 'sleeper';
+            $sku = $_GET['sku'] ?? '';
+            $res = $svc->getProductHistory($tab, $sku);
             echo json_encode($res);
             break;
 

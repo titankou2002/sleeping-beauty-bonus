@@ -608,6 +608,7 @@ input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-colo
       </span>
       <button class="btn btn-primary" onclick="loadProducts()">載入產品</button>
       <button class="btn btn-accent" onclick="rebuildCache()">🔄 同步銷售快取</button>
+      <button class="btn btn-ghost" onclick="loadRestockAdvisor()">🤖 補貨建議</button>
     </div>
 
     <div class="ctrl-bar hidden" id="ctrl-reports">
@@ -1023,7 +1024,20 @@ function loadProducts() {
   }, function() { failed = true; checkDone(); });
 }
 
+var restockAdviceByTab = {};
+function loadRestockAdvisor(refresh) {
+  var tab = currentProdTab;
+  apiGet('product-advisor', { tab: tab, refresh: refresh ? 1 : 0 }, function(res) {
+    if (!res.success) { alert('補貨建議載入失敗：' + (res.msg || '未知錯誤')); return; }
+    var map = {};
+    (res.data.advice || []).forEach(function(a) { map[a.sku] = a; });
+    restockAdviceByTab[tab] = map;
+    renderProducts();
+  });
+}
+
 function renderProducts() {
+  var restockAdviceMap = restockAdviceByTab[currentProdTab] || {};
   var data;
   var subtitle;
   if (currentProdTab === 'sleeper') { data = window._sleeperData; subtitle = '睡美人'; }
@@ -1136,6 +1150,7 @@ function renderProducts() {
         '<div class="prod-cost">' + fmt(p.inventoryCost) + '</div>' +
         '<div class="prod-frozen ' + frozenClass + '">' + (p.stagnantReason || frozenText) + '</div>' +
         (p.action ? '<div class="action-badge" style="background:' + p.actionColor + '15; border:1px solid ' + p.actionColor + '30; color:' + p.actionColor + '; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:800; display:inline-block; margin-top:6px">' + p.action + '</div>' : '') +
+        (restockAdviceMap[p.sku] ? '<div class="action-badge" style="background:rgba(96,165,250,0.12); border:1px solid rgba(96,165,250,0.3); color:#60a5fa; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:800; display:inline-block; margin-top:6px">🤖 ' + restockAdviceMap[p.sku].advice + '</div>' : '') +
       '</div>' +
     '</div>';
 
