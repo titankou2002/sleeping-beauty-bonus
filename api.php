@@ -898,6 +898,44 @@ class SleeperService
         return $map;
     }
 
+    public function getInventorySummary()
+    {
+        $configRes = $this->getSleeperConfig();
+        $sleeperMap = $configRes['success'] ? $configRes['data'] : [];
+        $stockMap = $this->getStockMap();
+        $metaMap = $this->getMetaMap();
+
+        $totalCost = 0;
+        $totalPing = 0;
+        foreach ($stockMap as $sku => $stockPing) {
+            $slp = $sleeperMap[$sku] ?? null;
+            if (!$slp) continue;
+            $meta = $metaMap[$sku] ?? ['perPing' => 36];
+            $costPerPing = (float)$slp['cost'] * ($meta['perPing'] ?: 36);
+            $totalCost += $stockPing * $costPerPing;
+            $totalPing += $stockPing;
+        }
+        return ['totalCost' => round($totalCost), 'totalPing' => round($totalPing, 1)];
+    }
+
+    public function recordInventorySnapshot($year, $month)
+    {
+        if (!is_dir(AI_ADVISOR_CACHE_DIR)) {
+            @mkdir(AI_ADVISOR_CACHE_DIR, 0775, true);
+        }
+        $file = AI_ADVISOR_CACHE_DIR . '/inventory_history.json';
+        $history = is_file($file) ? (json_decode(file_get_contents($file), true) ?: []) : [];
+        $key = sprintf('%d-%02d', $year, $month);
+        $summary = $this->getInventorySummary();
+        $history[$key] = ['year' => $year, 'month' => $month, 'totalCost' => $summary['totalCost'], 'totalPing' => $summary['totalPing']];
+        uksort($history, 'strcmp');
+        if (count($history) > 24) {
+            $history = array_slice($history, -24, null, true);
+        }
+        file_put_contents($file, json_encode($history, JSON_UNESCAPED_UNICODE));
+        return array_values($history);
+    }
+
     public function getMetaMap()
     {
         $data = $this->gs->readSheet(PRICE_SHEET);
@@ -2798,7 +2836,9 @@ class SleeperService
             return ['success' => false, 'msg' => '無法取得月報資料: ' . ($report['msg'] ?? '')];
         }
 
+        $inventoryHistory = $this->recordInventorySnapshot($year, $month);
         $summary = $this->buildAdvisorSummary($report['data']);
+        $summary['inventoryHistory'] = $inventoryHistory;
         $sections = $this->callGeminiAdvisor($summary);
 
         $payload = [
@@ -2911,19 +2951,26 @@ class SleeperService
                 'contract' => $sectionSchema,
                 'topCustomers' => $sectionSchema,
                 'topSales' => $sectionSchema,
-                'field' => $sectionSchema
+                'field' => $sectionSchema,
+                'inventory' => $sectionSchema
             ],
-            'required' => ['kpi', 'monthlyCompare', 'threeYear', 'brandCountry', 'health', 'contract', 'topCustomers', 'topSales', 'field']
+            'required' => ['kpi', 'monthlyCompare', 'threeYear', 'brandCountry', 'health', 'contract', 'topCustomers', 'topSales', 'field', 'inventory']
         ];
 
+        $context = "公司背景與口徑說明（分析時務必納入考量，不要把這些當成問題提出）：\n"
+            . "1. 我們是 REFIN 總代理，主要進口歐洲（義大利、西班牙）磁磚，所以品牌與產地本來就會集中在少數幾個品牌/國家，這是正常且預期的結構，不是風險。\n"
+            . "2. 「簽約店健康度」是指簽約店家本月實際銷售 / 簽約總額，因為簽約是先收合約票儲值，中南部很多客戶不簽約但仍會出貨，所以同行水準是「超過75%就算不錯」。signedHealthPct 在 70~85% 區間屬於正常偏好的範圍，不要當成警訊；只有明顯低於 60% 才需要留意。\n\n";
+
         $prompt = "你是一位資深的零售/經銷產業商業顧問，正在幫磁磚經銷商「高雅瓷」看月報數據。\n"
+            . $context
             . "請用白話、口語化但專業的語氣，針對下面 JSON 數據的每個區塊，給出簡短的經營解讀與建議。\n"
             . "規則：\n"
             . "1. level 代表整體評價：good=表現良好、info=中性觀察、warn=需留意、danger=有明顯風險。\n"
             . "2. title 是一句結論標題（15字內），points 是 2~4 條具體分析，每條用一句話講清楚「數字代表什麼」+「該怎麼做」。\n"
             . "3. 重點數字可以用 **粗體** 標出（例如 **421萬**）。\n"
             . "4. 不要寫客套話或免責聲明，直接給結論。\n"
-            . "5. 嚴格依照給定的 JSON schema 輸出，不要多餘文字。\n\n"
+            . "5. inventory 區塊請根據 inventoryHistory（每月存貨總成本與坪數）分析存貨金額的月度變化趨勢，是否有異常增減。\n"
+            . "6. 嚴格依照給定的 JSON schema 輸出，不要多餘文字。\n\n"
             . "資料如下：\n" . json_encode($summary, JSON_UNESCAPED_UNICODE);
 
         $url = "https://generativelanguage.googleapis.com/v1beta/models/" . GEMINI_MODEL . ":generateContent?key=" . GEMINI_API_KEY;

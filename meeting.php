@@ -928,17 +928,21 @@
     .advisor-title {
       font-size: 14px;
       font-weight: 900;
-      margin-bottom: 6px;
       display: flex;
       align-items: center;
       gap: 6px;
+      cursor: pointer;
+      list-style: none;
     }
+    .advisor-title::-webkit-details-marker { display: none; }
+    .advisor-title::before { content: '▸'; font-size: 11px; }
+    .advisor-card[open] .advisor-title::before { content: '▾'; }
     .advisor-card.lv-good .advisor-title { color: #4ade80; }
     .advisor-card.lv-warn .advisor-title { color: #facc15; }
     .advisor-card.lv-danger .advisor-title { color: #f87171; }
     .advisor-card.lv-info .advisor-title { color: #60a5fa; }
     .advisor-points {
-      margin: 0;
+      margin: 6px 0 0;
       padding-left: 18px;
       display: flex;
       flex-direction: column;
@@ -1122,15 +1126,27 @@
       if (!section) return '<div class="hint">暫無顧問解讀</div>';
       const level = ['good', 'warn', 'danger', 'info'].includes(section.level) ? section.level : 'info';
       return `
-        <div class="advisor-card lv-${level}">
-          <div class="advisor-title">💡 顧問解讀：${escapeHtml(section.title || '')}</div>
+        <details class="advisor-card lv-${level}">
+          <summary class="advisor-title">💡 顧問解讀：${escapeHtml(section.title || '')}</summary>
           <ul class="advisor-points">
             ${(section.points || []).map(p => `<li>${boldify(p)}</li>`).join('')}
           </ul>
-        </div>
+        </details>
       `;
     }
+    const advisorCache = {};
+    function fillAdvisorSlots(sections) {
+      document.querySelectorAll('.advisor-slot').forEach(el => {
+        const key = el.getAttribute('data-advisor-key');
+        el.innerHTML = renderAdvisorCard(sections[key]);
+      });
+    }
     function loadAdvisor(year, month) {
+      const cacheKey = year + '-' + month;
+      if (advisorCache[cacheKey]) {
+        fillAdvisorSlots(advisorCache[cacheKey]);
+        return;
+      }
       apiGet('ai-advisor', { year, month }).then(res => {
         if (!res.success) {
           document.querySelectorAll('.advisor-slot').forEach(el => {
@@ -1139,10 +1155,8 @@
           return;
         }
         const sections = (res.data || {}).sections || {};
-        document.querySelectorAll('.advisor-slot').forEach(el => {
-          const key = el.getAttribute('data-advisor-key');
-          el.innerHTML = renderAdvisorCard(sections[key]);
-        });
+        advisorCache[cacheKey] = sections;
+        fillAdvisorSlots(sections);
       }).catch(err => {
         document.querySelectorAll('.advisor-slot').forEach(el => {
           el.innerHTML = '<div class="hint">顧問解讀載入失敗：' + escapeHtml(String(err)) + '</div>';
@@ -1793,7 +1807,7 @@
       return `
         <section class="sheet">
           <div class="sheet-title">合約狀況</div>
-          <div class="section-pad">${advisorSlot('contract')}</div>
+          <div class="section-pad">${advisorSlot('contract')}${advisorSlot('inventory')}</div>
           <div class="mini-grid">
             <div class="mini-card"><h3>合約總數</h3><div class="v">${fmtInt(s.active)}</div></div>
             <div class="mini-card"><h3>45 天內到期</h3><div class="v">${fmtInt(s.expiringSoon)}</div></div>
