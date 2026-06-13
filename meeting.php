@@ -1093,9 +1093,17 @@
       n = Number(n || 0);
       return n < 0 ? Math.ceil(n) : Math.floor(n);
     }
-    function fmtWan(n) { return truncNum((n || 0) / 10000) + '萬'; }
+    function fmtWan(n) {
+      const wan = (n || 0) / 10000;
+      if (Math.abs(wan) < 1) return (Math.round(wan * 10) / 10) + '萬';
+      return truncNum(wan) + '萬';
+    }
     function fmtInt(n) { return String(truncNum(n || 0)); }
-    function fmtPct(n) { return truncNum(n || 0) + '%'; }
+    function fmtPct(n) {
+      const v = Number(n || 0);
+      if (Math.abs(v) < 1) return (Math.round(v * 10) / 10) + '%';
+      return truncNum(v) + '%';
+    }
     function fmtDate(s) { return s || '—'; }
     function driveUrlToDirect(url) {
       const s = String(url || '');
@@ -1339,7 +1347,7 @@
               </div>
             </div>
           </div>
-          <details class="expander section-pad" open>
+          <details class="expander section-pad">
             <summary>
               <div>
                 <div class="expander-title">簽約店家實銷名單</div>
@@ -1599,14 +1607,18 @@
       return `
         <section class="sheet">
           <div class="sheet-title">${d.year}.${d.month} 熱銷系列分析</div>
+          <div class="section-pad">
+            ${advisorSlot('series')}
+            <div class="hint" style="margin-bottom:12px">點系列名稱看 SKU 明細，再點 SKU 看客戶銷售明細。</div>
+          </div>
           <div class="series-card-list">
             ${rows.map((r, idx) => `
-              <details class="series-card expander" ${idx < 3 ? 'open' : ''}>
+              <details class="series-card expander">
                 <summary>
                   <div class="series-head" style="margin:0; width:100%;">
                     <div class="series-rank">${idx + 1}</div>
                     <div>
-                      <div class="series-title">${escapeHtml(r.seriesCn || r.series || '未分類系列')}</div>
+                      <div class="series-title">${escapeHtml(r.seriesCn || r.series || '未分類系列')} <span class="expander-icon">▾</span></div>
                       <div class="series-meta">${escapeHtml(r.brand || '未分類廠牌')} / ${escapeHtml(r.series || '—')}</div>
                     </div>
                     <div class="series-kpis">
@@ -1622,7 +1634,7 @@
                       <details class="expander">
                         <summary>
                           <div class="sku-item-line" style="border:none; background:transparent; padding:0; width:100%;">
-                            <div class="item-main">${escapeHtml(item.sku)}</div>
+                            <div class="item-main">${escapeHtml(item.sku)} <span class="expander-icon">▾</span></div>
                             <div class="metric">${fmtInt(item.pings)}</div>
                             <div class="metric">${fmtWan(item.amount)}</div>
                             <div class="metric">${fmtPct((r.totalAmount || 0) > 0 ? (item.amount || 0) / r.totalAmount * 100 : 0)}</div>
@@ -1695,6 +1707,7 @@
         <section class="sheet">
           <div class="sheet-title">產品大類與尺寸分析</div>
           <div class="section-pad">
+            ${advisorSlot('category')}
             ${buildDonutCard('產品大類占比', rows, (d.summary || {}).sales || 0, '依銷售金額')}
           </div>
           <details class="expander">

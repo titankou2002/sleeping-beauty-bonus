@@ -918,6 +918,33 @@ class SleeperService
         return ['totalCost' => round($totalCost), 'totalPing' => round($totalPing, 1)];
     }
 
+    public function recordReportSnapshot($year, $month, $summary)
+    {
+        if (!is_dir(AI_ADVISOR_CACHE_DIR)) {
+            @mkdir(AI_ADVISOR_CACHE_DIR, 0775, true);
+        }
+        $file = AI_ADVISOR_CACHE_DIR . '/report_history.json';
+        $history = is_file($file) ? (json_decode(file_get_contents($file), true) ?: []) : [];
+        $key = sprintf('%d-%02d', $year, $month);
+        $history[$key] = [
+            'year' => $year,
+            'month' => $month,
+            'recordedAt' => date('Y-m-d H:i:s'),
+            'kpi' => $summary['kpi'] ?? null,
+            'contractSummary' => $summary['contractSummary'] ?? null,
+            'contractHealthCounts' => $summary['contractHealthCounts'] ?? null,
+            'brandSales' => $summary['brandSales'] ?? null,
+            'topSeries' => $summary['topSeries'] ?? null,
+            'inventory' => $summary['inventoryHistory'][$key] ?? null
+        ];
+        uksort($history, 'strcmp');
+        if (count($history) > 36) {
+            $history = array_slice($history, -36, null, true);
+        }
+        file_put_contents($file, json_encode($history, JSON_UNESCAPED_UNICODE));
+        return array_values($history);
+    }
+
     public function recordInventorySnapshot($year, $month)
     {
         if (!is_dir(AI_ADVISOR_CACHE_DIR)) {
@@ -2839,6 +2866,12 @@ class SleeperService
         $inventoryHistory = $this->recordInventorySnapshot($year, $month);
         $summary = $this->buildAdvisorSummary($report['data']);
         $summary['inventoryHistory'] = $inventoryHistory;
+        $this->recordReportSnapshot($year, $month, array_merge($summary, [
+            'inventoryHistory' => array_combine(
+                array_map(function ($r) { return sprintf('%d-%02d', $r['year'], $r['month']); }, $inventoryHistory),
+                $inventoryHistory
+            )
+        ]));
         $sections = $this->callGeminiAdvisor($summary);
 
         $payload = [
@@ -2925,7 +2958,22 @@ class SleeperService
                 'visitedCustomers' => $fieldSummary['visitedCustomers'] ?? 0,
                 'totalKm' => $fieldSummary['totalKm'] ?? 0,
                 'salesPerVisit' => round($fieldSummary['salesPerVisit'] ?? 0)
-            ]
+            ],
+            'topSeries' => array_map(function ($r) {
+                return [
+                    'name' => $r['seriesCn'] ?? $r['series'] ?? '未分類系列',
+                    'brand' => $r['brand'] ?? '',
+                    'amount' => round($r['totalAmount'] ?? 0),
+                    'pings' => $r['totalPings'] ?? 0,
+                    'sharePct' => round($r['sharePct'] ?? 0, 1)
+                ];
+            }, array_slice($d['seriesRanking'] ?? [], 0, 8)),
+            'categoryRanking' => array_map(function ($r) {
+                return ['name' => $r['name'] ?? '', 'amount' => round($r['amount'] ?? 0), 'sharePct' => round($r['sharePct'] ?? 0, 1)];
+            }, $d['categoryRanking'] ?? []),
+            'sizeRanking' => array_map(function ($r) {
+                return ['name' => $r['name'] ?? '', 'amount' => round($r['amount'] ?? 0), 'sharePct' => round($r['sharePct'] ?? 0, 1)];
+            }, $d['sizeRanking'] ?? [])
         ];
     }
 
@@ -2952,9 +3000,11 @@ class SleeperService
                 'topCustomers' => $sectionSchema,
                 'topSales' => $sectionSchema,
                 'field' => $sectionSchema,
-                'inventory' => $sectionSchema
+                'inventory' => $sectionSchema,
+                'series' => $sectionSchema,
+                'category' => $sectionSchema
             ],
-            'required' => ['kpi', 'monthlyCompare', 'threeYear', 'brandCountry', 'health', 'contract', 'topCustomers', 'topSales', 'field', 'inventory']
+            'required' => ['kpi', 'monthlyCompare', 'threeYear', 'brandCountry', 'health', 'contract', 'topCustomers', 'topSales', 'field', 'inventory', 'series', 'category']
         ];
 
         $context = "公司背景與口徑說明（分析時務必納入考量，不要把這些當成問題提出）：\n"
@@ -2970,7 +3020,8 @@ class SleeperService
             . "3. 重點數字可以用 **粗體** 標出（例如 **421萬**）。\n"
             . "4. 不要寫客套話或免責聲明，直接給結論。\n"
             . "5. inventory 區塊請根據 inventoryHistory（每月存貨總成本與坪數）分析存貨金額的月度變化趨勢，是否有異常增減。\n"
-            . "6. 嚴格依照給定的 JSON schema 輸出，不要多餘文字。\n\n"
+            . "6. series 區塊請針對 topSeries（熱銷系列）給出該主推或觀察哪些系列的建議；category 區塊請針對 categoryRanking / sizeRanking 分析產品大類與尺寸結構是否健康。\n"
+            . "7. 嚴格依照給定的 JSON schema 輸出，不要多餘文字。\n\n"
             . "資料如下：\n" . json_encode($summary, JSON_UNESCAPED_UNICODE);
 
         $url = "https://generativelanguage.googleapis.com/v1beta/models/" . GEMINI_MODEL . ":generateContent?key=" . GEMINI_API_KEY;
