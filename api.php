@@ -941,6 +941,10 @@ class SleeperService
 
         $this->recordProductHistory($tab, $products);
 
+        if ($tab !== 'normal') {
+            return ['success' => false, 'msg' => '睡美人/不續辦商品不進行補貨，故無補貨建議'];
+        }
+
         if (GEMINI_API_KEY === '') {
             return ['success' => false, 'msg' => '尚未設定 GEMINI_API_KEY'];
         }

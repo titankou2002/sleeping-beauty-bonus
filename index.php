@@ -618,7 +618,7 @@ input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-colo
       </span>
       <button class="btn btn-primary" onclick="loadProducts()">載入產品</button>
       <button class="btn btn-accent" onclick="rebuildCache()">🔄 同步銷售快取</button>
-      <button class="btn btn-ghost" onclick="loadRestockAdvisor()">🤖 補貨建議</button>
+      <button class="btn btn-ghost" id="btn-restock-advisor" style="display:none" onclick="loadRestockAdvisor()">🤖 補貨建議</button>
     </div>
 
     <div class="ctrl-bar hidden" id="ctrl-reports">
@@ -1005,6 +1005,7 @@ function switchProdTab(tab) {
   document.getElementById('sub-normal').classList.toggle('active', tab === 'normal');
   document.getElementById('sub-discontinued').classList.toggle('active', tab === 'discontinued');
   document.getElementById('filter-grade').style.display = tab === 'sleeper' ? '' : 'none';
+  document.getElementById('btn-restock-advisor').style.display = tab === 'normal' ? '' : 'none';
   renderProducts();
 }
 
