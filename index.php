@@ -584,6 +584,7 @@ input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-colo
     </div>
 
     <div class="ctrl-bar hidden" id="ctrl-products">
+      <input type="text" id="filter-keyword" placeholder="搜尋編號/系列/尺寸" oninput="renderProducts()" style="height:34px;padding:0 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;min-width:140px">
       <select id="filter-grade">
         <option value="">全部等級</option>
         <option value="XXX">XXX</option>
@@ -1033,9 +1034,14 @@ function renderProducts() {
 
   var gradeFilter = document.getElementById('filter-grade').value;
   var sortBy = document.getElementById('sort-by').value;
+  var keyword = (document.getElementById('filter-keyword').value || '').trim().toUpperCase();
 
   var list = data.filter(function(p) {
     if (currentProdTab === 'sleeper' && gradeFilter && p.grade !== gradeFilter) return false;
+    if (keyword) {
+      var hay = [p.sku, p.series, p.size, p.productName].join(' ').toUpperCase();
+      if (hay.indexOf(keyword) === -1) return false;
+    }
     return p.stockPing >= 3;
   });
 
@@ -1090,7 +1096,7 @@ function renderProducts() {
 
     var customerHtml = '';
     if (p.customers && p.customers.length > 0) {
-      customerHtml = '<div class="prod-buyers"><div class="ps-label">客戶銷售</div><div style="display:grid;gap:6px;margin-top:6px">' +
+      customerHtml = '<details class="prod-buyers"><summary class="ps-label" style="cursor:pointer">客戶銷售（' + p.customers.length + '）</summary><div style="display:grid;gap:6px;margin-top:6px">' +
         p.customers.map(function(c) {
           return '<div style="display:grid;grid-template-columns:minmax(0,1fr) 72px 72px 52px;gap:8px;font-size:12px;align-items:center">' +
             '<div style="color:var(--text);font-weight:700;min-width:0">' + shortCust(c.name) + '</div>' +
@@ -1098,7 +1104,7 @@ function renderProducts() {
             '<div style="color:var(--gold);text-align:right">' + fmt(c.amount || 0) + '</div>' +
             '<div style="color:var(--text2);text-align:right">' + truncNum(c.sharePct || 0) + '%</div>' +
           '</div>';
-        }).join('') + '</div></div>';
+        }).join('') + '</div></details>';
     }
 
     var mosText = p.mos === 888 ? '無銷售' : (p.mos || 0) + ' 月';
@@ -1120,6 +1126,7 @@ function renderProducts() {
           '<div class="prod-stat"><div class="ps-label">庫存</div><div class="ps-value">' + p.stockPing + ' 坪</div></div>' +
           '<div class="prod-stat"><div class="ps-label">平均毛利率</div><div class="ps-value text-gold">' + truncNum(p.avgMarginPct || 0) + '%</div></div>' +
           '<div class="prod-stat"><div class="ps-label">去化月數 (MOS)</div><div class="ps-value ' + mosClass + '">' + mosText + '</div></div>' +
+          '<div class="prod-stat"><div class="ps-label">近6月平均月銷</div><div class="ps-value">' + (p.monthlySpeedPings || 0) + ' 坪</div></div>' +
           '<div class="prod-stat"><div class="ps-label">最後銷售</div><div class="ps-value">' + p.lastSaleStr + '</div></div>' +
         '</div>' +
         customerHtml +
