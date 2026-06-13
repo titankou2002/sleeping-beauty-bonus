@@ -15,6 +15,13 @@ jobs:
       - name: Create service-account.json
         run: echo '${{ secrets.GOOGLE_SERVICE_ACCOUNT }}' > service-account.json
 
+      - name: Create config.local.php
+        run: |
+          cat > config.local.php <<EOF
+          <?php
+          define('GEMINI_API_KEY', '${{ secrets.GEMINI_API_KEY }}');
+          EOF
+
       - name: Deploy to cPanel via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
