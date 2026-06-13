@@ -13,3 +13,7 @@ define('LAYOUT_SHEET',    '版面上架清單');
 
 define('SERVICE_ACCOUNT_FILE', __DIR__ . '/service-account.json');
 
+define('GEMINI_API_KEY', getenv('GEMINI_API_KEY') ?: '');
+define('GEMINI_MODEL', getenv('GEMINI_MODEL') ?: 'gemini-2.0-flash');
+define('AI_ADVISOR_CACHE_DIR', __DIR__ . '/cache');
+

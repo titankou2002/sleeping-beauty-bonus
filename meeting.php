@@ -913,6 +913,44 @@
     .cover-ok { color: #86efac; }
     .cover-spread { color: #facc15; }
     .cover-breath { animation: breathe 1.8s ease-in-out infinite; }
+    .advisor-slot { margin-bottom: 12px; }
+    .advisor-card {
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--accent-strong);
+      border-radius: 12px;
+      padding: 12px 14px;
+      background: rgba(255,255,255,0.025);
+    }
+    .advisor-card.lv-good { border-left-color: #4ade80; }
+    .advisor-card.lv-warn { border-left-color: #facc15; }
+    .advisor-card.lv-danger { border-left-color: #f87171; }
+    .advisor-card.lv-info { border-left-color: #60a5fa; }
+    .advisor-title {
+      font-size: 14px;
+      font-weight: 900;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .advisor-card.lv-good .advisor-title { color: #4ade80; }
+    .advisor-card.lv-warn .advisor-title { color: #facc15; }
+    .advisor-card.lv-danger .advisor-title { color: #f87171; }
+    .advisor-card.lv-info .advisor-title { color: #60a5fa; }
+    .advisor-points {
+      margin: 0;
+      padding-left: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .advisor-points li {
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text);
+    }
+    .advisor-points strong { color: var(--accent-strong); }
+    .advisor-loading { font-size: 12px; }
     @keyframes breathe {
       0%, 100% { opacity: 1; transform: scale(1); }
       50% { opacity: .6; transform: scale(1.03); }
@@ -1074,6 +1112,44 @@
       return colors[i % colors.length];
     }
 
+    function boldify(s) {
+      return escapeHtml(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    }
+    function advisorSlot(key) {
+      return `<div class="advisor-slot" data-advisor-key="${key}"><div class="advisor-loading hint">💡 顧問解讀載入中…</div></div>`;
+    }
+    function renderAdvisorCard(section) {
+      if (!section) return '<div class="hint">暫無顧問解讀</div>';
+      const level = ['good', 'warn', 'danger', 'info'].includes(section.level) ? section.level : 'info';
+      return `
+        <div class="advisor-card lv-${level}">
+          <div class="advisor-title">💡 顧問解讀：${escapeHtml(section.title || '')}</div>
+          <ul class="advisor-points">
+            ${(section.points || []).map(p => `<li>${boldify(p)}</li>`).join('')}
+          </ul>
+        </div>
+      `;
+    }
+    function loadAdvisor(year, month) {
+      apiGet('ai-advisor', { year, month }).then(res => {
+        if (!res.success) {
+          document.querySelectorAll('.advisor-slot').forEach(el => {
+            el.innerHTML = '<div class="hint">顧問解讀載入失敗：' + escapeHtml(res.msg || '未知錯誤') + '</div>';
+          });
+          return;
+        }
+        const sections = (res.data || {}).sections || {};
+        document.querySelectorAll('.advisor-slot').forEach(el => {
+          const key = el.getAttribute('data-advisor-key');
+          el.innerHTML = renderAdvisorCard(sections[key]);
+        });
+      }).catch(err => {
+        document.querySelectorAll('.advisor-slot').forEach(el => {
+          el.innerHTML = '<div class="hint">顧問解讀載入失敗：' + escapeHtml(String(err)) + '</div>';
+        });
+      });
+    }
+
     function apiGet(action, params) {
       let url = API_BASE + '?action=' + action;
       Object.keys(params || {}).forEach(k => {
@@ -1087,6 +1163,7 @@
       return `
         <section class="sheet">
           <div class="sheet-title">高雅瓷-${d.label} 會議總覽</div>
+          <div class="section-pad">${advisorSlot('kpi')}</div>
           <div class="kpi-grid">
             <div class="kpi-cell soft">
               <div class="kpi-label">本月業績</div>
@@ -1129,6 +1206,7 @@
       return `
         <section class="sheet">
           <div class="sheet-title">年度月銷比較</div>
+          <div class="section-pad">${advisorSlot('monthlyCompare')}</div>
           <div class="section-pad">
             <div class="mini-grid" style="margin-bottom:16px">
               <div class="mini-card"><h3>同期 1~${d.month} 月去年</h3><div class="v">${fmtWan(cumPrev)}</div><div class="hint">${d.year - 1} / 1~${d.month} 月</div></div>
@@ -1210,6 +1288,7 @@
       return `
         <section class="sheet">
           <div class="sheet-title">簽約健康度與出貨家數</div>
+          <div class="section-pad">${advisorSlot('health')}</div>
           <div class="mini-grid">
             <div class="mini-card"><h3>每月簽約總額</h3><div class="v">${fmtWan(s.signedMonthlyTarget)}</div><div class="hint">依合約健康名單統計</div></div>
             <div class="mini-card"><h3>簽約店家實銷</h3><div class="v">${fmtWan(s.signedStoreSales)}</div><div class="hint">本月簽約店實際銷售</div></div>
@@ -1230,7 +1309,7 @@
                       <div>
                         <div class="bucket-title">${escapeHtml(row.name)}</div>
                         <div class="bucket-meta">家數 ${fmtInt(row.count)} / 家數佔比 ${fmtPct(row.customerSharePct)} / 業績佔比 ${fmtPct(row.salesSharePct)} / 平均拜訪 ${fmtInt(row.avgVisitsPerCustomer || 0)} 次 / 單次拜訪產值 ${fmtWan(row.salesPerVisit || 0)}</div>
-                        <div class="click-badge">點家數看客戶</div>
+                        <div class="click-badge">點家數看客戶 <span class="expander-icon">▾</span></div>
                       </div>
                       <div class="bucket-badge">${fmtWan(row.amount)}</div>
                     </summary>
@@ -1279,6 +1358,7 @@
       return `
         <section class="sheet">
           <div class="sheet-title">國別與廠牌分析</div>
+          <div class="section-pad">${advisorSlot('brandCountry')}</div>
           <div class="chart-grid">
             ${buildDonutCard('義大利 / 西班牙', brandRows.map(r => ({...r, name: r.name || '未分類'})), total, '依銷售金額')}
             <div class="chart-card">
@@ -1383,6 +1463,7 @@
       return `
         <section class="sheet">
           <div class="sheet-title">近三年月銷比較</div>
+          <div class="section-pad">${advisorSlot('threeYear')}</div>
           <div class="chart-grid">
             <div class="chart-card">
               <div class="table-wrap">
@@ -1712,6 +1793,7 @@
       return `
         <section class="sheet">
           <div class="sheet-title">合約狀況</div>
+          <div class="section-pad">${advisorSlot('contract')}</div>
           <div class="mini-grid">
             <div class="mini-card"><h3>合約總數</h3><div class="v">${fmtInt(s.active)}</div></div>
             <div class="mini-card"><h3>45 天內到期</h3><div class="v">${fmtInt(s.expiringSoon)}</div></div>
@@ -1806,6 +1888,7 @@
       return `
         <section class="sheet">
           <div class="sheet-title">外勤與客戶經營</div>
+          <div class="section-pad">${advisorSlot('field')}</div>
           <div class="mini-grid">
             <div class="mini-card"><h3>本期拜訪次數</h3><div class="v">${fmtInt(s.totalVisits)}</div></div>
             <div class="mini-card"><h3>拜訪客戶數</h3><div class="v">${fmtInt(s.visitedCustomers)}</div></div>
@@ -1855,6 +1938,7 @@
           <section class="sheet">
             <div class="sheet-title">前 10 大客戶分析</div>
             <div class="section-pad">
+              ${advisorSlot('topCustomers')}
               <div class="hint" style="margin-bottom:12px">按客戶名下探中文系列、SKU、片數、金額與佔比，依案名與金額排序。</div>
               <div class="top-grid">
                 ${(d.topCustomers || []).map(item => `
@@ -1888,6 +1972,7 @@
           <section class="sheet">
             <div class="sheet-title">業務銷售排行</div>
             <div class="section-pad">
+              ${advisorSlot('topSales')}
               <div class="sales-grid">
                 ${(d.topSales || []).map(item => {
                   const meta = coverMeta(item.top80CustomerCount || 0);
@@ -1989,6 +2074,7 @@
         buildContractSheet(d) +
         buildFieldSheet(d);
       document.getElementById('app').innerHTML = monthlyView;
+      loadAdvisor(d.year, d.month);
     }
 
     function switchMeetingTab(tab) {

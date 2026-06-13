@@ -2773,6 +2773,196 @@ class SleeperService
         ];
     }
 
+    public function getAiAdvisor($year, $month, $forceRefresh = false)
+    {
+        $year = (int)$year;
+        $month = (int)$month;
+        if (!is_dir(AI_ADVISOR_CACHE_DIR)) {
+            @mkdir(AI_ADVISOR_CACHE_DIR, 0775, true);
+        }
+        $cacheFile = AI_ADVISOR_CACHE_DIR . "/advisor_{$year}_{$month}.json";
+
+        if (!$forceRefresh && is_file($cacheFile)) {
+            $cached = json_decode(file_get_contents($cacheFile), true);
+            if ($cached) {
+                return ['success' => true, 'cached' => true, 'data' => $cached];
+            }
+        }
+
+        if (GEMINI_API_KEY === '') {
+            return ['success' => false, 'msg' => '尚未設定 GEMINI_API_KEY'];
+        }
+
+        $report = $this->getMeetingReport($year, $month);
+        if (!($report['success'] ?? false)) {
+            return ['success' => false, 'msg' => '無法取得月報資料: ' . ($report['msg'] ?? '')];
+        }
+
+        $summary = $this->buildAdvisorSummary($report['data']);
+        $sections = $this->callGeminiAdvisor($summary);
+
+        $payload = [
+            'generatedAt' => date('Y-m-d H:i:s'),
+            'year' => $year,
+            'month' => $month,
+            'sections' => $sections
+        ];
+        file_put_contents($cacheFile, json_encode($payload, JSON_UNESCAPED_UNICODE));
+        return ['success' => true, 'cached' => false, 'data' => $payload];
+    }
+
+    private function buildAdvisorSummary($d)
+    {
+        $s = $d['summary'] ?? [];
+        $monthCompare = array_filter($d['monthCompare'] ?? [], function ($r) use ($d) {
+            return ($r['month'] ?? 0) <= ($d['month'] ?? 12);
+        });
+        $threeYear = $d['threeYearCompare'] ?? [];
+        $brandSales = array_slice($d['brandSales'] ?? [], 0, 6);
+        $countryBrand = [];
+        foreach (($d['countryBrandRanking'] ?? []) as $country => $brands) {
+            $countryBrand[$country] = array_map(function ($b) {
+                return ['name' => $b['name'] ?? '', 'amount' => round($b['amount'] ?? 0), 'sharePct' => round($b['sharePct'] ?? 0, 1)];
+            }, array_slice($brands, 0, 5));
+        }
+        $buckets = array_map(function ($row) {
+            return [
+                'name' => $row['name'] ?? '',
+                'count' => $row['count'] ?? 0,
+                'amount' => round($row['amount'] ?? 0),
+                'customerSharePct' => round($row['customerSharePct'] ?? 0, 1),
+                'salesSharePct' => round($row['salesSharePct'] ?? 0, 1),
+                'avgVisitsPerCustomer' => round($row['avgVisitsPerCustomer'] ?? 0, 1),
+                'salesPerVisit' => round($row['salesPerVisit'] ?? 0)
+            ];
+        }, $d['shipmentBuckets'] ?? []);
+        $contracts = $d['contracts'] ?? [];
+        $contractSummary = $contracts['summary'] ?? [];
+        $healthCounts = $contracts['healthCounts'] ?? [];
+        $topCustomers = array_map(function ($row) {
+            return ['name' => $row['name'] ?? '', 'amount' => round($row['amount'] ?? 0), 'pings' => $row['pings'] ?? 0];
+        }, array_slice($d['topCustomers'] ?? [], 0, 10));
+        $topSales = array_map(function ($row) {
+            return [
+                'name' => $row['name'] ?? '',
+                'amount' => round($row['amount'] ?? 0),
+                'count' => $row['count'] ?? 0,
+                'top80CustomerCount' => $row['top80CustomerCount'] ?? 0
+            ];
+        }, array_slice($d['topSales'] ?? [], 0, 10));
+        $field = $d['fieldActivity'] ?? [];
+        $fieldSummary = $field['summary'] ?? [];
+
+        return [
+            'year' => $d['year'],
+            'month' => $d['month'],
+            'kpi' => $s,
+            'monthlyCompare' => array_values($monthCompare),
+            'threeYearCompare' => array_map(function ($row) use ($d) {
+                $months = array_filter($row['months'] ?? [], function ($m) use ($d) {
+                    return ($m['month'] ?? 0) <= ($d['month'] ?? 12);
+                });
+                return [
+                    'year' => $row['year'],
+                    'total' => round(array_sum(array_map(function ($m) { return $m['amount'] ?? 0; }, $months)))
+                ];
+            }, $threeYear),
+            'brandSales' => array_map(function ($r) {
+                return ['name' => $r['name'] ?? '', 'amount' => round($r['amount'] ?? 0), 'sharePct' => round($r['sharePct'] ?? 0, 1)];
+            }, $brandSales),
+            'countryBrandRanking' => $countryBrand,
+            'shipmentBuckets' => $buckets,
+            'contractSummary' => [
+                'active' => $contractSummary['active'] ?? 0,
+                'expiringSoon' => $contractSummary['expiringSoon'] ?? 0,
+                'balance' => round($contractSummary['balance'] ?? 0)
+            ],
+            'contractHealthCounts' => $healthCounts,
+            'topCustomers' => $topCustomers,
+            'topSales' => $topSales,
+            'fieldSummary' => [
+                'totalVisits' => $fieldSummary['totalVisits'] ?? 0,
+                'visitedCustomers' => $fieldSummary['visitedCustomers'] ?? 0,
+                'totalKm' => $fieldSummary['totalKm'] ?? 0,
+                'salesPerVisit' => round($fieldSummary['salesPerVisit'] ?? 0)
+            ]
+        ];
+    }
+
+    private function callGeminiAdvisor($summary)
+    {
+        $sectionSchema = [
+            'type' => 'OBJECT',
+            'properties' => [
+                'level' => ['type' => 'STRING', 'enum' => ['good', 'warn', 'danger', 'info']],
+                'title' => ['type' => 'STRING'],
+                'points' => ['type' => 'ARRAY', 'items' => ['type' => 'STRING']]
+            ],
+            'required' => ['level', 'title', 'points']
+        ];
+        $schema = [
+            'type' => 'OBJECT',
+            'properties' => [
+                'kpi' => $sectionSchema,
+                'monthlyCompare' => $sectionSchema,
+                'threeYear' => $sectionSchema,
+                'brandCountry' => $sectionSchema,
+                'health' => $sectionSchema,
+                'contract' => $sectionSchema,
+                'topCustomers' => $sectionSchema,
+                'topSales' => $sectionSchema,
+                'field' => $sectionSchema
+            ],
+            'required' => ['kpi', 'monthlyCompare', 'threeYear', 'brandCountry', 'health', 'contract', 'topCustomers', 'topSales', 'field']
+        ];
+
+        $prompt = "你是一位資深的零售/經銷產業商業顧問，正在幫磁磚經銷商「高雅瓷」看月報數據。\n"
+            . "請用白話、口語化但專業的語氣，針對下面 JSON 數據的每個區塊，給出簡短的經營解讀與建議。\n"
+            . "規則：\n"
+            . "1. level 代表整體評價：good=表現良好、info=中性觀察、warn=需留意、danger=有明顯風險。\n"
+            . "2. title 是一句結論標題（15字內），points 是 2~4 條具體分析，每條用一句話講清楚「數字代表什麼」+「該怎麼做」。\n"
+            . "3. 重點數字可以用 **粗體** 標出（例如 **421萬**）。\n"
+            . "4. 不要寫客套話或免責聲明，直接給結論。\n"
+            . "5. 嚴格依照給定的 JSON schema 輸出，不要多餘文字。\n\n"
+            . "資料如下：\n" . json_encode($summary, JSON_UNESCAPED_UNICODE);
+
+        $url = "https://generativelanguage.googleapis.com/v1beta/models/" . GEMINI_MODEL . ":generateContent?key=" . GEMINI_API_KEY;
+        $body = [
+            'contents' => [
+                ['role' => 'user', 'parts' => [['text' => $prompt]]]
+            ],
+            'generationConfig' => [
+                'responseMimeType' => 'application/json',
+                'responseSchema' => $schema,
+                'temperature' => 0.4
+            ]
+        ];
+
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST => true,
+            CURLOPT_TIMEOUT => 60,
+            CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+            CURLOPT_POSTFIELDS => json_encode($body, JSON_UNESCAPED_UNICODE)
+        ]);
+        $resp = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($httpCode >= 400) {
+            throw new RuntimeException("Gemini API 錯誤 (HTTP {$httpCode}): {$resp}");
+        }
+
+        $result = json_decode($resp, true);
+        $text = $result['candidates'][0]['content']['parts'][0]['text'] ?? '';
+        $sections = json_decode($text, true);
+        if (!is_array($sections)) {
+            throw new RuntimeException("Gemini 回應格式錯誤: {$text}");
+        }
+        return $sections;
+    }
+
     public function getCustomerDetail($customer, $year = null)
     {
         $seriesMap = $this->getSeriesMap();
@@ -3839,6 +4029,18 @@ try {
                 echo json_encode($res);
             } catch (Exception $e) {
                 echo json_encode(['success' => false, 'msg' => 'meeting-report 錯誤: ' . $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
+            }
+            break;
+
+        case 'ai-advisor':
+            try {
+                $year = (int)($_GET['year'] ?? date('Y'));
+                $month = (int)($_GET['month'] ?? date('n'));
+                $refresh = ($_GET['refresh'] ?? '') === '1';
+                $res = $svc->getAiAdvisor($year, $month, $refresh);
+                echo json_encode($res, JSON_UNESCAPED_UNICODE);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'msg' => 'ai-advisor 錯誤: ' . $e->getMessage()]);
             }
             break;
 
