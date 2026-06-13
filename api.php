@@ -3302,6 +3302,7 @@ class SleeperService
 
         foreach ($sleeperMap as $sku => $slp) {
             $profile = isset($profileMap[$sku]) ? $profileMap[$sku] : [];
+            if (!empty($profile['isDiscontinued'])) continue;
             $meta = isset($metaMap[$sku]) ? $metaMap[$sku] : ['series' => '', 'perPing' => 36];
             $series = trim($profile['seriesCn'] ?? '') ?: trim($profile['series'] ?? '') ?: trim($meta['series'] ?? '');
             $stockPing = isset($stockMap[$sku]) ? $stockMap[$sku] : 0;
