@@ -664,7 +664,7 @@
       display: grid;
       gap: 12px;
     }
-    .bucket-grid { grid-template-columns: 0.95fr 1.65fr; }
+    .bucket-grid { grid-template-columns: 1.05fr 1.75fr; }
     .brand-grid { grid-template-columns: 1.05fr 1fr 1fr; }
     .top-grid,
     .sales-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -742,6 +742,74 @@
       flex-direction: column;
       gap: 10px;
     }
+    .stack-col {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .country-brand-split {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .country-mini-donut {
+      width: 128px;
+      height: 128px;
+      border-radius: 50%;
+      position: relative;
+      flex: 0 0 128px;
+      border: 1px solid var(--line);
+    }
+    .country-mini-donut::after {
+      content: '';
+      position: absolute;
+      inset: 20px;
+      border-radius: 50%;
+      background: var(--panel);
+      border: 1px solid var(--line);
+    }
+    .country-mini-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1;
+      font-size: 14px;
+      font-weight: 900;
+      color: var(--accent-strong);
+      text-align: center;
+      padding: 0 18px;
+      line-height: 1.2;
+    }
+    .country-mini-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-width: 0;
+      flex: 1;
+    }
+    .country-mini-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 92px;
+      gap: 8px;
+      align-items: center;
+      font-size: 13px;
+    }
+    .country-mini-row .left {
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--muted);
+    }
+    .country-mini-row .right {
+      text-align: right;
+      font-weight: 900;
+      color: var(--accent-strong);
+      white-space: nowrap;
+    }
     .country-brand-head {
       display: flex;
       align-items: baseline;
@@ -795,12 +863,15 @@
     .bar-yoy.down { color: #fca5a5; }
     .bar-yoy.flat { color: var(--muted); }
     .simple-line {
-      grid-template-columns: minmax(0, 1.35fr) 86px 128px;
+      grid-template-columns: minmax(0, 1.2fr) 92px 132px;
     }
     .simple-line .item-main {
       font-weight: 800;
       min-width: 0;
       line-height: 1.45;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .simple-line .status {
       font-weight: 900;
@@ -817,11 +888,63 @@
     .simple-line.is-warn .status { color: #facc15; }
     .simple-line.is-good .status { color: var(--green); }
     .simple-line.is-info .status { color: var(--blue); }
+    .contract-lines .simple-line {
+      grid-template-columns: minmax(0, 1.35fr) 76px 118px;
+    }
     .customer-item-line {
       grid-template-columns: minmax(0, 1.2fr) 84px 84px 64px;
     }
     .sales-customer-line {
       grid-template-columns: minmax(0, 1fr) 84px 64px;
+    }
+    .cover-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 900;
+      border: 1px solid rgba(255,255,255,0.08);
+      margin-left: 6px;
+    }
+    .cover-core { color: #c084fc; }
+    .cover-watch { color: #f87171; }
+    .cover-ok { color: #86efac; }
+    .cover-spread { color: #facc15; }
+    .cover-breath { animation: breathe 1.8s ease-in-out infinite; }
+    @keyframes breathe {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: .6; transform: scale(1.03); }
+    }
+    .sku-item-line {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) 84px 84px 64px;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(255,255,255,0.02);
+    }
+    .sku-item-line .item-main, .sku-customer-line .item-main {
+      font-weight: 800;
+      min-width: 0;
+      line-height: 1.45;
+    }
+    .sku-item-line .metric, .sku-customer-line .metric {
+      text-align: right;
+      font-size: 13px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .sku-customer-line {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 84px 84px 64px;
+      gap: 10px;
+      align-items: center;
+      padding: 8px 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
     }
     .contract-lines {
       display: flex;
@@ -883,7 +1006,11 @@
       .simple-line,
       .brand-line,
       .customer-item-line,
-      .sales-customer-line { grid-template-columns: 1fr; }
+      .sales-customer-line,
+      .sku-item-line,
+      .sku-customer-line,
+      .country-mini-row { grid-template-columns: 1fr; }
+      .country-brand-split { flex-direction: column; align-items: flex-start; }
     }
   </style>
 </head>
@@ -995,9 +1122,21 @@
       const rows = d.monthCompare || [];
       const visibleRows = rows.filter(r => r.month <= d.month);
       const max = Math.max(1, ...visibleRows.flatMap(r => [r.previous || 0, r.current || 0]));
+      const cumPrev = visibleRows.reduce((sum, r) => sum + Number(r.previous || 0), 0);
+      const cumCurr = visibleRows.reduce((sum, r) => sum + Number(r.current || 0), 0);
+      const cumDelta = cumCurr - cumPrev;
+      const cumPct = cumPrev > 0 ? (cumDelta / cumPrev * 100) : 0;
       return `
         <section class="sheet">
           <div class="sheet-title">年度月銷比較</div>
+          <div class="section-pad">
+            <div class="mini-grid" style="margin-bottom:16px">
+              <div class="mini-card"><h3>同期 1~${d.month} 月去年</h3><div class="v">${fmtWan(cumPrev)}</div><div class="hint">${d.year - 1} / 1~${d.month} 月</div></div>
+              <div class="mini-card"><h3>同期 1~${d.month} 月今年</h3><div class="v">${fmtWan(cumCurr)}</div><div class="hint">${d.year} / 1~${d.month} 月</div></div>
+              <div class="mini-card"><h3>同期累積差額</h3><div class="v ${trendClass(cumDelta)}">${fmtWan(cumDelta)}</div><div class="hint">今年 - 去年</div></div>
+              <div class="mini-card"><h3>同期累積達成</h3><div class="v ${trendClass(cumPct)}">${fmtPct(cumPct)}</div><div class="hint">對去年同期</div></div>
+            </div>
+          </div>
           <div class="chart-grid">
             <div class="chart-card">
               <div class="table-wrap">
@@ -1057,28 +1196,17 @@
     }
 
     function buildMeetingTabs() {
-      return `
-        <section class="sheet">
-          <div class="sheet-title">報表模式</div>
-          <div class="section-pad">
-            <div class="mode-switch">
-              <button class="mode-btn ${currentMeetingTab === 'monthly' ? 'is-active' : ''}" onclick="switchMeetingTab('monthly')">月報</button>
-              <button class="mode-btn ${currentMeetingTab === 'cumulative' ? 'is-active' : ''}" onclick="switchMeetingTab('cumulative')">年度累積</button>
-            </div>
-          </div>
-        </section>
-      `;
+      return "";
     }
 
     function buildHealthShipmentSheet(d) {
       const s = d.summary || {};
       const buckets = d.shipmentBuckets || [];
-      const donutRows = buckets.map(row => ({
-        name: row.name,
-        amount: Number(row.count || 0),
-        sharePct: Number(row.customerSharePct || 0)
-      }));
+      const donutRows = buckets.map(row => ({ name: row.name, amount: Number(row.count || 0), sharePct: Number(row.customerSharePct || 0) }));
+      const salesDonutRows = buckets.map(row => ({ name: row.name, amount: Number(row.amount || 0), sharePct: Number(row.salesSharePct || 0) }));
       const totalHomes = buckets.reduce((sum, row) => sum + Number(row.count || 0), 0);
+      const totalSales = buckets.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+      const signedRows = d.signedCustomerSalesRows || [];
       return `
         <section class="sheet">
           <div class="sheet-title">簽約健康度與出貨家數</div>
@@ -1089,7 +1217,10 @@
             <div class="mini-card"><h3>追平去年達成率</h3><div class="v">${fmtPct(s.catchUpPct)}</div><div class="hint">本月 / 去年同期</div></div>
           </div>
           <div class="bucket-grid section-pad">
-            ${buildDonutCard('出貨家數結構', donutRows, totalHomes, '依出貨家數', fmtInt)}
+            <div class="stack-col">
+              ${buildDonutCard('出貨家數結構', donutRows, totalHomes, '依出貨家數', fmtInt)}
+              ${buildDonutCard('依銷售佔比', salesDonutRows, totalSales, '依銷售金額')}
+            </div>
             <div class="chart-card wide">
               <div class="hint" style="margin-bottom:12px">家數 / 佔比 / 拜訪效率 / 單次拜訪產值</div>
               <div class="item-list">
@@ -1106,7 +1237,7 @@
                     <div class="expander-body">
                       <div class="short-chip-list">
                         ${(row.customers || []).map(c => `
-                          <span class="short-chip">${escapeHtml(c.shortName)} <strong>${fmtWan(c.amount)}</strong> ${fmtInt(c.visits || 0)}次</span>
+                          <span class="short-chip">${escapeHtml(((c.shortName || c.name || '').slice(0, 2) || c.name || '客戶'))} <strong>${fmtWan(c.amount)}</strong> ${fmtInt(c.visits || 0)}次</span>
                         `).join('') || '<span class="hint">本級距無客戶</span>'}
                       </div>
                     </div>
@@ -1115,6 +1246,26 @@
               </div>
             </div>
           </div>
+          <details class="expander section-pad" open>
+            <summary>
+              <div>
+                <div class="expander-title">簽約店家實銷名單</div>
+                <div class="expander-sub">目前統計 ${fmtWan(s.signedStoreSales)}，用來檢查是否有遺漏簽約店家。</div>
+              </div>
+              <div class="expander-meta">${fmtInt(signedRows.length)} 家<span class="expander-icon">⌄</span></div>
+            </summary>
+            <div class="expander-body">
+              <div class="item-list">
+                ${(signedRows || []).map(row => `
+                  <div class="simple-line">
+                    <div class="item-main">${escapeHtml(row.name)}</div>
+                    <div class="metric">${fmtWan(row.amount)}</div>
+                    <div class="metric">${fmtPct((s.signedStoreSales || 0) > 0 ? (row.amount || 0) / s.signedStoreSales * 100 : 0)}</div>
+                  </div>
+                `).join('') || '<div class="hint">本期無簽約店家實銷</div>'}
+              </div>
+            </div>
+          </details>
         </section>
       `;
     }
@@ -1124,6 +1275,7 @@
       const total = brandRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
       const countryBrands = d.countryBrandRanking || {};
       const countryKeys = ['義大利', '西班牙'];
+      const countryShareMap = Object.fromEntries(brandRows.map(r => [r.name, Number(r.sharePct || 0)]));
       return `
         <section class="sheet">
           <div class="sheet-title">國別與廠牌分析</div>
@@ -1131,41 +1283,69 @@
             ${buildDonutCard('義大利 / 西班牙', brandRows.map(r => ({...r, name: r.name || '未分類'})), total, '依銷售金額')}
             <div class="chart-card">
               <div class="hint" style="margin-bottom:12px">國別銷售排名</div>
-              ${buildRankBoard(brandRows.map(r => ({...r, amount: Number(r.amount || 0)})), 'amount', fmtWan, function(item) {
-                return '佔整體 ' + fmtPct(item.sharePct || 0);
-              })}
+              <div class="rank-board">
+                ${brandRows.map(r => `
+                  <div class="rank-row">
+                    <div><div class="rank-name">${escapeHtml(r.name)}廠牌</div></div>
+                    <div class="rank-track"><div class="rank-fill" style="width:${Math.max(6, Math.round(Number(r.sharePct || 0)))}%"></div></div>
+                    <div class="rank-val">${fmtWan(r.amount)}/${fmtPct(r.sharePct)}</div>
+                  </div>
+                `).join('')}
+              </div>
             </div>
           </div>
           <div class="brand-grid section-pad">
             ${countryKeys.map(country => {
-              const rows = countryBrands[country] || [];
+              const rows = (countryBrands[country] || []).slice(0, 8);
               const countryTotal = rows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+              const countryShare = countryShareMap[country] || 0;
+              let cursor = 0;
+              const donutGradient = rows.map((row, idx) => {
+                const pct = countryTotal > 0 ? (Number(row.amount || 0) / countryTotal) * 100 : 0;
+                const start = cursor;
+                cursor += pct;
+                return `${palette(idx)} ${start}% ${cursor}%`;
+              }).join(', ');
               return `
                 <div class="chart-card country-brand-col">
                   <div class="country-brand-head">
-                    <div class="k">${country}廠牌</div>
-                    <div class="v">${fmtWan(countryTotal)}</div>
+                    <div>
+                      <div class="k">${country}廠牌</div>
+                      <div class="country-brand-total">${fmtWan(countryTotal)}/${fmtPct(countryShare)}</div>
+                    </div>
                   </div>
-                  ${(rows || []).slice(0, 8).map(row => `
+                  <div class="country-brand-split">
+                    <div class="country-mini-donut" style="background:conic-gradient(${donutGradient || 'rgba(255,255,255,0.08) 0 100%'})">
+                      <div class="country-mini-center">${fmtWan(countryTotal)}</div>
+                    </div>
+                    <div class="country-mini-list">
+                      ${rows.slice(0, 4).map((row, idx) => `
+                        <div class="country-mini-row">
+                          <div class="left"><span class="legend-dot" style="background:${palette(idx)}"></span> ${escapeHtml(row.name)}</div>
+                          <div class="right">${fmtPct(row.sharePct)}</div>
+                        </div>
+                      `).join('')}
+                    </div>
+                  </div>
+                  ${rows.map(row => `
                     <details class="expander">
                       <summary>
                         <div>
-                          <div class="brand-title">${escapeHtml(row.name)}</div>
+                          <div class="brand-title">${escapeHtml(row.name)} ${fmtWan(row.amount)}/${fmtPct(row.sharePct)}</div>
                           <div class="brand-kpis">
                             <span>系列數 <strong>${fmtInt(row.seriesCount)}</strong></span>
                             <span>銷量 <strong>${fmtInt(row.pings)}</strong></span>
-                            <span>佔比 <strong>${fmtPct(row.sharePct)}</strong></span>
                           </div>
                         </div>
-                        <div class="bucket-badge">${fmtWan(row.amount)}</div>
+                        <div class="bucket-badge">${fmtWan(row.amount)}/${fmtPct(row.sharePct)}</div>
                       </summary>
                       <div class="expander-body">
                         <div class="item-list">
-                          ${(row.seriesRows || []).map(series => `
+                          ${(row.seriesRows || []).filter(series => Number(series.amount || 0) > 0).map(series => `
                             <div class="simple-line">
                               <div class="item-main">${escapeHtml(series.name)}</div>
-                              <div class="metric">${fmtInt(series.pings)}</div>
-                              <div class="metric">${fmtPct(series.sharePct)}</div>
+                              <div class="status">${fmtPct(series.sharePct)}</div>
+                              <div class="metric"></div>
                             </div>
                           `).join('') || '<div class="hint">本廠牌無系列資料</div>'}
                         </div>
@@ -1184,7 +1364,7 @@
       const source = cumulative ? (d.threeYearCumulative || []) : (d.threeYearCompare || []);
       const yearMap = {};
       source.forEach(row => { yearMap[row.year] = row; });
-      const months = cumulative ? Array.from({ length: d.month }, (_, i) => i + 1) : Array.from({ length: 12 }, (_, i) => i + 1);
+      const months = Array.from({ length: d.month }, (_, i) => i + 1);
       const rows = months.map(month => {
         const y24 = Number((yearMap[d.year - 2]?.months || []).find(m => Number(m.month) === month)?.amount || 0);
         const y25 = Number((yearMap[d.year - 1]?.months || []).find(m => Number(m.month) === month)?.amount || 0);
@@ -1197,21 +1377,19 @@
       const max = Math.max(1, ...rows.flatMap(r => [r.y24, r.y25, r.y26]));
       const totals = [d.year - 2, d.year - 1, d.year].map((year, idx) => ({
         year,
-        total: cumulative
-          ? Number(yearMap[year]?.months?.slice(-1)?.[0]?.amount || 0)
-          : Number((yearMap[year]?.months || []).reduce((sum, m) => sum + Number(m.amount || 0), 0)),
+        total: Number((yearMap[year]?.months || []).reduce((sum, m) => sum + Number(m.amount || 0), 0)),
         color: palette(idx)
       }));
       return `
         <section class="sheet">
-          <div class="sheet-title">${cumulative ? '近三年年度累積比較' : '近三年月銷比較'}</div>
+          <div class="sheet-title">近三年月銷比較</div>
           <div class="chart-grid">
             <div class="chart-card">
               <div class="table-wrap">
                 <table>
                   <thead>
                     <tr>
-                      <th>${cumulative ? '累積至' : '月份'}</th>
+                      <th>月份</th>
                       <th>${d.year - 2}</th>
                       <th>${d.year - 1}</th>
                       <th>平均月銷</th>
@@ -1223,7 +1401,7 @@
                   <tbody>
                     ${rows.map(r => `
                       <tr>
-                        <td class="center">${cumulative ? (r.month + '月累積') : (r.month + '月')}</td>
+                        <td class="center">${r.month}月</td>
                         <td class="num">${fmtWan(r.y24)}</td>
                         <td class="num">${fmtWan(r.y25)}</td>
                         <td class="num">${fmtWan(r.avg)}</td>
@@ -1250,7 +1428,7 @@
                       <div class="bar curr" style="height:${Math.max(8, Math.round((r.y25 / max) * 100))}%; background:${palette(1)}"></div>
                       <div class="bar curr ${trendClass(r.growthPct)}" style="height:${Math.max(8, Math.round((r.y26 / max) * 100))}%"></div>
                     </div>
-                    <div class="bar-label">${r.month}${cumulative ? '累' : '月'}</div>
+                    <div class="bar-label">${r.month}月</div>
                     <div class="bar-yoy ${trendClass(r.growthPct)}">${fmtPct(r.growthPct)}</div>
                   </div>
                 `).join('')}
@@ -1260,7 +1438,7 @@
                   <div class="mini-card">
                     <h3>${row.year}</h3>
                     <div class="v" style="color:${row.color}">${fmtWan(row.total)}</div>
-                    <div class="hint">${cumulative ? '累積總額' : '年度總額'}</div>
+                    <div class="hint">年度總額</div>
                   </div>
                 `).join('')}
               </div>
@@ -1312,6 +1490,15 @@
       return 'flat';
     }
 
+    function coverMeta(count) {
+      const c = Number(count || 0);
+      if (c <= 4) return { cls: 'cover-core cover-breath', text: `80% 業績來自 ${fmtInt(c)} 客` };
+      if (c <= 6) return { cls: 'cover-watch cover-breath', text: `80% 業績來自 ${fmtInt(c)} 客` };
+      if (c <= 10) return { cls: 'cover-ok', text: `80% 業績來自 ${fmtInt(c)} 客` };
+      if (c <= 15) return { cls: 'cover-spread', text: `80% 業績來自 ${fmtInt(c)} 客` };
+      return { cls: '', text: `80% 業績來自 ${fmtInt(c)} 客` };
+    }
+
     function buildSeriesSheet(d) {
       const rows = d.seriesRanking || [];
       return `
@@ -1335,23 +1522,31 @@
                   </div>
                 </summary>
                 <div class="expander-body">
-                  <div class="table-wrap">
-                    <table>
-                      <thead>
-                        <tr><th>SKU</th><th>品名 / 尺寸</th><th>坪數</th><th>金額</th><th>系列占比</th></tr>
-                      </thead>
-                      <tbody>
-                        ${(r.items || []).slice(0, 6).map(item => `
-                          <tr>
-                            <td class="series-sku">${escapeHtml(item.sku)}</td>
-                            <td>${escapeHtml(item.name || '—')}</td>
-                            <td class="num">${fmtInt(item.pings)}</td>
-                            <td class="num">${fmtWan(item.amount)}</td>
-                            <td class="num">${fmtPct((r.totalAmount || 0) > 0 ? (item.amount || 0) / r.totalAmount * 100 : 0)}</td>
-                          </tr>
-                        `).join('')}
-                      </tbody>
-                    </table>
+                  <div class="item-list">
+                    ${(r.items || []).slice(0, 8).map(item => `
+                      <details class="expander">
+                        <summary>
+                          <div class="sku-item-line" style="border:none; background:transparent; padding:0; width:100%;">
+                            <div class="item-main">${escapeHtml(item.sku)}</div>
+                            <div class="metric">${fmtInt(item.pings)}</div>
+                            <div class="metric">${fmtWan(item.amount)}</div>
+                            <div class="metric">${fmtPct((r.totalAmount || 0) > 0 ? (item.amount || 0) / r.totalAmount * 100 : 0)}</div>
+                          </div>
+                        </summary>
+                        <div class="expander-body">
+                          <div class="item-list">
+                            ${(item.customers || []).map(c => `
+                              <div class="sku-customer-line">
+                                <div class="item-main">${escapeHtml(c.name)}</div>
+                                <div class="metric">${fmtInt(c.pings)}</div>
+                                <div class="metric">${fmtWan(c.amount)}</div>
+                                <div class="metric">${fmtPct(c.sharePct || 0)}</div>
+                              </div>
+                            `).join('') || '<div class="hint">此 SKU 本期無客戶明細</div>'}
+                          </div>
+                        </div>
+                      </details>
+                    `).join('')}
                   </div>
                 </div>
               </details>
@@ -1655,41 +1850,36 @@
     }
 
     function buildTopSheets(d) {
-      const projects = d.topProjects || [];
       return (
         `
           <section class="sheet">
             <div class="sheet-title">前 10 大客戶分析</div>
             <div class="section-pad">
-              <div class="hint" style="margin-bottom:12px">按客戶名下探產品、片數、金額與佔比，依案名與金額排序。</div>
+              <div class="hint" style="margin-bottom:12px">按客戶名下探中文系列、SKU、片數、金額與佔比，依案名與金額排序。</div>
               <div class="top-grid">
-                ${(d.topCustomers || []).map((item, idx) => {
-                  const linkedProject = projects[idx];
-                  const p = linkedProject ? ' / 參考案名 ' + linkedProject.name : '';
-                  return `
-                    <details class="expander">
-                      <summary>
-                        <div>
-                          <div class="customer-line-title">${escapeHtml(item.name)}</div>
-                          <div class="customer-line-sub">交易 ${fmtInt(item.count || 0)} 筆 / 坪數 ${fmtInt(item.pings || 0)}${p}</div>
-                        </div>
-                        <div class="bucket-badge">${fmtWan(item.amount)}</div>
-                      </summary>
-                      <div class="expander-body">
-                        <div class="item-list">
-                          ${(item.items || []).map(row => `
-                            <div class="customer-item-line">
-                              <div class="item-main">${escapeHtml(row.project)} / ${escapeHtml(row.sku)}</div>
-                              <div class="metric">${fmtInt(row.count)}</div>
-                              <div class="metric">${fmtWan(row.amount)}</div>
-                              <div class="metric">${fmtPct(row.sharePct || 0)}</div>
-                            </div>
-                          `).join('') || '<div class="hint">此客戶本期無產品明細</div>'}
-                        </div>
+                ${(d.topCustomers || []).map(item => `
+                  <details class="expander">
+                    <summary>
+                      <div>
+                        <div class="customer-line-title">${escapeHtml(item.name)}</div>
+                        <div class="customer-line-sub">交易 ${fmtInt(item.count || 0)} 筆 / 坪數 ${fmtInt(item.pings || 0)}</div>
                       </div>
-                    </details>
-                  `;
-                }).join('')}
+                      <div class="bucket-badge">${fmtWan(item.amount)}</div>
+                    </summary>
+                    <div class="expander-body">
+                      <div class="item-list">
+                        ${(item.items || []).map(row => `
+                          <div class="customer-item-line">
+                            <div class="item-main">${escapeHtml(row.seriesCn || row.sku)}</div>
+                            <div class="metric">${fmtInt(row.count)}</div>
+                            <div class="metric">${fmtWan(row.amount)}</div>
+                            <div class="metric">${fmtPct(row.sharePct || 0)}</div>
+                          </div>
+                        `).join('') || '<div class="hint">此客戶本期無產品明細</div>'}
+                      </div>
+                    </div>
+                  </details>
+                `).join('')}
               </div>
             </div>
           </section>
@@ -1699,28 +1889,31 @@
             <div class="sheet-title">業務銷售排行</div>
             <div class="section-pad">
               <div class="sales-grid">
-                ${(d.topSales || []).map(item => `
-                  <details class="expander">
-                    <summary>
-                      <div>
-                        <div class="sales-line-title">${escapeHtml(item.name)}</div>
-                        <div class="sales-line-sub">交易 ${fmtInt(item.count || 0)} 筆 / 坪數 ${fmtInt(item.pings || 0)} / 90% 業績來自 ${fmtInt(item.top90CustomerCount || 0)} 客</div>
+                ${(d.topSales || []).map(item => {
+                  const meta = coverMeta(item.top80CustomerCount || 0);
+                  return `
+                    <details class="expander">
+                      <summary>
+                        <div>
+                          <div class="sales-line-title">${escapeHtml(item.name)}</div>
+                          <div class="sales-line-sub">交易 ${fmtInt(item.count || 0)} 筆 / 坪數 ${fmtInt(item.pings || 0)} / <span class="cover-tag ${meta.cls}">${meta.text}</span></div>
+                        </div>
+                        <div class="bucket-badge">${fmtWan(item.amount)}</div>
+                      </summary>
+                      <div class="expander-body">
+                        <div class="item-list">
+                          ${(item.customers || []).map(row => `
+                            <div class="sales-customer-line ${row.isCore80 ? meta.cls : ''}">
+                              <div class="item-main">${escapeHtml(row.name)}</div>
+                              <div class="metric">${fmtWan(row.amount)}</div>
+                              <div class="metric">${fmtPct(row.sharePct || 0)}</div>
+                            </div>
+                          `).join('') || '<div class="hint">此業務本期無客戶明細</div>'}
+                        </div>
                       </div>
-                      <div class="bucket-badge">${fmtWan(item.amount)}</div>
-                    </summary>
-                    <div class="expander-body">
-                      <div class="item-list">
-                        ${(item.customers || []).map(row => `
-                          <div class="sales-customer-line">
-                            <div class="item-main">${escapeHtml(row.name)}</div>
-                            <div class="metric">${fmtWan(row.amount)}</div>
-                            <div class="metric">${fmtPct(row.sharePct || 0)}</div>
-                          </div>
-                        `).join('') || '<div class="hint">此業務本期無客戶明細</div>'}
-                      </div>
-                    </div>
-                  </details>
-                `).join('')}
+                    </details>
+                  `;
+                }).join('')}
               </div>
             </div>
           </section>
@@ -1795,20 +1988,11 @@
         buildCategorySheet(d) +
         buildContractSheet(d) +
         buildFieldSheet(d);
-      const cumulativeView =
-        buildKpiSheet(d) +
-        buildThreeYearCompareSheet(d, true) +
-        buildBrandCountrySheet(d) +
-        buildHealthShipmentSheet(d) +
-        buildTopSheets(d) +
-        buildContractSheet(d);
-      document.getElementById('app').innerHTML =
-        buildMeetingTabs() +
-        (currentMeetingTab === 'cumulative' ? cumulativeView : monthlyView);
+      document.getElementById('app').innerHTML = monthlyView;
     }
 
     function switchMeetingTab(tab) {
-      currentMeetingTab = tab;
+      currentMeetingTab = 'monthly';
       loadMeeting();
     }
 

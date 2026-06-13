@@ -2155,7 +2155,7 @@ class SleeperService
             $active += 1;
             $balance += $bal;
             $contractAmt = $idxContractAmt !== -1 ? $this->optFloat($this->getVal($row, $idxContractAmt)) : 0;
-            if (in_array($bucket, ['正常', '逾期', '嚴重', '待續'], true)) {
+            if (in_array($bucket, ['正常', '逾期', '嚴重', '待續', '已續'], true)) {
                 $signedMonthlyTarget += $contractAmt;
                 $signedCustomers[$customer] = true;
             }
@@ -2331,10 +2331,11 @@ class SleeperService
                 if (!isset($customerDetails[$customer])) {
                     $customerDetails[$customer] = ['name' => $customer, 'items' => []];
                 }
-                $detailKey = ($projectName !== '' ? $projectName : '非專案') . '|' . $sku;
+                $seriesCn = trim(($profile['seriesCn'] ?? '') ?: ($profile['series'] ?? '')) ?: '未分類系列';
+                $detailKey = $seriesCn . '|' . $sku;
                 if (!isset($customerDetails[$customer]['items'][$detailKey])) {
                     $customerDetails[$customer]['items'][$detailKey] = [
-                        'project' => $projectName !== '' ? $projectName : '非專案',
+                        'seriesCn' => $seriesCn,
                         'sku' => $sku,
                         'name' => trim(($profile['productName'] ?? '') . ' ' . ($profile['size'] ?? '')),
                         'count' => 0,
@@ -2384,9 +2385,10 @@ class SleeperService
                 $countryBrandRanks[$country][$brand]['pings'] += $pings;
                 $countryBrandRanks[$country][$brand]['seriesSet'][$seriesName] = true;
                 if (!isset($countryBrandRanks[$country][$brand]['seriesRows'][$seriesName])) {
-                    $countryBrandRanks[$country][$brand]['seriesRows'][$seriesName] = ['name' => $seriesName, 'amount' => 0];
+                    $countryBrandRanks[$country][$brand]['seriesRows'][$seriesName] = ['name' => $seriesName, 'amount' => 0, 'pings' => 0];
                 }
                 $countryBrandRanks[$country][$brand]['seriesRows'][$seriesName]['amount'] += $amount;
+                $countryBrandRanks[$country][$brand]['seriesRows'][$seriesName]['pings'] += $pings;
             }
 
             $seriesKey = ($profile['brand'] ?? '') . '|' . ($profile['series'] ?? '') . '|' . ($profile['seriesCn'] ?? '');
@@ -2408,11 +2410,23 @@ class SleeperService
                     'name' => trim(($profile['productName'] ?? '') . ' ' . ($profile['size'] ?? '')),
                     'pings' => 0,
                     'amount' => 0,
-                    'imageUrl' => $profile['imageUrl'] ?? ''
+                    'imageUrl' => $profile['imageUrl'] ?? '',
+                    'customers' => []
                 ];
             }
             $seriesRanks[$seriesKey]['items'][$sku]['pings'] += $pings;
             $seriesRanks[$seriesKey]['items'][$sku]['amount'] += $amount;
+            if ($customer !== '未知客戶') {
+                if (!isset($seriesRanks[$seriesKey]['items'][$sku]['customers'][$customer])) {
+                    $seriesRanks[$seriesKey]['items'][$sku]['customers'][$customer] = [
+                        'name' => $customer,
+                        'amount' => 0,
+                        'pings' => 0
+                    ];
+                }
+                $seriesRanks[$seriesKey]['items'][$sku]['customers'][$customer]['amount'] += $amount;
+                $seriesRanks[$seriesKey]['items'][$sku]['customers'][$customer]['pings'] += $pings;
+            }
 
             $category = trim($profile['category'] ?? '') ?: '未分類';
             if (!isset($categoryRanks[$category])) {
@@ -2450,6 +2464,17 @@ class SleeperService
 
         foreach ($seriesRanks as &$rank) {
             $rank['items'] = array_values($rank['items']);
+            foreach ($rank['items'] as &$skuRow) {
+                $skuRow['customers'] = array_values($skuRow['customers']);
+                usort($skuRow['customers'], function ($a, $b) {
+                    return $b['amount'] <=> $a['amount'];
+                });
+                foreach ($skuRow['customers'] as &$custRow) {
+                    $custRow['sharePct'] = $skuRow['amount'] > 0 ? ($custRow['amount'] / $skuRow['amount'] * 100) : 0;
+                }
+                unset($custRow);
+            }
+            unset($skuRow);
             usort($rank['items'], function ($a, $b) {
                 return $b['pings'] <=> $a['pings'];
             });
@@ -2484,8 +2509,8 @@ class SleeperService
         foreach ($customerDetails as &$detail) {
             $detail['items'] = array_values($detail['items']);
             usort($detail['items'], function ($a, $b) {
-                if ($a['project'] === $b['project']) return $b['amount'] <=> $a['amount'];
-                return strcmp($a['project'], $b['project']);
+                if ($a['seriesCn'] === $b['seriesCn']) return $b['amount'] <=> $a['amount'];
+                return strcmp($a['seriesCn'], $b['seriesCn']);
             });
             $customerTotal = array_sum(array_map(function ($item) { return $item['amount']; }, $detail['items']));
             foreach ($detail['items'] as &$item) {
@@ -2504,13 +2529,16 @@ class SleeperService
             $cover = 0;
             foreach ($rep['customers'] as &$custRow) {
                 $custRow['sharePct'] = $repTotal > 0 ? ($custRow['amount'] / $repTotal * 100) : 0;
-                if ($cum < 90) {
+                if ($cum < 80) {
                     $cum += $custRow['sharePct'];
                     $cover++;
+                    $custRow['isCore80'] = true;
+                } else {
+                    $custRow['isCore80'] = false;
                 }
             }
             unset($custRow);
-            $rep['top90CustomerCount'] = $cover;
+            $rep['top80CustomerCount'] = $cover;
         }
         unset($rep);
         foreach ($countryBrandRanks as $country => &$brands) {
@@ -2523,6 +2551,9 @@ class SleeperService
                 usort($brandRow['seriesRows'], function ($a, $b) {
                     return $b['amount'] <=> $a['amount'];
                 });
+                $brandRow['seriesRows'] = array_values(array_filter($brandRow['seriesRows'], function ($row) {
+                    return (float)($row['amount'] ?? 0) > 0;
+                }));
                 foreach ($brandRow['seriesRows'] as &$seriesRow) {
                     $seriesRow['sharePct'] = $brandRow['amount'] > 0 ? ($seriesRow['amount'] / $brandRow['amount'] * 100) : 0;
                 }
@@ -2576,9 +2607,16 @@ class SleeperService
             $signedCustomerLookup[$cust] = true;
         }
         $signedStoreSales = 0;
+        $signedCustomerSalesRows = [];
         foreach ($currentCustomerAmounts as $cust => $amount) {
-            if (isset($signedCustomerLookup[$cust])) $signedStoreSales += $amount;
+            if (isset($signedCustomerLookup[$cust])) {
+                $signedStoreSales += $amount;
+                $signedCustomerSalesRows[] = ['name' => $cust, 'amount' => $amount];
+            }
         }
+        usort($signedCustomerSalesRows, function ($a, $b) {
+            return $b['amount'] <=> $a['amount'];
+        });
         $signedTarget = $contractSummary['summary']['signedMonthlyTarget'] ?? 0;
         $signedHealthPct = $signedTarget > 0 ? ($signedStoreSales / $signedTarget * 100) : 0;
 
@@ -2679,7 +2717,7 @@ class SleeperService
         $meetingSales = array_map(function ($row) use ($salesCustomerBreakdown) {
             $name = $row['name'] ?? '';
             $row['customers'] = $salesCustomerBreakdown[$name]['customers'] ?? [];
-            $row['top90CustomerCount'] = $salesCustomerBreakdown[$name]['top90CustomerCount'] ?? 0;
+            $row['top80CustomerCount'] = $salesCustomerBreakdown[$name]['top80CustomerCount'] ?? 0;
             return $row;
         }, $meetingSales);
         $topCustomersDetailed = array_map(function ($row) use ($customerDetails) {
@@ -2718,6 +2756,7 @@ class SleeperService
                 'threeYearCumulative' => $threeYearCumulative,
                 'brandSales' => array_values($brandSales),
                 'shipmentBuckets' => $shipmentBuckets,
+                'signedCustomerSalesRows' => $signedCustomerSalesRows,
                 'topCustomers' => $topCustomersDetailed,
                 'topProjects' => array_slice($strategy['topProjects'] ?? [], 0, 10),
                 'topSales' => array_slice($meetingSales, 0, 10),
