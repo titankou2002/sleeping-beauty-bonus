@@ -17,6 +17,6 @@ if (is_file(__DIR__ . '/config.local.php')) {
     require_once __DIR__ . '/config.local.php';
 }
 if (!defined('GEMINI_API_KEY')) define('GEMINI_API_KEY', getenv('GEMINI_API_KEY') ?: '');
-define('GEMINI_MODEL', getenv('GEMINI_MODEL') ?: 'gemini-2.0-flash');
+define('GEMINI_MODEL', getenv('GEMINI_MODEL') ?: 'gemini-2.5-flash');
 define('AI_ADVISOR_CACHE_DIR', __DIR__ . '/cache');
 
