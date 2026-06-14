@@ -1107,6 +1107,51 @@ class SleeperService
         return ['success' => true, 'data' => $rows];
     }
 
+    public function getProductLifecycle($sku)
+    {
+        $sku = $this->cleanSku($sku);
+        $profileMap = $this->getProductProfileMap();
+        $profile = $profileMap[$sku] ?? [];
+        $firstInDate = $profile['firstInDate'] ?? '';
+        $latestInDate = $profile['latestInDate'] ?? '';
+
+        $activeDisplays = $this->getActiveDisplaysMap();
+        $displays = $activeDisplays[$sku] ?? [];
+        $displayCount = count($displays);
+
+        $daysSinceArrival = null;
+        $ts = $firstInDate !== '' ? strtotime($firstInDate) : false;
+        if ($ts !== false) {
+            $daysSinceArrival = (int)floor((time() - $ts) / 86400);
+        }
+
+        $monthlyHistory = [];
+        foreach (['sleeper', 'normal', 'discontinued'] as $tab) {
+            $file = AI_ADVISOR_CACHE_DIR . "/product_history_{$tab}.json";
+            if (!is_file($file)) continue;
+            $history = json_decode(file_get_contents($file), true) ?: [];
+            foreach ($history as $key => $entry) {
+                if (isset($entry['products'][$sku])) {
+                    $monthlyHistory[] = array_merge(['date' => $entry['date'] ?? $key], $entry['products'][$sku]);
+                }
+            }
+        }
+        usort($monthlyHistory, function ($a, $b) { return strcmp($a['date'], $b['date']); });
+
+        return [
+            'success' => true,
+            'data' => [
+                'sku' => $sku,
+                'firstInDate' => $firstInDate,
+                'latestInDate' => $latestInDate,
+                'daysSinceArrival' => $daysSinceArrival,
+                'displayCount' => $displayCount,
+                'displays' => $displays,
+                'monthlyHistory' => $monthlyHistory
+            ]
+        ];
+    }
+
     public function getReportHistory()
     {
         $file = AI_ADVISOR_CACHE_DIR . '/report_history.json';
@@ -1200,6 +1245,8 @@ class SleeperService
         $idxSleeper = $this->findHeader($h, ['睡美人']);
         $idxDisc = $this->findHeader($h, ['不續辦']);
         $idxImage = $this->findHeader($h, ['單片連結網址','單片圖','圖片網址','單片網址','圖片連結']);
+        $idxFirstIn = $this->findHeader($h, ['首次進貨日']);
+        $idxLatestIn = $this->findHeader($h, ['最新進貨日']);
         if ($idxCode === -1) return [];
 
         $map = [];
@@ -1218,7 +1265,9 @@ class SleeperService
                 'category' => $idxCategory !== -1 ? trim($this->getVal($row, $idxCategory)) : '',
                 'imageUrl' => $idxImage !== -1 ? trim($this->getVal($row, $idxImage)) : '',
                 'isSleeper' => $idxSleeper !== -1 && trim($this->getVal($row, $idxSleeper)) !== '',
-                'isDiscontinued' => $idxDisc !== -1 && trim($this->getVal($row, $idxDisc)) !== ''
+                'isDiscontinued' => $idxDisc !== -1 && trim($this->getVal($row, $idxDisc)) !== '',
+                'firstInDate' => $idxFirstIn !== -1 ? trim($this->getVal($row, $idxFirstIn)) : '',
+                'latestInDate' => $idxLatestIn !== -1 ? trim($this->getVal($row, $idxLatestIn)) : ''
             ];
         }
         return $map;
@@ -4377,6 +4426,12 @@ try {
 
         case 'normal-products':
             $res = $svc->getNormalProductOverview();
+            echo json_encode($res);
+            break;
+
+        case 'product-lifecycle':
+            $sku = $_GET['sku'] ?? '';
+            $res = $svc->getProductLifecycle($sku);
             echo json_encode($res);
             break;
 

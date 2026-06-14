@@ -1155,6 +1155,7 @@ function renderProducts() {
         '<div class="prod-frozen ' + frozenClass + '" style="margin-top:8px">' + (p.stagnantReason || frozenText) + '</div>' +
         (p.action ? '<div class="action-badge" style="background:' + p.actionColor + '15; border:1px solid ' + p.actionColor + '30; color:' + p.actionColor + '; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:800; display:inline-block; margin-top:6px">' + p.action + '</div>' : '') +
         (restockAdviceMap[p.sku] ? '<div class="action-badge" style="background:rgba(96,165,250,0.12); border:1px solid rgba(96,165,250,0.3); color:#60a5fa; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:800; display:inline-block; margin-top:6px">🤖 ' + restockAdviceMap[p.sku].advice + '</div>' : '') +
+        '<div style="margin-top:8px"><button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="event.stopPropagation();showLifecycle(\'' + p.sku + '\')">📈 產品生命週期</button></div>' +
         customerHtml;
 
     html += '<div class="product-card">' +
@@ -1719,6 +1720,60 @@ function showDisplayDetails(sku) {
   
   body.innerHTML = html;
   document.getElementById('modal-detail').classList.remove('hidden');
+}
+
+function showLifecycle(sku) {
+  var title = document.getElementById('modal-title');
+  var body = document.getElementById('modal-body');
+  title.textContent = sku + ' 產品生命週期';
+  body.innerHTML = '載入中...';
+  document.getElementById('modal-detail').classList.remove('hidden');
+
+  apiGet('product-lifecycle', { sku: sku }, function(res) {
+    if (!res.success) { body.innerHTML = '<div style="color:var(--text2)">載入失敗</div>'; return; }
+    var d = res.data;
+    var html = '<div style="display:flex;flex-direction:column;gap:10px">';
+
+    html += '<div class="prod-stats">' +
+      '<div class="prod-stat"><div class="ps-label">首次進貨日</div><div class="ps-value">' + (d.firstInDate || '未記錄') + '</div></div>' +
+      '<div class="prod-stat"><div class="ps-label">距今天數</div><div class="ps-value">' + (d.daysSinceArrival === null ? '—' : d.daysSinceArrival + ' 天') + '</div></div>' +
+      '<div class="prod-stat"><div class="ps-label">最新進貨日</div><div class="ps-value">' + (d.latestInDate || '未記錄') + '</div></div>' +
+      '<div class="prod-stat"><div class="ps-label">目前上架通路</div><div class="ps-value text-gold">' + d.displayCount + ' 家</div></div>' +
+      '</div>';
+
+    if (d.monthlyHistory && d.monthlyHistory.length > 0) {
+      html += '<div class="ps-label" style="margin-top:8px">每月觀察記錄</div>';
+      html += '<div style="overflow-x:auto"><table style="width:100%;font-size:12px;border-collapse:collapse">' +
+        '<tr style="color:var(--text2);text-align:right"><th style="text-align:left;padding:4px">月份</th><th style="padding:4px">庫存(坪)</th><th style="padding:4px">歷史銷售(坪)</th><th style="padding:4px">月均銷(坪)</th><th style="padding:4px">MOS</th><th style="padding:4px">未售天數</th><th style="padding:4px">保留筆數</th><th style="padding:4px">保留數量</th></tr>' +
+        d.monthlyHistory.map(function(r) {
+          return '<tr style="border-top:1px solid var(--border);text-align:right">' +
+            '<td style="text-align:left;padding:4px">' + r.date + '</td>' +
+            '<td style="padding:4px">' + (r.stockPing ?? '-') + '</td>' +
+            '<td style="padding:4px">' + (r.totalPings ?? '-') + '</td>' +
+            '<td style="padding:4px">' + (r.monthlySpeedPings ?? '-') + '</td>' +
+            '<td style="padding:4px">' + (r.mos ?? '-') + '</td>' +
+            '<td style="padding:4px">' + (r.daysSinceLastSale === null || r.daysSinceLastSale === undefined ? '-' : r.daysSinceLastSale) + '</td>' +
+            '<td style="padding:4px">' + (r.reservedCount ?? 0) + '</td>' +
+            '<td style="padding:4px">' + (r.reservedQty ?? 0) + '</td>' +
+            '</tr>';
+        }).join('') +
+        '</table></div>';
+    } else {
+      html += '<div style="color:var(--text2);font-size:12px;margin-top:8px">尚無每月觀察記錄，將於下次重建快取後開始累積。</div>';
+    }
+
+    if (d.displays && d.displays.length > 0) {
+      html += '<div class="ps-label" style="margin-top:8px">目前陳列通路（' + d.displays.length + '）</div>';
+      html += '<div style="display:flex;flex-direction:column;gap:6px;font-size:12px">' +
+        d.displays.map(function(disp) {
+          return '<div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:4px"><span>' + disp.cust + '</span><span style="color:var(--text2)">' + (disp.date || '未記錄') + '</span></div>';
+        }).join('') +
+        '</div>';
+    }
+
+    html += '</div>';
+    body.innerHTML = html;
+  });
 }
 
 function closeDetail() {
