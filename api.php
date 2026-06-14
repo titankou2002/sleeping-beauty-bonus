@@ -1044,6 +1044,27 @@ class SleeperService
         return $advice;
     }
 
+    public function getReservationMap()
+    {
+        $rows = $this->gs->readSheet('保留單');
+        if (count($rows) < 2) return [];
+        $h = $rows[0];
+        $skuIdx = findHeader($h, ['編號']);
+        $qtyIdx = findHeader($h, ['數量']);
+        if ($skuIdx === null || $qtyIdx === null) return [];
+        $map = [];
+        for ($i = 1; $i < count($rows); $i++) {
+            $row = $rows[$i];
+            $sku = trim($row[$skuIdx] ?? '');
+            if ($sku === '') continue;
+            $qty = (float)($row[$qtyIdx] ?? 0);
+            if (!isset($map[$sku])) $map[$sku] = ['reservedQty' => 0, 'reservedCount' => 0];
+            $map[$sku]['reservedQty'] += $qty;
+            $map[$sku]['reservedCount'] += 1;
+        }
+        return $map;
+    }
+
     public function recordProductHistory($tab, $products)
     {
         if (!is_dir(AI_ADVISOR_CACHE_DIR)) {
@@ -1052,14 +1073,18 @@ class SleeperService
         $file = AI_ADVISOR_CACHE_DIR . "/product_history_{$tab}.json";
         $history = is_file($file) ? (json_decode(file_get_contents($file), true) ?: []) : [];
         $key = date('Y-m');
+        $reservationMap = $this->getReservationMap();
         $snapshot = [];
         foreach ($products as $p) {
+            $res = $reservationMap[$p['sku']] ?? ['reservedQty' => 0, 'reservedCount' => 0];
             $snapshot[$p['sku']] = [
                 'totalPings' => $p['totalPings'] ?? 0,
                 'stockPing' => $p['stockPing'] ?? 0,
                 'mos' => $p['mos'] ?? 0,
                 'monthlySpeedPings' => $p['monthlySpeedPings'] ?? 0,
-                'daysSinceLastSale' => $p['daysSinceLastSale']
+                'daysSinceLastSale' => $p['daysSinceLastSale'],
+                'reservedQty' => $res['reservedQty'],
+                'reservedCount' => $res['reservedCount']
             ];
         }
         $history[$key] = ['date' => $key, 'products' => $snapshot];
