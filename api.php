@@ -1082,6 +1082,13 @@ class SleeperService
         return ['success' => true, 'data' => $rows];
     }
 
+    public function debugSheetHeaders($sheet)
+    {
+        $data = $this->gs->readSheet($sheet);
+        if (count($data) < 1) return ['success' => false, 'msg' => 'no data'];
+        return ['success' => true, 'headers' => $data[0], 'sampleRow' => $data[1] ?? null, 'rowCount' => count($data)];
+    }
+
     public function getReportHistory()
     {
         $file = AI_ADVISOR_CACHE_DIR . '/report_history.json';
@@ -4391,6 +4398,12 @@ try {
             echo json_encode($res);
             break;
 
+
+        case 'debug-headers':
+            $sheet = $_GET['sheet'] ?? '';
+            $data = $svc->debugSheetHeaders($sheet);
+            echo json_encode($data);
+            break;
 
         case 'update-row':
             $rowIdx    = (int)($_POST['rowIdx'] ?? 0);
