@@ -918,6 +918,13 @@ class SleeperService
         return ['totalCost' => round($totalCost), 'totalPing' => round($totalPing, 1)];
     }
 
+    public function debugSheetHeaders($sheet)
+    {
+        $data = $this->gs->readSheet($sheet);
+        if (count($data) < 1) return ['success' => false, 'msg' => 'no data', 'sheet' => $sheet];
+        return ['success' => true, 'headers' => $data[0], 'sampleRow' => $data[1] ?? null, 'rowCount' => count($data)];
+    }
+
     public function getProductRestockAdvisor($tab, $forceRefresh = false)
     {
         $tab = in_array($tab, ['sleeper', 'normal', 'discontinued']) ? $tab : 'sleeper';
@@ -4353,6 +4360,12 @@ try {
         case 'normal-products':
             $res = $svc->getNormalProductOverview();
             echo json_encode($res);
+            break;
+
+        case 'debug-headers':
+            $sheet = $_GET['sheet'] ?? '';
+            $data = $svc->debugSheetHeaders($sheet);
+            echo json_encode($data);
             break;
 
         case 'product-advisor':
