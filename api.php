@@ -3395,7 +3395,8 @@ class SleeperService
                     'totalAmount' => 0, 'thisYearAmount' => 0, 'lastYearAmount' => 0,
                     'lastOrderDate' => null, 'visits' => 0, 'lastVisitDate' => null,
                     'noteCount' => 0, 'lastNote' => '', 'lastNoteDate' => null,
-                    'catCounts' => []
+                    'catCounts' => [],
+                    'marginAmt' => 0, 'marginRevenue' => 0, 'lowMarginDeals' => []
                 ];
             }
             return $key;
@@ -3410,6 +3411,9 @@ class SleeperService
             $idxQty  = $this->findHeader($h, ['數量','片數']);
             $idxAmt  = $this->findHeader($h, ['金額','銷額','銷售金額','成交金額','小計','總計']);
             $idxNote = $this->findHeader($h, ['備註','說明','案名','專案','工地']);
+            $idxCode = $this->findHeader($h, ['產品編號','編號','品碼','序號']);
+            $sleeperCosts = $this->getSleeperCostMap();
+            $priceCosts = $this->getPriceCostMap();
             if ($idxCust !== -1 && $idxDate !== -1) {
                 for ($i = 1; $i < count($raw); $i++) {
                     $row = $raw[$i];
@@ -3432,6 +3436,21 @@ class SleeperService
                     $ds = $d->format('Y-m-d');
                     if ($customers[$key]['lastOrderDate'] === null || $ds > $customers[$key]['lastOrderDate']) {
                         $customers[$key]['lastOrderDate'] = $ds;
+                    }
+
+                    $sku = $idxCode !== -1 ? $this->cleanSku($this->getVal($row, $idxCode)) : '';
+                    $cost = $sku !== '' ? ($sleeperCosts[$sku] ?? $priceCosts[$sku] ?? null) : null;
+                    if ($cost !== null && $amt != 0) {
+                        $margin = $amt - $cost * $qty;
+                        $marginPct = round($margin / $amt * 100, 1);
+                        $customers[$key]['marginAmt'] += $margin;
+                        $customers[$key]['marginRevenue'] += $amt;
+                        if ($marginPct < 15) {
+                            $customers[$key]['lowMarginDeals'][] = [
+                                'date' => $ds, 'sku' => $sku, 'qty' => $qty,
+                                'amount' => round($amt), 'marginPct' => $marginPct
+                            ];
+                        }
                     }
                 }
             }
@@ -3536,7 +3555,12 @@ class SleeperService
                 'lastNote' => $c['lastNote'],
                 'lastNoteDate' => $c['lastNoteDate'],
                 'health' => $health,
-                'catCounts' => $c['catCounts']
+                'catCounts' => $c['catCounts'],
+                'avgMarginPct' => $c['marginRevenue'] > 0 ? round($c['marginAmt'] / $c['marginRevenue'] * 100, 1) : null,
+                'lowMarginDeals' => (function ($deals) {
+                    usort($deals, function ($a, $b) { return $a['marginPct'] <=> $b['marginPct']; });
+                    return array_slice($deals, 0, 5);
+                })($c['lowMarginDeals'])
             ];
         }
 

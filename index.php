@@ -1813,11 +1813,13 @@ function renderCustomerAnalysis(data) {
             '<div class="prod-stat"><div class="ps-label">YOY</div><div class="ps-value" style="color:' + yoyColor + '">' + yoyText + '</div></div>' +
             '<div class="prod-stat"><div class="ps-label">最後下單</div><div class="ps-value">' + (c.lastOrderDate || '無') + (c.daysSinceLastOrder !== null ? '（' + c.daysSinceLastOrder + '天前）' : '') + '</div></div>' +
             '<div class="prod-stat"><div class="ps-label">拜訪次數</div><div class="ps-value">' + c.visits + '</div></div>' +
+            '<div class="prod-stat"><div class="ps-label">平均毛利率</div><div class="ps-value" style="color:' + (c.avgMarginPct === null ? 'var(--text2)' : (c.avgMarginPct < 15 ? 'var(--red)' : 'var(--text1)')) + '">' + (c.avgMarginPct === null ? '—' : c.avgMarginPct + '%') + '</div></div>' +
           '</div>' +
         '</div>' +
         '<div class="action-badge" style="background:' + info.color + '15;border:1px solid ' + info.color + '30;color:' + info.color + ';padding:4px 8px;border-radius:6px;font-size:11px;font-weight:800;display:inline-block;margin-top:6px">' + info.label + '</div>' +
         (c.lastNote ? '<div style="margin-top:6px;font-size:12px;color:var(--text2)">最新備註（' + (c.lastNoteDate || '') + '）：' + c.lastNote + '</div>' : '') +
         renderCatBreakdown(c.catCounts) +
+        renderLowMarginDeals(c.lowMarginDeals) +
       '</div>' +
     '</div>';
   });
@@ -1840,6 +1842,16 @@ function renderCatBreakdown(catCounts) {
     var color = CAT_COLOR[cat] || 'var(--text2)';
     html += '<span style="font-size:11px;color:' + color + ';border:1px solid ' + color + '40;border-radius:5px;padding:2px 6px">' + cat + ' ' + n + ' (' + pct + '%)</span>';
   });
+  html += '</div>';
+  return html;
+}
+
+function renderLowMarginDeals(deals) {
+  if (!deals || deals.length === 0) return '';
+  var html = '<div style="margin-top:6px;font-size:11px;color:var(--red)">⚠ 低毛利案件：';
+  html += deals.map(function(d) {
+    return d.date + ' ' + d.sku + ' ' + d.qty + '片/' + d.amount + '元（毛利率 ' + d.marginPct + '%）';
+  }).join('　');
   html += '</div>';
   return html;
 }
