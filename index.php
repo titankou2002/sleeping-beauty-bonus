@@ -1901,7 +1901,7 @@ function renderCustomerCard(c) {
 }
 
 var CONTRACT_HEALTH_COLOR = {
-  '嚴重': '#e5484d', '逾期': '#e5484d', '待續約': '#f5a623', '已續約': '#3ecf8e', '正常': 'var(--text2)'
+  '嚴重': '#e5484d', '逾期': '#e5484d', '待續約': '#f5a623', '暫停續約': '#f5a623', '已續約': '#3ecf8e', '正常': 'var(--text2)'
 };
 
 function renderContractBadge(c) {
