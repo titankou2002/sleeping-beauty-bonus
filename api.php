@@ -3381,6 +3381,11 @@ class SleeperService
         return ['success' => true, 'data' => $results];
     }
 
+    public function debugReadSheet($name)
+    {
+        return $this->gs->readSheet($name);
+    }
+
     public function getCustomerAnalysis()
     {
         $now = new DateTime();
@@ -4778,6 +4783,11 @@ try {
         case 'normal-products':
             $res = $svc->getNormalProductOverview();
             echo json_encode($res);
+            break;
+
+        case 'debug-contract':
+            $rows = $svc->debugReadSheet('合約');
+            echo json_encode(['count' => count($rows), 'row0' => $rows[0] ?? null, 'row1' => $rows[1] ?? null, 'row2' => $rows[2] ?? null]);
             break;
 
         case 'customer-analysis':
