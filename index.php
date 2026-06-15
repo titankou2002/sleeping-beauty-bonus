@@ -1727,7 +1727,7 @@ function showDisplayDetails(sku) {
 }
 
 var HEALTH_INFO = {
-  dormant: { label: '已停滯 180天+', color: '#e5484d' },
+  dormant: { label: '半年+未下單', color: '#e5484d' },
   warning: { label: '90天未下單', color: '#f5a623' },
   decline: { label: '業績衰退', color: '#e5484d' },
   growth:  { label: '成長中', color: '#3ecf8e' },
@@ -1760,21 +1760,24 @@ var CAT_COLOR = {
 function renderCustomerAnalysis(data) {
   var filter = window._customerHealthFilter || '';
   var daysThreshold = window._customerDaysFilter || 0;
-  var counts = {};
-  data.forEach(function(c) { counts[c.health] = (counts[c.health] || 0) + 1; });
-
-  var list = filter ? data.filter(function(c) { return c.health === filter; }) : data;
+  var base = data;
   if (daysThreshold > 0) {
-    list = list.filter(function(c) { return c.totalAmount > 0 && c.daysSinceLastOrder !== null && c.daysSinceLastOrder >= daysThreshold; });
+    base = base.filter(function(c) { return c.totalAmount > 0 && c.daysSinceLastOrder !== null && c.daysSinceLastOrder >= daysThreshold; });
   }
+  var counts = {};
+  base.forEach(function(c) { counts[c.health] = (counts[c.health] || 0) + 1; });
+
+  var list = filter ? base.filter(function(c) { return c.health === filter; }) : base;
 
   var html = '';
   html += '<div class="kpi-row" style="align-items:center">' +
     '<div class="kpi-card" style="flex:0 0 auto">' +
-      '<div class="label">未下單天數篩選</div>' +
+      '<div class="label">查詢未出貨天數</div>' +
       '<div style="display:flex;gap:6px;align-items:center;margin-top:6px">' +
+        '<span style="font-size:12px;color:var(--text2)">查詢</span>' +
         '<input id="customer-days-input" type="number" value="' + (daysThreshold || '') + '" placeholder="天數" style="width:70px;background:var(--bg2);border:1px solid var(--border);color:var(--text1);border-radius:6px;padding:4px 8px;font-size:13px" onkeydown="if(event.key===\'Enter\')applyCustomerDaysFilter()">' +
-        '<button class="btn" style="padding:4px 10px;font-size:12px" onclick="applyCustomerDaysFilter()">套用</button>' +
+        '<span style="font-size:12px;color:var(--text2)">天未出貨</span>' +
+        '<button class="btn" style="padding:4px 10px;font-size:12px" onclick="applyCustomerDaysFilter()">查詢</button>' +
         '<button class="btn" style="padding:4px 10px;font-size:12px' + (daysThreshold === 90 ? ';border-color:var(--gold);color:var(--gold)' : '') + '" onclick="window._customerDaysFilter=90;renderCustomerAnalysis(window._customerData)">3個月</button>' +
         '<button class="btn" style="padding:4px 10px;font-size:12px' + (daysThreshold === 180 ? ';border-color:var(--gold);color:var(--gold)' : '') + '" onclick="window._customerDaysFilter=180;renderCustomerAnalysis(window._customerData)">半年</button>' +
         (daysThreshold > 0 ? '<button class="btn" style="padding:4px 10px;font-size:12px" onclick="window._customerDaysFilter=0;renderCustomerAnalysis(window._customerData)">清除</button>' : '') +
