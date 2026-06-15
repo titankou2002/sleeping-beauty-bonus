@@ -1769,6 +1769,23 @@ function renderCustomerAnalysis(data) {
 
   var list = filter ? base.filter(function(c) { return c.health === filter; }) : base;
 
+  var search = (window._customerSearch || '').trim();
+  if (search) {
+    list = list.filter(function(c) { return String(c.name).indexOf(search) !== -1; });
+  }
+
+  var sortKey = window._customerSort || 'amount_desc';
+  var sorters = {
+    amount_desc: function(a, b) { return b.thisYearAmount - a.thisYearAmount; },
+    yoy_desc: function(a, b) { return (b.yoyPct === null ? -999 : b.yoyPct) - (a.yoyPct === null ? -999 : a.yoyPct); },
+    yoy_asc: function(a, b) { return (a.yoyPct === null ? 999 : a.yoyPct) - (b.yoyPct === null ? 999 : b.yoyPct); },
+    days_desc: function(a, b) { return (b.daysSinceLastOrder === null ? -1 : b.daysSinceLastOrder) - (a.daysSinceLastOrder === null ? -1 : a.daysSinceLastOrder); },
+    margin_asc: function(a, b) { return (a.avgMarginPct === null ? 999 : a.avgMarginPct) - (b.avgMarginPct === null ? 999 : b.avgMarginPct); }
+  };
+  list = list.slice().sort(sorters[sortKey] || sorters.amount_desc);
+
+  var groupBySales = !!window._customerGroupBySales;
+
   var html = '';
   html += '<div class="kpi-row" style="align-items:center">' +
     '<div class="kpi-card" style="flex:0 0 auto">' +
@@ -1785,6 +1802,27 @@ function renderCustomerAnalysis(data) {
     '</div>' +
   '</div>';
 
+  html += '<div class="kpi-row" style="align-items:center">' +
+    '<div class="kpi-card" style="flex:1 1 200px">' +
+      '<div class="label">搜尋客戶</div>' +
+      '<input id="customer-search-input" type="text" value="' + (search || '').replace(/"/g, '&quot;') + '" placeholder="輸入客戶名稱..." style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text1);border-radius:6px;padding:6px 8px;font-size:13px;margin-top:6px" oninput="window._customerSearch=this.value;renderCustomerAnalysis(window._customerData)">' +
+    '</div>' +
+    '<div class="kpi-card" style="flex:0 0 auto">' +
+      '<div class="label">排序</div>' +
+      '<select id="customer-sort-select" style="width:140px;background:var(--bg2);border:1px solid var(--border);color:var(--text1);border-radius:6px;padding:6px 8px;font-size:13px;margin-top:6px" onchange="window._customerSort=this.value;renderCustomerAnalysis(window._customerData)">' +
+        '<option value="amount_desc"' + (sortKey === 'amount_desc' ? ' selected' : '') + '>今年業績 高→低</option>' +
+        '<option value="yoy_desc"' + (sortKey === 'yoy_desc' ? ' selected' : '') + '>YOY 成長→衰退</option>' +
+        '<option value="yoy_asc"' + (sortKey === 'yoy_asc' ? ' selected' : '') + '>YOY 衰退→成長</option>' +
+        '<option value="days_desc"' + (sortKey === 'days_desc' ? ' selected' : '') + '>未下單天數 多→少</option>' +
+        '<option value="margin_asc"' + (sortKey === 'margin_asc' ? ' selected' : '') + '>毛利率 低→高</option>' +
+      '</select>' +
+    '</div>' +
+    '<div class="kpi-card" style="flex:0 0 auto">' +
+      '<div class="label">顯示方式</div>' +
+      '<div style="margin-top:6px"><button class="btn" style="padding:6px 12px;font-size:12px' + (groupBySales ? ';border-color:var(--gold);color:var(--gold)' : '') + '" onclick="window._customerGroupBySales=' + (groupBySales ? 'false' : 'true') + ';renderCustomerAnalysis(window._customerData)">依業務分組</button></div>' +
+    '</div>' +
+  '</div>';
+
   html += '<div class="kpi-row">';
   ['warning', 'dormant', 'decline', 'growth'].forEach(function(key) {
     var info = HEALTH_INFO[key];
@@ -1794,41 +1832,89 @@ function renderCustomerAnalysis(data) {
   });
   html += '</div>';
 
-  html += '<div class="product-list">';
-  list.forEach(function(c) {
-    var info = HEALTH_INFO[c.health];
-    var yoyText, yoyColor;
-    if (c.yoyPct === null) {
-      yoyText = '—'; yoyColor = 'var(--text2)';
-    } else if (c.yoyPct > 0) {
-      yoyText = '▲ +' + c.yoyPct + '%'; yoyColor = 'var(--red)';
-    } else if (c.yoyPct < 0) {
-      yoyText = '▼ ' + c.yoyPct + '%'; yoyColor = 'var(--green)';
-    } else {
-      yoyText = '0%'; yoyColor = 'var(--text2)';
-    }
-    html += '<div class="product-card" style="grid-template-columns:1fr;cursor:pointer" onclick="showCustomerTimeline(\'' + String(c.name).replace(/'/g, "\\'") + '\')">' +
-      '<div class="prod-info">' +
-        '<div class="prod-summary-row">' +
-          '<div class="prod-summary-main"><div class="prod-title">' + c.name + '</div></div>' +
-          '<div class="prod-summary-stats">' +
-            '<div class="prod-stat"><div class="ps-label">今年業績</div><div class="ps-value">' + fmt(c.thisYearAmount) + '</div></div>' +
-            '<div class="prod-stat"><div class="ps-label">YOY</div><div class="ps-value" style="color:' + yoyColor + '">' + yoyText + '</div></div>' +
-            '<div class="prod-stat"><div class="ps-label">最後下單</div><div class="ps-value">' + (c.lastOrderDate || '無') + (c.daysSinceLastOrder !== null ? '（' + c.daysSinceLastOrder + '天前）' : '') + '</div></div>' +
-            '<div class="prod-stat"><div class="ps-label">拜訪次數</div><div class="ps-value">' + c.visits + '</div></div>' +
-            '<div class="prod-stat"><div class="ps-label">平均毛利率</div><div class="ps-value" style="color:' + (c.avgMarginPct === null ? 'var(--text2)' : (c.avgMarginPct < 15 ? 'var(--red)' : 'var(--text1)')) + '">' + (c.avgMarginPct === null ? '—' : c.avgMarginPct + '%') + '</div></div>' +
-          '</div>' +
-        '</div>' +
-        '<div class="action-badge" style="background:' + info.color + '15;border:1px solid ' + info.color + '30;color:' + info.color + ';padding:4px 8px;border-radius:6px;font-size:11px;font-weight:800;display:inline-block;margin-top:6px">' + info.label + '</div>' +
-        (c.lastNote ? '<div style="margin-top:6px;font-size:12px;color:var(--text2)">最新備註（' + (c.lastNoteDate || '') + '）：' + c.lastNote + '</div>' : '') +
-        renderCatBreakdown(c.catCounts) +
-        renderLowMarginDeals(c.lowMarginDeals) +
-      '</div>' +
-    '</div>';
-  });
-  html += '</div>';
+  if (groupBySales) {
+    var groups = {};
+    var order = [];
+    list.forEach(function(c) {
+      var rep = c.salesRep || '未分配';
+      if (!groups[rep]) { groups[rep] = []; order.push(rep); }
+      groups[rep].push(c);
+    });
+    order.sort(function(a, b) {
+      if (a === '未分配') return 1;
+      if (b === '未分配') return -1;
+      return a.localeCompare(b);
+    });
+    order.forEach(function(rep) {
+      html += '<div style="margin:14px 0 6px;font-size:14px;font-weight:800;color:var(--gold)">👤 ' + rep + '（' + groups[rep].length + '）</div>';
+      html += '<div class="product-list">';
+      groups[rep].forEach(function(c) { html += renderCustomerCard(c); });
+      html += '</div>';
+    });
+  } else {
+    html += '<div class="product-list">';
+    list.forEach(function(c) { html += renderCustomerCard(c); });
+    html += '</div>';
+  }
 
   document.getElementById('main-content').innerHTML = html;
+  var input = document.getElementById('customer-search-input');
+  if (input) {
+    var pos = input.selectionStart;
+    input.focus();
+    input.setSelectionRange(pos, pos);
+  }
+}
+
+function renderCustomerCard(c) {
+  var info = HEALTH_INFO[c.health];
+  var yoyText, yoyColor;
+  if (c.yoyPct === null) {
+    yoyText = '—'; yoyColor = 'var(--text2)';
+  } else if (c.yoyPct > 0) {
+    yoyText = '▲ +' + c.yoyPct + '%'; yoyColor = 'var(--red)';
+  } else if (c.yoyPct < 0) {
+    yoyText = '▼ ' + c.yoyPct + '%'; yoyColor = 'var(--green)';
+  } else {
+    yoyText = '0%'; yoyColor = 'var(--text2)';
+  }
+  return '<div class="product-card" style="grid-template-columns:1fr;cursor:pointer" onclick="showCustomerTimeline(\'' + String(c.name).replace(/'/g, "\\'") + '\')">' +
+    '<div class="prod-info">' +
+      '<div class="prod-summary-row">' +
+        '<div class="prod-summary-main"><div class="prod-title">' + c.name + '</div></div>' +
+        '<div class="prod-summary-stats">' +
+          '<div class="prod-stat"><div class="ps-label">今年業績</div><div class="ps-value">' + fmt(c.thisYearAmount) + '</div></div>' +
+          '<div class="prod-stat"><div class="ps-label">YOY</div><div class="ps-value" style="color:' + yoyColor + '">' + yoyText + '</div></div>' +
+          '<div class="prod-stat"><div class="ps-label">最後下單</div><div class="ps-value">' + (c.lastOrderDate || '無') + (c.daysSinceLastOrder !== null ? '（' + c.daysSinceLastOrder + '天前）' : '') + '</div></div>' +
+          '<div class="prod-stat"><div class="ps-label">拜訪次數</div><div class="ps-value">' + c.visits + '</div></div>' +
+          '<div class="prod-stat"><div class="ps-label">平均毛利率</div><div class="ps-value" style="color:' + (c.avgMarginPct === null ? 'var(--text2)' : (c.avgMarginPct < 15 ? 'var(--red)' : 'var(--text1)')) + '">' + (c.avgMarginPct === null ? '—' : c.avgMarginPct + '%') + '</div></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="action-badge" style="background:' + info.color + '15;border:1px solid ' + info.color + '30;color:' + info.color + ';padding:4px 8px;border-radius:6px;font-size:11px;font-weight:800;display:inline-block;margin-top:6px">' + info.label + '</div>' +
+      renderYoyBar(c) +
+      (c.lastNote ? '<div style="margin-top:6px;font-size:12px;color:var(--text2)">最新備註（' + (c.lastNoteDate || '') + '）：' + c.lastNote + '</div>' : '') +
+      renderCatBreakdown(c.catCounts) +
+      renderLowMarginDeals(c.lowMarginDeals) +
+    '</div>' +
+  '</div>';
+}
+
+function renderYoyBar(c) {
+  var max = Math.max(c.thisYearAmount, c.lastYearAmount, 1);
+  var thisPct = Math.round(c.thisYearAmount / max * 100);
+  var lastPct = Math.round(c.lastYearAmount / max * 100);
+  return '<div style="margin-top:8px;display:flex;flex-direction:column;gap:3px">' +
+    '<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2)">' +
+      '<span style="width:34px;flex-shrink:0">今年</span>' +
+      '<div style="flex:1;background:var(--bg2);border-radius:3px;height:8px;overflow:hidden"><div style="width:' + thisPct + '%;height:100%;background:var(--gold)"></div></div>' +
+      '<span style="width:50px;text-align:right;flex-shrink:0">' + fmt(c.thisYearAmount) + '</span>' +
+    '</div>' +
+    '<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2)">' +
+      '<span style="width:34px;flex-shrink:0">去年同期</span>' +
+      '<div style="flex:1;background:var(--bg2);border-radius:3px;height:8px;overflow:hidden"><div style="width:' + lastPct + '%;height:100%;background:var(--text2)"></div></div>' +
+      '<span style="width:50px;text-align:right;flex-shrink:0">' + fmt(c.lastYearAmount) + '</span>' +
+    '</div>' +
+  '</div>';
 }
 
 function renderCatBreakdown(catCounts) {

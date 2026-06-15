@@ -3397,7 +3397,8 @@ class SleeperService
                     'lastOrderDate' => null, 'visits' => 0, 'lastVisitDate' => null,
                     'noteCount' => 0, 'lastNote' => '', 'lastNoteDate' => null,
                     'catCounts' => [],
-                    'marginAmt' => 0, 'marginRevenue' => 0, 'lowMarginDeals' => []
+                    'marginAmt' => 0, 'marginRevenue' => 0, 'lowMarginDeals' => [],
+                    'salesRepCounts' => []
                 ];
             }
             return $key;
@@ -3413,6 +3414,7 @@ class SleeperService
             $idxAmt  = $this->findHeader($h, ['金額','銷額','銷售金額','成交金額','小計','總計']);
             $idxNote = $this->findHeader($h, ['備註','說明','案名','專案','工地']);
             $idxCode = $this->findHeader($h, ['產品編號','編號','品碼','序號']);
+            $idxSales = $this->findHeader($h, ['負責業務','業務','業務員','負責人']);
             $sleeperCosts = $this->getSleeperCostMap();
             $priceCosts = $this->getPriceCostMap();
             if ($idxCust !== -1 && $idxDate !== -1) {
@@ -3437,6 +3439,12 @@ class SleeperService
                     $ds = $d->format('Y-m-d');
                     if ($customers[$key]['lastOrderDate'] === null || $ds > $customers[$key]['lastOrderDate']) {
                         $customers[$key]['lastOrderDate'] = $ds;
+                    }
+
+                    $rep = $idxSales !== -1 ? trim($this->getVal($row, $idxSales)) : '';
+                    if ($rep !== '') {
+                        if (!isset($customers[$key]['salesRepCounts'][$rep])) $customers[$key]['salesRepCounts'][$rep] = 0;
+                        $customers[$key]['salesRepCounts'][$rep]++;
                     }
 
                     $sku = $idxCode !== -1 ? $this->cleanSku($this->getVal($row, $idxCode)) : '';
@@ -3557,6 +3565,11 @@ class SleeperService
                 'lastNoteDate' => $c['lastNoteDate'],
                 'health' => $health,
                 'catCounts' => $c['catCounts'],
+                'salesRep' => (function ($counts) {
+                    if (empty($counts)) return '未分配';
+                    arsort($counts);
+                    return array_key_first($counts);
+                })($c['salesRepCounts']),
                 'avgMarginPct' => $c['marginRevenue'] > 0 ? round($c['marginAmt'] / $c['marginRevenue'] * 100, 1) : null,
                 'lowMarginDeals' => (function ($deals) {
                     usort($deals, function ($a, $b) { return $a['marginPct'] <=> $b['marginPct']; });
