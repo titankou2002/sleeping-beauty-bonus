@@ -2053,19 +2053,65 @@ function renderLowMarginDeals(deals) {
   return html;
 }
 
+function renderWarRoomDisplays(data) {
+  if (!data || !data.displays || data.displays.length === 0) return '';
+  var html = '<div style="margin-bottom:14px">';
+  html += '<div style="font-size:13px;font-weight:800;color:var(--gold);margin-bottom:6px">🏪 版面陳列牆（現正陳列 ' + data.displayCount + ' 個 SKU / ' + (data.displays.length) + ' 版，近一年銷售 ' + fmt(data.totalAmt) + '・' + data.totalPing + ' 坪）</div>';
+  html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px">';
+  data.displays.forEach(function(g) {
+    var daysText = g.days !== null ? '已上架 ' + g.days + ' 天' : '';
+    var imgHtml = g.photoUrl ?
+      '<div style="width:100%;aspect-ratio:1;background-image:url(\'' + g.photoUrl + '\');background-size:cover;background-position:center;border-radius:6px 6px 0 0"></div>' :
+      '<div style="width:100%;aspect-ratio:1;background:var(--bg2);border-radius:6px 6px 0 0;display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:11px">無照片</div>';
+    html += '<div style="border:1px solid var(--border);border-radius:6px;overflow:hidden;background:var(--bg2)">' +
+      imgHtml +
+      '<div style="padding:6px">' +
+        '<div style="font-size:12px;font-weight:800">' + g.series + '</div>' +
+        '<div style="font-size:11px;color:var(--text2)">' + daysText + '</div>' +
+        '<div style="font-size:12px;color:var(--gold);font-weight:800;margin-top:2px">' + fmt(g.totalAmt) + '・' + g.totalPing.toFixed(1) + ' 坪</div>' +
+        '<div style="margin-top:4px;display:flex;flex-direction:column;gap:2px">' +
+          g.items.map(function(it) {
+            var crown = it.sku === g.topSku && g.totalAmt > 0 ? ' 👑' : '';
+            var stockColor = it.stockPing <= 0 ? 'var(--red)' : (it.stockPing < 5 ? '#f5a623' : 'var(--text2)');
+            return '<div style="font-size:10px;color:var(--text2)">' + it.sku + crown +
+              '　餘 <span style="color:' + stockColor + '">' + it.stockPing + ' 坪</span>' +
+              (it.reservedQty > 0 ? '　保留 ' + it.reservedQty + ' 片' : '') +
+            '</div>';
+          }).join('') +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  });
+  html += '</div></div>';
+  return html;
+}
+
 function showCustomerTimeline(customer) {
   var title = document.getElementById('modal-title');
   var body = document.getElementById('modal-body');
-  title.textContent = customer + ' 歷史時間軸';
+  title.textContent = customer + ' 客戶戰情室';
   body.innerHTML = '載入中...';
   document.getElementById('modal-detail').classList.remove('hidden');
 
+  var warRoomHtml = '';
+  var timelineHtml = '';
+  var renderBoth = function() {
+    if (warRoomHtml === null || timelineHtml === null) return;
+    body.innerHTML = warRoomHtml + timelineHtml;
+  };
+
+  apiGet('customer-warroom', { customer: customer }, function(res) {
+    warRoomHtml = (res.success ? renderWarRoomDisplays(res.data) : '');
+    renderBoth();
+  }, function() { warRoomHtml = ''; renderBoth(); });
+
   apiGet('customer-timeline', { customer: customer }, function(res) {
-    if (!res.success) { body.innerHTML = '<div style="color:var(--text2)">載入失敗</div>'; return; }
+    if (!res.success) { timelineHtml = '<div style="color:var(--text2)">載入失敗</div>'; renderBoth(); return; }
     var rows = res.data.timeline || [];
-    if (rows.length === 0) { body.innerHTML = '<div style="color:var(--text2)">無歷史記錄</div>'; return; }
+    if (rows.length === 0) { timelineHtml = '<div style="color:var(--text2)">無歷史記錄</div>'; renderBoth(); return; }
     var typeColor = { '銷售': '#3ecf8e', '拜訪': '#60a5fa', '備註': 'var(--gold)' };
-    var html = '<div style="display:flex;flex-direction:column;gap:8px">';
+    var html = '<div style="font-size:13px;font-weight:800;color:var(--gold);margin-bottom:6px">📜 歷史時間軸</div>';
+    html += '<div style="display:flex;flex-direction:column;gap:8px">';
     rows.forEach(function(r) {
       var c = typeColor[r.type] || 'var(--text2)';
       var catBadge = (r.type === '拜訪' && r.category) ?
@@ -2077,8 +2123,11 @@ function showCustomerTimeline(customer) {
         '</div>';
     });
     html += '</div>';
-    body.innerHTML = html;
-  });
+    timelineHtml = html;
+    renderBoth();
+  }, function() { timelineHtml = ''; renderBoth(); });
+
+  warRoomHtml = null; timelineHtml = null;
 }
 
 function showLifecycle(sku) {

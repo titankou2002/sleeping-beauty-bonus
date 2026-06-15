@@ -3770,6 +3770,109 @@ class SleeperService
         return ['success' => true, 'data' => ['name' => $key, 'timeline' => $timeline]];
     }
 
+    public function getCustomerWarRoom($customer)
+    {
+        $key = $this->displayCustomerName($customer);
+        $now = new DateTime();
+
+        // 1. 該客戶目前現正陳列的 SKU (含照片/上架日期)
+        $entries = [];
+        foreach ($this->getActiveDisplaysMap() as $sku => $list) {
+            foreach ($list as $e) {
+                if ($this->displayCustomerName($e['cust'] ?? '') === $key) {
+                    $entries[$sku] = $e;
+                }
+            }
+        }
+        if (empty($entries)) {
+            return ['success' => true, 'data' => ['displays' => [], 'totalAmt' => 0, 'totalPing' => 0, 'displayCount' => 0]];
+        }
+
+        // 2. 該客戶近一年針對這些 SKU 的銷售統計
+        $metaMap = $this->getMetaMap();
+        $stockMap = $this->getStockMap();
+        $reservedMap = $this->getReservationMap();
+
+        $salesBySku = [];
+        $raw = $this->gs->readSheet(SALES_SHEET);
+        if (count($raw) >= 2) {
+            $h = $raw[0];
+            $idxDate = $this->findHeader($h, ['日期','單據日期','銷貨日期']);
+            $idxCust = $this->findHeader($h, ['客戶名稱','客戶']);
+            $idxQty  = $this->findHeader($h, ['數量','片數']);
+            $idxAmt  = $this->findHeader($h, ['金額','銷額','銷售金額','成交金額','小計','總計']);
+            $idxCode = $this->findHeader($h, ['產品編號','編號','品碼','序號']);
+            for ($i = 1; $i < count($raw); $i++) {
+                $row = $raw[$i];
+                $custRaw = trim($this->getVal($row, $idxCust));
+                if ($custRaw === '' || $this->displayCustomerName($custRaw) !== $key) continue;
+                $sku = $this->cleanSku($this->getVal($row, $idxCode));
+                if (!isset($entries[$sku])) continue;
+                $d = $this->parseDate($this->getVal($row, $idxDate));
+                if (!$d || $now->diff($d)->days > 365) continue;
+                $qty = $this->optFloat($this->getVal($row, $idxQty));
+                $amt = $this->optFloat($this->getVal($row, $idxAmt));
+                if (!isset($salesBySku[$sku])) $salesBySku[$sku] = ['amt' => 0, 'qty' => 0, 'count' => 0];
+                $salesBySku[$sku]['amt'] += $amt;
+                $salesBySku[$sku]['qty'] += $qty;
+                $salesBySku[$sku]['count']++;
+            }
+        }
+
+        // 3. 整理每個 SKU 並依照片分組（同一版面照片視為一張陳列牆）
+        $groups = [];
+        foreach ($entries as $sku => $e) {
+            $meta = $metaMap[$sku] ?? ['series' => '一般', 'perPing' => 36];
+            $sales = $salesBySku[$sku] ?? ['amt' => 0, 'qty' => 0, 'count' => 0];
+            $perPing = $meta['perPing'] ?: 36;
+            $d = $this->parseDate($e['date'] ?? '');
+            $days = $d ? (int)$now->diff($d)->days : null;
+
+            $item = [
+                'sku' => $sku,
+                'series' => $meta['series'] ?: '一般',
+                'installDate' => $e['date'] ?? '',
+                'days' => $days,
+                'salesAmt' => round($sales['amt']),
+                'salesPing' => round($sales['qty'] / $perPing, 1),
+                'frequency' => $sales['count'],
+                'stockPing' => round($stockMap[$sku] ?? 0, 1),
+                'reservedQty' => $reservedMap[$sku]['reservedQty'] ?? 0
+            ];
+
+            $gk = ($e['photoUrl'] ?? '') !== '' ? $e['photoUrl'] : $sku;
+            if (!isset($groups[$gk])) {
+                $groups[$gk] = ['photoUrl' => $e['photoUrl'] ?? '', 'series' => $item['series'], 'days' => null, 'totalAmt' => 0, 'totalPing' => 0, 'items' => []];
+            }
+            $groups[$gk]['totalAmt'] += $item['salesAmt'];
+            $groups[$gk]['totalPing'] += $item['salesPing'];
+            $groups[$gk]['items'][] = $item;
+            if ($days !== null && ($groups[$gk]['days'] === null || $days > $groups[$gk]['days'])) {
+                $groups[$gk]['days'] = $days;
+            }
+        }
+
+        $displays = [];
+        $totalAmt = 0;
+        $totalPing = 0;
+        foreach ($groups as $g) {
+            usort($g['items'], function ($a, $b) { return $b['salesAmt'] <=> $a['salesAmt']; });
+            $g['topSku'] = $g['items'][0]['sku'];
+            $g['topSharePct'] = $g['totalAmt'] > 0 ? round($g['items'][0]['salesAmt'] / $g['totalAmt'] * 100) : 0;
+            $totalAmt += $g['totalAmt'];
+            $totalPing += $g['totalPing'];
+            $displays[] = $g;
+        }
+        usort($displays, function ($a, $b) { return $b['totalAmt'] <=> $a['totalAmt']; });
+
+        return ['success' => true, 'data' => [
+            'displays' => $displays,
+            'totalAmt' => round($totalAmt),
+            'totalPing' => round($totalPing, 1),
+            'displayCount' => count($entries)
+        ]];
+    }
+
     public function getSleeperProductOverview()
     {
         $configRes = $this->getSleeperConfig();
@@ -4849,6 +4952,12 @@ try {
         case 'customer-timeline':
             $customer = $_GET['customer'] ?? '';
             $res = $svc->getCustomerTimeline($customer);
+            echo json_encode($res);
+            break;
+
+        case 'customer-warroom':
+            $customer = $_GET['customer'] ?? '';
+            $res = $svc->getCustomerWarRoom($customer);
             echo json_encode($res);
             break;
 
