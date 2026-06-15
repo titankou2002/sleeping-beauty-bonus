@@ -31,17 +31,6 @@ class GoogleSheetsClient
         $this->ssId = $ssId ?: SS_ID_MAIN;
     }
 
-    public function listSheetTitles()
-    {
-        $url = "https://sheets.googleapis.com/v4/spreadsheets/{$this->ssId}?fields=sheets(properties(title))";
-        $res = $this->api('GET', $url);
-        $titles = [];
-        foreach (($res['sheets'] ?? []) as $sheet) {
-            $titles[] = $sheet['properties']['title'] ?? '';
-        }
-        return $titles;
-    }
-
     public function readSheet($sheetName)
     {
         if (isset($this->sheetValueCache[$sheetName])) {
@@ -4332,17 +4321,6 @@ try {
     $method = $_SERVER['REQUEST_METHOD'];
 
     switch ($action) {
-        case 'debug-old-sheet':
-            $oldId = '11rDpWtTjtSPMEF8rpbm0gBFtZXvN9uB4';
-            $oldGs = new GoogleSheetsClient($oldId);
-            if (isset($_GET['list'])) {
-                echo json_encode(['success' => true, 'titles' => $oldGs->listSheetTitles()]);
-                break;
-            }
-            $sheet = $_GET['sheet'] ?? '';
-            $data = $oldGs->readSheet($sheet);
-            echo json_encode(['success' => true, 'rowCount' => count($data), 'rows' => array_slice($data, 0, 60)]);
-            break;
 
 
         case 'config':
