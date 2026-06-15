@@ -3641,16 +3641,17 @@ class SleeperService
 
         usort($result, function ($a, $b) { return $b['totalAmount'] <=> $a['totalAmount']; });
 
-        // 月報摘要
+        // 月報摘要（僅統計有銷售紀錄的客戶，排除拜訪/備註誤判出來的假客戶）
+        $activeCustomers = array_values(array_filter($result, function ($c) { return $c['totalAmount'] > 0; }));
         $summary = [
-            'customerCount' => count($result),
+            'customerCount' => count($activeCustomers),
             'totalAmount' => 0, 'thisYearAmount' => 0, 'lastYearAmount' => 0,
             'healthCounts' => ['growth'=>0,'decline'=>0,'warning'=>0,'dormant'=>0,'normal'=>0,'no_sales'=>0],
             'catCounts' => [],
             'topCustomers' => [],
             'totalActiveDisplays' => 0
         ];
-        foreach ($result as $c) {
+        foreach ($activeCustomers as $c) {
             $summary['totalAmount'] += $c['totalAmount'];
             $summary['thisYearAmount'] += $c['thisYearAmount'];
             $summary['lastYearAmount'] += $c['lastYearAmount'];
@@ -3664,7 +3665,7 @@ class SleeperService
         $summary['yoyPct'] = $summary['lastYearAmount'] > 0
             ? round((($summary['thisYearAmount'] - $summary['lastYearAmount']) / $summary['lastYearAmount']) * 100, 1)
             : null;
-        $top10 = array_slice($result, 0, 10);
+        $top10 = array_slice($activeCustomers, 0, 10);
         $summary['topCustomers'] = array_map(function ($c) {
             return ['name' => $c['name'], 'totalAmount' => $c['totalAmount'], 'yoyPct' => $c['yoyPct'], 'health' => $c['health']];
         }, $top10);
