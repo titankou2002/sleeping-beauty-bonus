@@ -31,6 +31,11 @@ class GoogleSheetsClient
         $this->ssId = $ssId ?: SS_ID_MAIN;
     }
 
+    public function apiPublic($method, $url, $body = null)
+    {
+        return $this->api($method, $url, $body);
+    }
+
     public function readSheet($sheetName)
     {
         if (isset($this->sheetValueCache[$sheetName])) {
@@ -4321,6 +4326,29 @@ try {
     $method = $_SERVER['REQUEST_METHOD'];
 
     switch ($action) {
+        case 'debug-old-sheet':
+            $oldId = '1-CuM1-4dQfFFMYeozEQSA5WM4VETyC96FBfMWkUx9RM';
+            $oldGs = new GoogleSheetsClient($oldId);
+            if (isset($_GET['list'])) {
+                $url = "https://sheets.googleapis.com/v4/spreadsheets/{$oldId}?fields=sheets(properties(title))";
+                $res = $oldGs->apiPublic('GET', $url);
+                $titles = [];
+                foreach (($res['sheets'] ?? []) as $sheet) $titles[] = $sheet['properties']['title'] ?? '';
+                echo json_encode(['success' => true, 'titles' => $titles]);
+                break;
+            }
+            $sheet = $_GET['sheet'] ?? '謝博皓';
+            $data = $oldGs->readSheet($sheet);
+            $offset = (int)($_GET['offset'] ?? 0);
+            echo json_encode(['success' => true, 'rowCount' => count($data), 'rows' => array_slice($data, $offset, 30)]);
+            break;
+
+        case 'debug-worklog-headers':
+            $gsLayout = new GoogleSheetsClient(SS_ID_LAYOUT);
+            $data = $gsLayout->readSheet('智能_工作日誌');
+            echo json_encode(['success' => true, 'headers' => $data[0] ?? [], 'sample' => $data[1] ?? [], 'rowCount' => count($data)]);
+            break;
+
         case 'debug-old-sheet':
             $oldId = '1-CuM1-4dQfFFMYeozEQSA5WM4VETyC96FBfMWkUx9RM';
             $oldGs = new GoogleSheetsClient($oldId);
