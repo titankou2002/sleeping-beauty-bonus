@@ -222,6 +222,11 @@ class GoogleSheetsClient
         return $result ?: [];
     }
 
+    public function addSheetPublic($title)
+    {
+        return $this->batchUpdate(['requests' => [['addSheet' => ['properties' => ['title' => $title]]]]]);
+    }
+
     private function batchUpdate($body)
     {
         $url = "https://sheets.googleapis.com/v4/spreadsheets/{$this->ssId}:batchUpdate";
@@ -4369,6 +4374,10 @@ try {
             }
 
             $gsLayout = new GoogleSheetsClient(SS_ID_LAYOUT);
+            if (!empty($_GET['create'])) {
+                try { $gsLayout->addSheetPublic('智能_客戶備註歷史'); } catch (Exception $e) {}
+                $gsLayout->appendRows('智能_客戶備註歷史', [['日期', '業務姓名', '客戶名稱', '備註', '記錄ID']]);
+            }
             foreach (array_chunk($out, 500) as $chunk) {
                 $gsLayout->appendRows('智能_客戶備註歷史', $chunk);
             }
