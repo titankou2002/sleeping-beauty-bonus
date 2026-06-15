@@ -31,11 +31,6 @@ class GoogleSheetsClient
         $this->ssId = $ssId ?: SS_ID_MAIN;
     }
 
-    public function apiPublic($method, $url, $body = null)
-    {
-        return $this->api($method, $url, $body);
-    }
-
     public function readSheet($sheetName)
     {
         if (isset($this->sheetValueCache[$sheetName])) {
@@ -4326,83 +4321,6 @@ try {
     $method = $_SERVER['REQUEST_METHOD'];
 
     switch ($action) {
-        case 'debug-old-sheet':
-            $oldId = '1-CuM1-4dQfFFMYeozEQSA5WM4VETyC96FBfMWkUx9RM';
-            $oldGs = new GoogleSheetsClient($oldId);
-            if (isset($_GET['list'])) {
-                $url = "https://sheets.googleapis.com/v4/spreadsheets/{$oldId}?fields=sheets(properties(title))";
-                $res = $oldGs->apiPublic('GET', $url);
-                $titles = [];
-                foreach (($res['sheets'] ?? []) as $sheet) $titles[] = $sheet['properties']['title'] ?? '';
-                echo json_encode(['success' => true, 'titles' => $titles]);
-                break;
-            }
-            $sheet = $_GET['sheet'] ?? '謝博皓';
-            $data = $oldGs->readSheet($sheet);
-            $offset = (int)($_GET['offset'] ?? 0);
-            echo json_encode(['success' => true, 'rowCount' => count($data), 'rows' => array_slice($data, $offset, 30)]);
-            break;
-
-        case 'migrate-visits':
-            $oldId = '1-CuM1-4dQfFFMYeozEQSA5WM4VETyC96FBfMWkUx9RM';
-            $oldGs = new GoogleSheetsClient($oldId);
-            $tab = $_GET['tab'] ?? '';
-            $repNames = ['謝博皓', '陳勁多', '潘右森'];
-            if (!in_array($tab, $repNames)) {
-                echo json_encode(['success' => false, 'msg' => '請指定 tab=謝博皓/陳勁多/潘右森']);
-                break;
-            }
-            $dryrun = !empty($_GET['dryrun']);
-
-            $rows = $oldGs->readSheet($tab);
-            $out = [];
-            for ($i = 0; $i < count($rows); $i++) {
-                $cell0 = trim($rows[$i][0] ?? '');
-                if (!preg_match('/^(\d{4})\s*第\s*\d+\s*周/u', $cell0, $m)) continue;
-                $year = (int)$m[1];
-
-                $dateRow = $rows[$i + 1] ?? [];
-                $dates = [];
-                for ($c = 0; $c <= 8; $c += 2) {
-                    $d = trim($dateRow[$c] ?? '');
-                    if (preg_match('/^(\d{1,2})\/(\d{1,2})$/', $d, $dm)) {
-                        $dates[$c] = sprintf('%04d-%02d-%02d', $year, (int)$dm[1], (int)$dm[2]);
-                    } else {
-                        $dates[$c] = null;
-                    }
-                }
-
-                for ($r = $i + 3; $r < count($rows); $r++) {
-                    $first = trim($rows[$r][0] ?? '');
-                    if ($first === '睡美人相關' || preg_match('/^(\d{4})\s*第\s*\d+\s*周/u', $first)) break;
-                    $row = $rows[$r];
-                    for ($c = 0; $c <= 8; $c += 2) {
-                        $cust = trim($row[$c] ?? '');
-                        $task = trim($row[$c + 1] ?? '');
-                        if ($cust === '' || $dates[$c] === null) continue;
-                        $out[] = [$dates[$c], $tab, $cust, $task, '', '', '', 'MIGRATED_' . substr(md5($tab . $dates[$c] . $cust . $task . $c . $r), 0, 12)];
-                    }
-                }
-            }
-
-            if ($dryrun) {
-                echo json_encode(['success' => true, 'count' => count($out), 'sample' => array_slice($out, 0, 20)]);
-                break;
-            }
-
-            $gsLayout = new GoogleSheetsClient(SS_ID_LAYOUT);
-            foreach (array_chunk($out, 500) as $chunk) {
-                $gsLayout->appendRows('智能_工作日誌', $chunk);
-            }
-            echo json_encode(['success' => true, 'count' => count($out)]);
-            break;
-
-        case 'debug-worklog-headers':
-            $gsLayout = new GoogleSheetsClient(SS_ID_LAYOUT);
-            $data = $gsLayout->readSheet('智能_工作日誌');
-            echo json_encode(['success' => true, 'headers' => $data[0] ?? [], 'sample' => $data[1] ?? [], 'rowCount' => count($data)]);
-            break;
-
         case 'debug-old-sheet':
             $oldId = '1-CuM1-4dQfFFMYeozEQSA5WM4VETyC96FBfMWkUx9RM';
             $oldGs = new GoogleSheetsClient($oldId);
