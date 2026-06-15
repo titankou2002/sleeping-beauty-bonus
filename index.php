@@ -1753,8 +1753,8 @@ function loadCustomerAnalysis() {
 }
 
 var CAT_COLOR = {
-  '送樣': '#60a5fa', '帳單': '#f5a623', '版面': '#a78bfa',
-  '送貨退貨': '#3ecf8e', '案件': '#e5484d', '聊天': 'var(--text2)', '其他': 'var(--text2)'
+  '客訴': '#e5484d', '送樣': '#60a5fa', '帳款': '#f5a623', '版面': '#a78bfa',
+  '送貨退貨': '#3ecf8e', '案件': '#f97316', '聊天': 'var(--text2)', '其他': 'var(--text2)'
 };
 
 function renderCustomerAnalysis(data) {
@@ -1833,7 +1833,7 @@ function renderCatBreakdown(catCounts) {
   var total = 0;
   Object.keys(catCounts).forEach(function(k) { total += catCounts[k]; });
   if (total === 0) return '';
-  var order = ['送樣', '帳單', '版面', '送貨退貨', '案件', '聊天', '其他'];
+  var order = ['客訴', '送樣', '帳款', '版面', '送貨退貨', '案件', '聊天', '其他'];
   var html = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">';
   order.forEach(function(cat) {
     var n = catCounts[cat] || 0;
