@@ -3399,7 +3399,8 @@ class SleeperService
                     'catCounts' => [],
                     'marginAmt' => 0, 'marginRevenue' => 0, 'lowMarginDeals' => [],
                     'salesRepCounts' => [],
-                    'contractHealth' => null, 'contractExpiry' => null, 'contractBalance' => null
+                    'contractHealth' => null, 'contractExpiry' => null, 'contractBalance' => null,
+                    'activeDisplays' => []
                 ];
             }
             return $key;
@@ -3560,6 +3561,27 @@ class SleeperService
         } catch (Exception $e) {
         }
 
+        // 5. 版面 (現正陳列中)
+        try {
+            $displaysMap = $this->getActiveDisplaysMap();
+            foreach ($displaysMap as $sku => $entries) {
+                foreach ($entries as $entry) {
+                    $custRaw = trim($entry['cust'] ?? '');
+                    if ($custRaw === '') continue;
+                    $key = $this->displayCustomerName($custRaw);
+                    $getC($key);
+                    $d = $this->parseDate($entry['date'] ?? '');
+                    $days = $d ? (int)$now->diff($d)->days : null;
+                    $customers[$key]['activeDisplays'][] = [
+                        'sku' => $sku,
+                        'date' => $entry['date'] ?? '',
+                        'days' => $days
+                    ];
+                }
+            }
+        } catch (Exception $e) {
+        }
+
         $result = [];
         foreach ($customers as $key => $c) {
             $daysSinceLastOrder = $c['lastOrderDate'] ? (int)$now->diff(new DateTime($c['lastOrderDate']))->days : null;
@@ -3608,13 +3630,46 @@ class SleeperService
                 'lowMarginDeals' => (function ($deals) {
                     usort($deals, function ($a, $b) { return $a['marginPct'] <=> $b['marginPct']; });
                     return array_slice($deals, 0, 5);
-                })($c['lowMarginDeals'])
+                })($c['lowMarginDeals']),
+                'activeDisplayCount' => count($c['activeDisplays']),
+                'activeDisplays' => (function ($disps) {
+                    usort($disps, function ($a, $b) { return ($b['days'] ?? -1) <=> ($a['days'] ?? -1); });
+                    return array_slice($disps, 0, 10);
+                })($c['activeDisplays'])
             ];
         }
 
         usort($result, function ($a, $b) { return $b['totalAmount'] <=> $a['totalAmount']; });
 
-        return ['success' => true, 'data' => $result];
+        // 月報摘要
+        $summary = [
+            'customerCount' => count($result),
+            'totalAmount' => 0, 'thisYearAmount' => 0, 'lastYearAmount' => 0,
+            'healthCounts' => ['growth'=>0,'decline'=>0,'warning'=>0,'dormant'=>0,'normal'=>0,'no_sales'=>0],
+            'catCounts' => [],
+            'topCustomers' => [],
+            'totalActiveDisplays' => 0
+        ];
+        foreach ($result as $c) {
+            $summary['totalAmount'] += $c['totalAmount'];
+            $summary['thisYearAmount'] += $c['thisYearAmount'];
+            $summary['lastYearAmount'] += $c['lastYearAmount'];
+            $summary['healthCounts'][$c['health']]++;
+            $summary['totalActiveDisplays'] += $c['activeDisplayCount'];
+            foreach ($c['catCounts'] as $cat => $cnt) {
+                if (!isset($summary['catCounts'][$cat])) $summary['catCounts'][$cat] = 0;
+                $summary['catCounts'][$cat] += $cnt;
+            }
+        }
+        $summary['yoyPct'] = $summary['lastYearAmount'] > 0
+            ? round((($summary['thisYearAmount'] - $summary['lastYearAmount']) / $summary['lastYearAmount']) * 100, 1)
+            : null;
+        $top10 = array_slice($result, 0, 10);
+        $summary['topCustomers'] = array_map(function ($c) {
+            return ['name' => $c['name'], 'totalAmount' => $c['totalAmount'], 'yoyPct' => $c['yoyPct'], 'health' => $c['health']];
+        }, $top10);
+
+        return ['success' => true, 'data' => $result, 'summary' => $summary];
     }
 
     public function getCustomerTimeline($customer)
