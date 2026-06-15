@@ -3381,11 +3381,6 @@ class SleeperService
         return ['success' => true, 'data' => $results];
     }
 
-    public function debugReadSheet($name)
-    {
-        return $this->gs->readSheet($name);
-    }
-
     public function getCustomerAnalysis()
     {
         $now = new DateTime();
@@ -3538,13 +3533,19 @@ class SleeperService
         // 4. 合約 (高雅瓷內部管理)
         try {
             $contractRows = $this->gs->readSheet('合約');
-            if (count($contractRows) >= 2) {
-                $h = $contractRows[1];
+            if (count($contractRows) >= 3) {
+                $h0 = $contractRows[0];
+                $h1 = $contractRows[1];
+                $h = [];
+                for ($ci = 0; $ci < max(count($h0), count($h1)); $ci++) {
+                    $v1 = trim($h1[$ci] ?? '');
+                    $h[$ci] = $v1 !== '' ? $v1 : ($h0[$ci] ?? '');
+                }
                 $idxHealth = $this->findHeader($h, ['健康度']);
                 $idxCust = $this->findHeader($h, ['客戶']);
                 $idxExpiry = $this->findHeader($h, ['最後一張票期']);
                 $idxSalesC = $this->findHeader($h, ['業務']);
-                $idxBalance = $idxSalesC - 1;
+                $idxBalance = $idxSalesC > 0 ? $idxSalesC - 1 : -1;
                 for ($i = 2; $i < count($contractRows); $i++) {
                     $row = $contractRows[$i];
                     $custRaw = trim($this->getVal($row, $idxCust));
@@ -4783,11 +4784,6 @@ try {
         case 'normal-products':
             $res = $svc->getNormalProductOverview();
             echo json_encode($res);
-            break;
-
-        case 'debug-contract':
-            $rows = $svc->debugReadSheet('合約');
-            echo json_encode(['count' => count($rows), 'row0' => $rows[0] ?? null, 'row1' => $rows[1] ?? null, 'row2' => $rows[2] ?? null]);
             break;
 
         case 'customer-analysis':
