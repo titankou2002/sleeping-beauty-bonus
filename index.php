@@ -1755,7 +1755,7 @@ function loadCustomerAnalysis() {
 
 var CAT_COLOR = {
   '客訴': '#e5484d', '送樣': '#60a5fa', '帳款': '#f5a623', '版面': '#a78bfa',
-  '送貨退貨': '#3ecf8e', '案件': '#f97316', '聊天': 'var(--text2)', '其他': 'var(--text2)'
+  '送貨退貨': '#3ecf8e', '案件': '#f97316', '客情': '#c084fc', '其他': 'var(--text2)'
 };
 
 function renderCustomerDashboard(summary) {
@@ -1776,7 +1776,7 @@ function renderCustomerDashboard(summary) {
   '</div>';
 
   // 健康度分布
-  var healthOrder = ['growth', 'normal', 'warning', 'decline', 'dormant', 'no_sales'];
+  var healthOrder = ['growth', 'normal', 'warning', 'decline', 'dormant'];
   var maxH = Math.max.apply(null, healthOrder.map(function(k) { return summary.healthCounts[k] || 0; })) || 1;
   html += '<div class="kpi-card" style="margin-top:10px"><div class="label">客戶健康度分布</div><div style="display:flex;flex-direction:column;gap:5px;margin-top:8px">';
   healthOrder.forEach(function(k) {
@@ -1812,7 +1812,7 @@ function renderCustomerDashboard(summary) {
     var catTotal = 0;
     Object.keys(summary.catCounts).forEach(function(k) { catTotal += summary.catCounts[k]; });
     if (catTotal > 0) {
-      var order = ['客訴', '送樣', '帳款', '版面', '送貨退貨', '案件', '聊天', '其他'];
+      var order = ['客訴', '送樣', '帳款', '版面', '送貨退貨', '案件', '客情', '其他'];
       html += '<div class="kpi-card" style="margin-top:10px"><div class="label">整體拜訪互動類型分布（共 ' + catTotal + ' 筆）</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">';
       order.forEach(function(cat) {
         var n = summary.catCounts[cat] || 0;
@@ -1996,15 +1996,8 @@ function renderContractBadge(c) {
 }
 
 function renderActiveDisplays(c) {
-  if (!c.activeDisplays || c.activeDisplays.length === 0) return '';
-  var html = '<div style="margin-top:4px;font-size:12px;color:var(--text2)">現正陳列 ' + c.activeDisplayCount + ' 個 SKU：</div>';
-  html += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">';
-  c.activeDisplays.forEach(function(d) {
-    var days = d.days !== null ? d.days + ' 天' : '—';
-    html += '<span style="font-size:11px;color:var(--text2);border:1px solid var(--border);border-radius:5px;padding:2px 6px">' + d.sku + '（上架 ' + days + '）</span>';
-  });
-  html += '</div>';
-  return html;
+  if (!c.activeDisplayCount) return '';
+  return '<div style="margin-top:4px;font-size:12px;color:var(--text2)">現正陳列 ' + c.activeDisplayCount + ' 個 SKU，點擊卡片查看版面陳列牆 →</div>';
 }
 
 function renderYoyBar(c) {
@@ -2030,7 +2023,7 @@ function renderCatBreakdown(catCounts) {
   var total = 0;
   Object.keys(catCounts).forEach(function(k) { total += catCounts[k]; });
   if (total === 0) return '';
-  var order = ['客訴', '送樣', '帳款', '版面', '送貨退貨', '案件', '聊天', '其他'];
+  var order = ['客訴', '送樣', '帳款', '版面', '送貨退貨', '案件', '客情', '其他'];
   var html = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">';
   order.forEach(function(cat) {
     var n = catCounts[cat] || 0;
@@ -2086,6 +2079,32 @@ function renderWarRoomDisplays(data) {
   return html;
 }
 
+function renderCatPie(catCounts) {
+  if (!catCounts) return '';
+  var order = ['客訴', '送樣', '帳款', '版面', '送貨退貨', '案件', '客情', '其他'];
+  var total = 0;
+  order.forEach(function(cat) { total += (catCounts[cat] || 0); });
+  if (total === 0) return '';
+  var gradParts = [];
+  var acc = 0;
+  var legend = '';
+  order.forEach(function(cat) {
+    var n = catCounts[cat] || 0;
+    if (n === 0) return;
+    var color = CAT_COLOR[cat] || 'var(--text2)';
+    var pct = n / total * 100;
+    gradParts.push(color + ' ' + acc + '% ' + (acc + pct) + '%');
+    acc += pct;
+    legend += '<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)">' +
+      '<span style="width:8px;height:8px;border-radius:2px;background:' + color + ';display:inline-block"></span>' +
+      cat + ' ' + n + ' (' + Math.round(n / total * 100) + '%)</div>';
+  });
+  return '<div style="display:flex;align-items:center;gap:14px">' +
+    '<div style="width:80px;height:80px;border-radius:50%;background:conic-gradient(' + gradParts.join(',') + ');flex-shrink:0"></div>' +
+    '<div style="display:flex;flex-direction:column;gap:3px;flex-wrap:wrap">' + legend + '</div>' +
+  '</div>';
+}
+
 function showCustomerTimeline(customer) {
   var title = document.getElementById('modal-title');
   var body = document.getElementById('modal-body');
@@ -2093,11 +2112,22 @@ function showCustomerTimeline(customer) {
   body.innerHTML = '載入中...';
   document.getElementById('modal-detail').classList.remove('hidden');
 
+  var c = (window._customerData || []).find(function(x) { return x.name === customer; });
+  var headerHtml = '';
+  if (c) {
+    headerHtml += '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:14px">' +
+      '<div style="flex:1 1 220px"><div style="font-size:13px;font-weight:800;color:var(--gold);margin-bottom:6px">📊 業績趨勢</div>' + renderYoyBar(c) + renderLowMarginDeals(c.lowMarginDeals) + '</div>' +
+      '<div style="flex:1 1 220px"><div style="font-size:13px;font-weight:800;color:var(--gold);margin-bottom:6px">🤝 互動類型分布</div>' + (renderCatPie(c.catCounts) || '<div style="font-size:12px;color:var(--text2)">無紀錄</div>') + '</div>' +
+    '</div>';
+  }
+
   var warRoomHtml = '';
   var timelineHtml = '';
   var renderBoth = function() {
     if (warRoomHtml === null || timelineHtml === null) return;
-    body.innerHTML = warRoomHtml + timelineHtml;
+    body.innerHTML = headerHtml + warRoomHtml +
+      '<div style="margin-top:14px"><button class="btn" style="padding:6px 12px;font-size:12px" onclick="var el=document.getElementById(\'cust-timeline-detail\');el.style.display=el.style.display===\'none\'?\'block\':\'none\'">📜 互動紀錄明細 ▾</button>' +
+      '<div id="cust-timeline-detail" style="display:none;margin-top:10px">' + timelineHtml + '</div></div>';
   };
 
   apiGet('customer-warroom', { customer: customer }, function(res) {
@@ -2110,8 +2140,7 @@ function showCustomerTimeline(customer) {
     var rows = res.data.timeline || [];
     if (rows.length === 0) { timelineHtml = '<div style="color:var(--text2)">無歷史記錄</div>'; renderBoth(); return; }
     var typeColor = { '銷售': '#3ecf8e', '拜訪': '#60a5fa', '備註': 'var(--gold)' };
-    var html = '<div style="font-size:13px;font-weight:800;color:var(--gold);margin-bottom:6px">📜 歷史時間軸</div>';
-    html += '<div style="display:flex;flex-direction:column;gap:8px">';
+    var html = '<div style="display:flex;flex-direction:column;gap:8px">';
     rows.forEach(function(r) {
       var c = typeColor[r.type] || 'var(--text2)';
       var catBadge = (r.type === '拜訪' && r.category) ?
