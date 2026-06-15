@@ -4321,6 +4321,14 @@ try {
     $method = $_SERVER['REQUEST_METHOD'];
 
     switch ($action) {
+        case 'debug-old-sheet':
+            $oldId = '1-CuM1-4dQfFFMYeozEQSA5WM4VETyC96FBfMWkUx9RM';
+            $oldGs = new GoogleSheetsClient($oldId);
+            $sheet = $_GET['sheet'] ?? '謝博皓';
+            $data = $oldGs->readSheet($sheet);
+            echo json_encode(['success' => true, 'rowCount' => count($data), 'rows' => array_slice($data, 0, 80)]);
+            break;
+
 
 
 
