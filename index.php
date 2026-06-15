@@ -1830,6 +1830,7 @@ function renderCustomerDashboard(summary) {
 }
 
 function renderCustomerAnalysis(data) {
+  _custCardSeq = 0;
   var filter = window._customerHealthFilter || '';
   var daysThreshold = window._customerDaysFilter || 0;
   var base = data;
@@ -1939,7 +1940,9 @@ function renderCustomerAnalysis(data) {
   }
 }
 
+var _custCardSeq = 0;
 function renderCustomerCard(c) {
+  var idx = _custCardSeq++;
   var info = HEALTH_INFO[c.health];
   var yoyText, yoyColor;
   if (c.yoyPct === null) {
@@ -1951,7 +1954,8 @@ function renderCustomerCard(c) {
   } else {
     yoyText = '0%'; yoyColor = 'var(--text2)';
   }
-  return '<div class="product-card" style="grid-template-columns:1fr;cursor:pointer" onclick="showCustomerTimeline(\'' + String(c.name).replace(/'/g, "\\'") + '\')">' +
+  var nameEsc = String(c.name).replace(/'/g, "\\'");
+  return '<div class="product-card" style="grid-template-columns:1fr;cursor:pointer" onclick="toggleCustomerExpand(' + idx + ', \'' + nameEsc + '\')">' +
     '<div class="prod-info">' +
       '<div class="prod-summary-row">' +
         '<div class="prod-summary-main"><div class="prod-title">' + c.name + '</div></div>' +
@@ -1972,6 +1976,7 @@ function renderCustomerCard(c) {
       (c.lastNote ? '<div style="margin-top:4px;font-size:12px;color:var(--text2)">最新備註（' + (c.lastNoteDate || '') + '）：' + c.lastNote + '</div>' : '') +
       renderCatBreakdown(c.catCounts) +
       (c.contractHealth ? '<div style="margin-top:8px;font-size:11px;font-weight:800;color:var(--text2)">📋 合約狀態</div>' + renderContractBadge(c) : '') +
+      '<div id="cust-expand-' + idx + '" style="display:none;margin-top:10px;border-top:1px solid var(--border);padding-top:10px" onclick="event.stopPropagation()"></div>' +
     '</div>' +
   '</div>';
 }
@@ -2105,29 +2110,39 @@ function renderCatPie(catCounts) {
   '</div>';
 }
 
-function showCustomerTimeline(customer) {
-  var title = document.getElementById('modal-title');
-  var body = document.getElementById('modal-body');
-  title.textContent = customer + ' 客戶戰情室';
-  body.innerHTML = '載入中...';
-  document.getElementById('modal-detail').classList.remove('hidden');
+function toggleCustomerExpand(idx, customer) {
+  var el = document.getElementById('cust-expand-' + idx);
+  if (!el) return;
+  if (el.style.display === 'none' || el.style.display === '') {
+    el.style.display = 'block';
+    if (!el.dataset.loaded) {
+      el.dataset.loaded = '1';
+      loadCustomerExpand(el, customer);
+    }
+  } else {
+    el.style.display = 'none';
+  }
+}
+
+function loadCustomerExpand(el, customer) {
+  el.innerHTML = '<div style="color:var(--text2);font-size:12px">載入中...</div>';
 
   var c = (window._customerData || []).find(function(x) { return x.name === customer; });
   var headerHtml = '';
   if (c) {
-    headerHtml += '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:14px">' +
-      '<div style="flex:1 1 220px"><div style="font-size:13px;font-weight:800;color:var(--gold);margin-bottom:6px">📊 業績趨勢</div>' + renderYoyBar(c) + renderLowMarginDeals(c.lowMarginDeals) + '</div>' +
-      '<div style="flex:1 1 220px"><div style="font-size:13px;font-weight:800;color:var(--gold);margin-bottom:6px">🤝 互動類型分布</div>' + (renderCatPie(c.catCounts) || '<div style="font-size:12px;color:var(--text2)">無紀錄</div>') + '</div>' +
-    '</div>';
+    var pie = renderCatPie(c.catCounts);
+    if (pie) {
+      headerHtml += '<div style="margin-bottom:10px"><div style="font-size:12px;font-weight:800;color:var(--gold);margin-bottom:6px">🤝 互動類型分布</div>' + pie + '</div>';
+    }
   }
 
   var warRoomHtml = '';
   var timelineHtml = '';
   var renderBoth = function() {
     if (warRoomHtml === null || timelineHtml === null) return;
-    body.innerHTML = headerHtml + warRoomHtml +
-      '<div style="margin-top:14px"><button class="btn" style="padding:6px 12px;font-size:12px" onclick="var el=document.getElementById(\'cust-timeline-detail\');el.style.display=el.style.display===\'none\'?\'block\':\'none\'">📜 互動紀錄明細 ▾</button>' +
-      '<div id="cust-timeline-detail" style="display:none;margin-top:10px">' + timelineHtml + '</div></div>';
+    el.innerHTML = headerHtml + warRoomHtml +
+      '<div style="margin-top:10px"><button class="btn" style="padding:6px 12px;font-size:12px" onclick="event.stopPropagation();var el=this.nextElementSibling;el.style.display=el.style.display===\'none\'?\'block\':\'none\'">📜 互動紀錄明細 ▾</button>' +
+      '<div style="display:none;margin-top:10px">' + timelineHtml + '</div></div>';
   };
 
   apiGet('customer-warroom', { customer: customer }, function(res) {
