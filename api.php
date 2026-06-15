@@ -3364,6 +3364,7 @@ class SleeperService
         $now = new DateTime();
         $thisYear = (int)$now->format('Y');
         $lastYear = $thisYear - 1;
+        $todayMD = $now->format('m-d');
 
         $customers = [];
         $getC = function ($key) use (&$customers) {
@@ -3405,7 +3406,7 @@ class SleeperService
                     $customers[$key]['totalAmount'] += $amt;
                     $y = (int)$d->format('Y');
                     if ($y === $thisYear) $customers[$key]['thisYearAmount'] += $amt;
-                    if ($y === $lastYear) $customers[$key]['lastYearAmount'] += $amt;
+                    if ($y === $lastYear && $d->format('m-d') <= $todayMD) $customers[$key]['lastYearAmount'] += $amt;
                     $ds = $d->format('Y-m-d');
                     if ($customers[$key]['lastOrderDate'] === null || $ds > $customers[$key]['lastOrderDate']) {
                         $customers[$key]['lastOrderDate'] = $ds;

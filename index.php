@@ -1765,14 +1765,23 @@ function renderCustomerAnalysis(data) {
   html += '<div class="product-list">';
   list.forEach(function(c) {
     var info = HEALTH_INFO[c.health];
-    var yoyText = c.yoyPct === null ? '—' : (c.yoyPct > 0 ? '+' : '') + c.yoyPct + '%';
+    var yoyText, yoyColor;
+    if (c.yoyPct === null) {
+      yoyText = '—'; yoyColor = 'var(--text2)';
+    } else if (c.yoyPct > 0) {
+      yoyText = '▲ +' + c.yoyPct + '%'; yoyColor = 'var(--red)';
+    } else if (c.yoyPct < 0) {
+      yoyText = '▼ ' + c.yoyPct + '%'; yoyColor = 'var(--green)';
+    } else {
+      yoyText = '0%'; yoyColor = 'var(--text2)';
+    }
     html += '<div class="product-card" style="grid-template-columns:1fr;cursor:pointer" onclick="showCustomerTimeline(\'' + String(c.name).replace(/'/g, "\\'") + '\')">' +
       '<div class="prod-info">' +
         '<div class="prod-summary-row">' +
           '<div class="prod-summary-main"><div class="prod-title">' + c.name + '</div></div>' +
           '<div class="prod-summary-stats">' +
             '<div class="prod-stat"><div class="ps-label">今年業績</div><div class="ps-value">' + fmt(c.thisYearAmount) + '</div></div>' +
-            '<div class="prod-stat"><div class="ps-label">YOY</div><div class="ps-value">' + yoyText + '</div></div>' +
+            '<div class="prod-stat"><div class="ps-label">YOY</div><div class="ps-value" style="color:' + yoyColor + '">' + yoyText + '</div></div>' +
             '<div class="prod-stat"><div class="ps-label">最後下單</div><div class="ps-value">' + (c.lastOrderDate || '無') + (c.daysSinceLastOrder !== null ? '（' + c.daysSinceLastOrder + '天前）' : '') + '</div></div>' +
             '<div class="prod-stat"><div class="ps-label">拜訪次數</div><div class="ps-value">' + c.visits + '</div></div>' +
           '</div>' +
