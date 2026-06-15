@@ -4321,6 +4321,61 @@ try {
     $method = $_SERVER['REQUEST_METHOD'];
 
     switch ($action) {
+        case 'migrate-notes':
+            $oldId = '1-CuM1-4dQfFFMYeozEQSA5WM4VETyC96FBfMWkUx9RM';
+            $oldGs = new GoogleSheetsClient($oldId);
+            $tab = $_GET['tab'] ?? '';
+            $repNames = ['謝博皓', '陳勁多', '潘右森'];
+            if (!in_array($tab, $repNames)) {
+                echo json_encode(['success' => false, 'msg' => '請指定 tab=謝博皓/陳勁多/潘右森']);
+                break;
+            }
+            $dryrun = !empty($_GET['dryrun']);
+
+            $rows = $oldGs->readSheet($tab);
+            $out = [];
+            for ($i = 0; $i < count($rows); $i++) {
+                $cell0 = trim($rows[$i][0] ?? '');
+                if (!preg_match('/^(\d{4})\s*第\s*\d+\s*周/u', $cell0, $m)) continue;
+                $year = (int)$m[1];
+
+                $dateRow = $rows[$i + 1] ?? [];
+                $weekDate = null;
+                $d0 = trim($dateRow[0] ?? '');
+                if (preg_match('/^(\d{1,2})\/(\d{1,2})$/', $d0, $dm)) {
+                    $weekDate = sprintf('%04d-%02d-%02d', $year, (int)$dm[1], (int)$dm[2]);
+                }
+
+                // find "客戶名稱" header row within this block
+                for ($r = $i + 3; $r < count($rows); $r++) {
+                    $first = trim($rows[$r][0] ?? '');
+                    if (preg_match('/^(\d{4})\s*第\s*\d+\s*周/u', $first)) break;
+                    if ($first === '客戶名稱') {
+                        for ($n = $r + 1; $n < count($rows); $n++) {
+                            $nfirst = trim($rows[$n][0] ?? '');
+                            if ($nfirst === '' || preg_match('/^(\d{4})\s*第\s*\d+\s*周/u', $nfirst)) break;
+                            $note = trim($rows[$n][1] ?? '');
+                            if ($note === '') continue;
+                            $out[] = [$weekDate, $tab, $nfirst, $note, 'MIGRATED_' . substr(md5($tab . $weekDate . $nfirst . $note . $n), 0, 12)];
+                        }
+                        break;
+                    }
+                }
+            }
+
+            if ($dryrun) {
+                echo json_encode(['success' => true, 'count' => count($out), 'sample' => array_slice($out, 0, 20)]);
+                break;
+            }
+
+            $gsLayout = new GoogleSheetsClient(SS_ID_LAYOUT);
+            foreach (array_chunk($out, 500) as $chunk) {
+                $gsLayout->appendRows('智能_客戶備註歷史', $chunk);
+            }
+            echo json_encode(['success' => true, 'count' => count($out)]);
+            break;
+
+
         case 'debug-old-sheet':
             $oldId = '1-CuM1-4dQfFFMYeozEQSA5WM4VETyC96FBfMWkUx9RM';
             $oldGs = new GoogleSheetsClient($oldId);
