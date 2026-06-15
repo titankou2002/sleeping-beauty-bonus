@@ -1735,6 +1735,12 @@ var HEALTH_INFO = {
   normal:  { label: '正常', color: 'var(--text2)' }
 };
 
+function applyCustomerDaysFilter() {
+  var v = parseInt(document.getElementById('customer-days-input').value, 10);
+  window._customerDaysFilter = isNaN(v) || v <= 0 ? 0 : v;
+  renderCustomerAnalysis(window._customerData);
+}
+
 function loadCustomerAnalysis() {
   var container = document.getElementById('main-content');
   if (window._customerData) { renderCustomerAnalysis(window._customerData); return; }
@@ -1746,14 +1752,37 @@ function loadCustomerAnalysis() {
   });
 }
 
+var CAT_COLOR = {
+  '送樣': '#60a5fa', '帳單': '#f5a623', '版面': '#a78bfa',
+  '送貨退貨': '#3ecf8e', '案件': '#e5484d', '聊天': 'var(--text2)', '其他': 'var(--text2)'
+};
+
 function renderCustomerAnalysis(data) {
   var filter = window._customerHealthFilter || '';
+  var daysThreshold = window._customerDaysFilter || 0;
   var counts = {};
   data.forEach(function(c) { counts[c.health] = (counts[c.health] || 0) + 1; });
 
   var list = filter ? data.filter(function(c) { return c.health === filter; }) : data;
+  if (daysThreshold > 0) {
+    list = list.filter(function(c) { return c.totalAmount > 0 && c.daysSinceLastOrder !== null && c.daysSinceLastOrder >= daysThreshold; });
+  }
 
-  var html = '<div class="kpi-row">';
+  var html = '';
+  html += '<div class="kpi-row" style="align-items:center">' +
+    '<div class="kpi-card" style="flex:0 0 auto">' +
+      '<div class="label">未下單天數篩選</div>' +
+      '<div style="display:flex;gap:6px;align-items:center;margin-top:6px">' +
+        '<input id="customer-days-input" type="number" value="' + (daysThreshold || '') + '" placeholder="天數" style="width:70px;background:var(--bg2);border:1px solid var(--border);color:var(--text1);border-radius:6px;padding:4px 8px;font-size:13px" onkeydown="if(event.key===\'Enter\')applyCustomerDaysFilter()">' +
+        '<button class="btn" style="padding:4px 10px;font-size:12px" onclick="applyCustomerDaysFilter()">套用</button>' +
+        '<button class="btn" style="padding:4px 10px;font-size:12px' + (daysThreshold === 90 ? ';border-color:var(--gold);color:var(--gold)' : '') + '" onclick="window._customerDaysFilter=90;renderCustomerAnalysis(window._customerData)">3個月</button>' +
+        '<button class="btn" style="padding:4px 10px;font-size:12px' + (daysThreshold === 180 ? ';border-color:var(--gold);color:var(--gold)' : '') + '" onclick="window._customerDaysFilter=180;renderCustomerAnalysis(window._customerData)">半年</button>' +
+        (daysThreshold > 0 ? '<button class="btn" style="padding:4px 10px;font-size:12px" onclick="window._customerDaysFilter=0;renderCustomerAnalysis(window._customerData)">清除</button>' : '') +
+      '</div>' +
+    '</div>' +
+  '</div>';
+
+  html += '<div class="kpi-row">';
   ['warning', 'dormant', 'decline', 'growth'].forEach(function(key) {
     var info = HEALTH_INFO[key];
     var active = filter === key;
@@ -1788,12 +1817,31 @@ function renderCustomerAnalysis(data) {
         '</div>' +
         '<div class="action-badge" style="background:' + info.color + '15;border:1px solid ' + info.color + '30;color:' + info.color + ';padding:4px 8px;border-radius:6px;font-size:11px;font-weight:800;display:inline-block;margin-top:6px">' + info.label + '</div>' +
         (c.lastNote ? '<div style="margin-top:6px;font-size:12px;color:var(--text2)">最新備註（' + (c.lastNoteDate || '') + '）：' + c.lastNote + '</div>' : '') +
+        renderCatBreakdown(c.catCounts) +
       '</div>' +
     '</div>';
   });
   html += '</div>';
 
   document.getElementById('main-content').innerHTML = html;
+}
+
+function renderCatBreakdown(catCounts) {
+  if (!catCounts) return '';
+  var total = 0;
+  Object.keys(catCounts).forEach(function(k) { total += catCounts[k]; });
+  if (total === 0) return '';
+  var order = ['送樣', '帳單', '版面', '送貨退貨', '案件', '聊天', '其他'];
+  var html = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">';
+  order.forEach(function(cat) {
+    var n = catCounts[cat] || 0;
+    if (n === 0) return;
+    var pct = Math.round(n / total * 100);
+    var color = CAT_COLOR[cat] || 'var(--text2)';
+    html += '<span style="font-size:11px;color:' + color + ';border:1px solid ' + color + '40;border-radius:5px;padding:2px 6px">' + cat + ' ' + n + ' (' + pct + '%)</span>';
+  });
+  html += '</div>';
+  return html;
 }
 
 function showCustomerTimeline(customer) {
@@ -1811,10 +1859,12 @@ function showCustomerTimeline(customer) {
     var html = '<div style="display:flex;flex-direction:column;gap:8px">';
     rows.forEach(function(r) {
       var c = typeColor[r.type] || 'var(--text2)';
+      var catBadge = (r.type === '拜訪' && r.category) ?
+        '<span style="font-size:10px;color:' + (CAT_COLOR[r.category] || 'var(--text2)') + ';border:1px solid ' + (CAT_COLOR[r.category] || 'var(--text2)') + '40;border-radius:4px;padding:1px 5px;margin-right:6px">' + r.category + '</span>' : '';
       html += '<div style="display:flex;gap:10px;border-top:1px solid var(--border);padding-top:6px;font-size:12px">' +
         '<div style="width:90px;color:var(--text2);flex-shrink:0">' + r.date + '</div>' +
         '<div style="width:48px;flex-shrink:0;color:' + c + ';font-weight:800">' + r.type + '</div>' +
-        '<div style="flex:1;min-width:0">' + (r.desc || '') + (r.sales ? '　<span style="color:var(--text2)">（' + r.sales + '）</span>' : '') + '</div>' +
+        '<div style="flex:1;min-width:0">' + catBadge + (r.desc || '') + (r.sales ? '　<span style="color:var(--text2)">（' + r.sales + '）</span>' : '') + '</div>' +
         '</div>';
     });
     html += '</div>';

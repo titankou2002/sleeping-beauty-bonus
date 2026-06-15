@@ -537,6 +537,27 @@ class SleeperService
         return array_values($results);
     }
 
+    private static $taskCategoryRules = [
+        '送樣'   => ['送樣', '樣品'],
+        '帳單'   => ['對帳', '收款', '帳單', '對帳/收款'],
+        '版面'   => ['版面', '上架', '下架', '陳列'],
+        '送貨退貨' => ['送貨', '退貨', '入店', '配送'],
+        '案件'   => ['案件', '工地', '專案', '報價', '議價'],
+        '聊天'   => ['聊天', '業務更新'],
+    ];
+
+    private function categorizeVisitTask($text)
+    {
+        $text = (string)$text;
+        if (trim($text) === '') return '其他';
+        foreach (self::$taskCategoryRules as $cat => $keywords) {
+            foreach ($keywords as $kw) {
+                if (mb_strpos($text, $kw) !== false) return $cat;
+            }
+        }
+        return '其他';
+    }
+
     public function scanProjectFlags()
     {
         $rows = $this->gs->readSheet(SALES_SHEET);
@@ -3373,7 +3394,8 @@ class SleeperService
                     'name' => $key,
                     'totalAmount' => 0, 'thisYearAmount' => 0, 'lastYearAmount' => 0,
                     'lastOrderDate' => null, 'visits' => 0, 'lastVisitDate' => null,
-                    'noteCount' => 0, 'lastNote' => '', 'lastNoteDate' => null
+                    'noteCount' => 0, 'lastNote' => '', 'lastNoteDate' => null,
+                    'catCounts' => []
                 ];
             }
             return $key;
@@ -3423,17 +3445,31 @@ class SleeperService
                 $h = $workRows[0];
                 $idxDate = $this->findHeader($h, ['日期']);
                 $idxCustomer = $this->findHeader($h, ['客戶名稱','客戶']);
+                $idxTask = $this->findHeader($h, ['任務摘要','摘要']);
                 for ($i = 1; $i < count($workRows); $i++) {
                     $row = $workRows[$i];
                     $d = $this->parseDate($this->getVal($row, $idxDate));
                     if (!$d) continue;
                     $names = $this->parseWorkLogCustomers($this->getVal($row, $idxCustomer));
+                    $taskText = $idxTask !== -1 ? $this->getVal($row, $idxTask) : '';
+                    $pieces = $taskText !== '' ? preg_split('/\|\|/u', $taskText) : [];
                     foreach ($names as $key) {
                         $getC($key);
                         $customers[$key]['visits'] += 1;
                         $ds = $d->format('Y-m-d');
                         if ($customers[$key]['lastVisitDate'] === null || $ds > $customers[$key]['lastVisitDate']) {
                             $customers[$key]['lastVisitDate'] = $ds;
+                        }
+                        if (count($pieces) > 0) {
+                            foreach ($pieces as $piece) {
+                                $cat = $this->categorizeVisitTask($piece);
+                                if (!isset($customers[$key]['catCounts'][$cat])) $customers[$key]['catCounts'][$cat] = 0;
+                                $customers[$key]['catCounts'][$cat]++;
+                            }
+                        } else {
+                            $cat = '其他';
+                            if (!isset($customers[$key]['catCounts'][$cat])) $customers[$key]['catCounts'][$cat] = 0;
+                            $customers[$key]['catCounts'][$cat]++;
                         }
                     }
                 }
@@ -3499,7 +3535,8 @@ class SleeperService
                 'noteCount' => $c['noteCount'],
                 'lastNote' => $c['lastNote'],
                 'lastNoteDate' => $c['lastNoteDate'],
-                'health' => $health
+                'health' => $health,
+                'catCounts' => $c['catCounts']
             ];
         }
 
@@ -3564,11 +3601,13 @@ class SleeperService
                     if (!$d) continue;
                     $names = $this->parseWorkLogCustomers($this->getVal($row, $idxCustomer));
                     if (!in_array($key, $names)) continue;
+                    $taskDesc = $idxTask !== -1 ? trim($this->getVal($row, $idxTask)) : '';
                     $timeline[] = [
                         'date' => $d->format('Y-m-d'),
                         'type' => '拜訪',
                         'sales' => $idxSales !== -1 ? trim($this->getVal($row, $idxSales)) : '',
-                        'desc' => $idxTask !== -1 ? trim($this->getVal($row, $idxTask)) : ''
+                        'desc' => $taskDesc,
+                        'category' => $this->categorizeVisitTask($taskDesc)
                     ];
                 }
             }
