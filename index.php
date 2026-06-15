@@ -1891,12 +1891,32 @@ function renderCustomerCard(c) {
         '</div>' +
       '</div>' +
       '<div class="action-badge" style="background:' + info.color + '15;border:1px solid ' + info.color + '30;color:' + info.color + ';padding:4px 8px;border-radius:6px;font-size:11px;font-weight:800;display:inline-block;margin-top:6px">' + info.label + '</div>' +
+      renderContractBadge(c) +
       renderYoyBar(c) +
       (c.lastNote ? '<div style="margin-top:6px;font-size:12px;color:var(--text2)">最新備註（' + (c.lastNoteDate || '') + '）：' + c.lastNote + '</div>' : '') +
       renderCatBreakdown(c.catCounts) +
       renderLowMarginDeals(c.lowMarginDeals) +
     '</div>' +
   '</div>';
+}
+
+var CONTRACT_HEALTH_COLOR = {
+  '嚴重': '#e5484d', '逾期': '#e5484d', '待續約': '#f5a623', '已續約': '#3ecf8e', '正常': 'var(--text2)'
+};
+
+function renderContractBadge(c) {
+  if (!c.contractHealth) return '';
+  var color = CONTRACT_HEALTH_COLOR[c.contractHealth] || 'var(--text2)';
+  var html = '<div style="margin-left:6px;display:inline-block">' +
+    '<span style="background:' + color + '15;border:1px solid ' + color + '30;color:' + color + ';padding:4px 8px;border-radius:6px;font-size:11px;font-weight:800">合約：' + c.contractHealth + '</span>';
+  if (c.contractBalance !== null) {
+    html += ' <span style="font-size:11px;color:' + (c.contractBalance < 0 ? 'var(--red)' : 'var(--text2)') + '">餘額 ' + fmt(c.contractBalance) + '</span>';
+  }
+  if (c.contractExpiry) {
+    html += ' <span style="font-size:11px;color:var(--text2)">到期 ' + c.contractExpiry + '</span>';
+  }
+  html += '</div>';
+  return html;
 }
 
 function renderYoyBar(c) {

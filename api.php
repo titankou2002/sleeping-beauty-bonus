@@ -3398,7 +3398,8 @@ class SleeperService
                     'noteCount' => 0, 'lastNote' => '', 'lastNoteDate' => null,
                     'catCounts' => [],
                     'marginAmt' => 0, 'marginRevenue' => 0, 'lowMarginDeals' => [],
-                    'salesRepCounts' => []
+                    'salesRepCounts' => [],
+                    'contractHealth' => null, 'contractExpiry' => null, 'contractBalance' => null
                 ];
             }
             return $key;
@@ -3529,6 +3530,30 @@ class SleeperService
             // 拜訪/備註資料來源若讀取失敗，仍回傳銷售統計
         }
 
+        // 4. 合約 (高雅瓷內部管理)
+        try {
+            $contractRows = $this->gs->readSheet('合約');
+            if (count($contractRows) >= 2) {
+                $h = $contractRows[1];
+                $idxHealth = $this->findHeader($h, ['健康度']);
+                $idxCust = $this->findHeader($h, ['客戶']);
+                $idxExpiry = $this->findHeader($h, ['最後一張票期']);
+                $idxSalesC = $this->findHeader($h, ['業務']);
+                $idxBalance = $idxSalesC - 1;
+                for ($i = 2; $i < count($contractRows); $i++) {
+                    $row = $contractRows[$i];
+                    $custRaw = trim($this->getVal($row, $idxCust));
+                    if ($custRaw === '') continue;
+                    $key = $this->displayCustomerName($custRaw);
+                    $getC($key);
+                    $customers[$key]['contractHealth'] = $idxHealth !== -1 ? trim($this->getVal($row, $idxHealth)) : null;
+                    $customers[$key]['contractExpiry'] = $idxExpiry !== -1 ? trim($this->getVal($row, $idxExpiry)) : null;
+                    $customers[$key]['contractBalance'] = $idxBalance >= 0 ? $this->optFloat($this->getVal($row, $idxBalance)) : null;
+                }
+            }
+        } catch (Exception $e) {
+        }
+
         $result = [];
         foreach ($customers as $key => $c) {
             $daysSinceLastOrder = $c['lastOrderDate'] ? (int)$now->diff(new DateTime($c['lastOrderDate']))->days : null;
@@ -3570,6 +3595,9 @@ class SleeperService
                     arsort($counts);
                     return array_key_first($counts);
                 })($c['salesRepCounts']),
+                'contractHealth' => $c['contractHealth'],
+                'contractExpiry' => $c['contractExpiry'],
+                'contractBalance' => $c['contractBalance'] !== null ? round($c['contractBalance']) : null,
                 'avgMarginPct' => $c['marginRevenue'] > 0 ? round($c['marginAmt'] / $c['marginRevenue'] * 100, 1) : null,
                 'lowMarginDeals' => (function ($deals) {
                     usort($deals, function ($a, $b) { return $a['marginPct'] <=> $b['marginPct']; });
