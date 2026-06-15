@@ -1766,7 +1766,7 @@ function renderCustomerAnalysis(data) {
   list.forEach(function(c) {
     var info = HEALTH_INFO[c.health];
     var yoyText = c.yoyPct === null ? '—' : (c.yoyPct > 0 ? '+' : '') + c.yoyPct + '%';
-    html += '<div class="product-card" style="grid-template-columns:1fr;cursor:pointer" onclick="showCustomerTimeline(\'' + c.name.replace(/'/g, "\\'") + '\')">' +
+    html += '<div class="product-card" style="grid-template-columns:1fr;cursor:pointer" onclick="showCustomerTimeline(\'' + String(c.name).replace(/'/g, "\\'") + '\')">' +
       '<div class="prod-info">' +
         '<div class="prod-summary-row">' +
           '<div class="prod-summary-main"><div class="prod-title">' + c.name + '</div></div>' +
