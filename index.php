@@ -568,6 +568,7 @@ input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-colo
           <button class="tab-btn active" id="tab-products" onclick="switchTab('products')">產品總覽</button>
           <button class="tab-btn" id="tab-reports" onclick="switchTab('reports')">銷售報表</button>
           <button class="tab-btn" id="tab-bonus" onclick="switchTab('bonus')">睡美人銷售</button>
+          <button class="tab-btn" id="tab-customers" onclick="switchTab('customers')">客戶分析</button>
         </div>
       </div>
     </header>
@@ -950,6 +951,7 @@ function switchTab(tab) {
   document.getElementById('tab-bonus').classList.toggle('active', tab === 'bonus');
   document.getElementById('tab-products').classList.toggle('active', tab === 'products');
   document.getElementById('tab-reports').classList.toggle('active', tab === 'reports');
+  document.getElementById('tab-customers').classList.toggle('active', tab === 'customers');
   document.getElementById('ctrl-bonus').classList.toggle('hidden', tab !== 'bonus');
   document.getElementById('ctrl-products').classList.toggle('hidden', tab !== 'products');
   document.getElementById('ctrl-reports').classList.toggle('hidden', tab !== 'reports');
@@ -964,6 +966,8 @@ function switchTab(tab) {
   } else if (tab === 'bonus') {
     loadDashboard();
     loadSalesList();
+  } else if (tab === 'customers') {
+    loadCustomerAnalysis();
   }
 }
 
@@ -1720,6 +1724,93 @@ function showDisplayDetails(sku) {
   
   body.innerHTML = html;
   document.getElementById('modal-detail').classList.remove('hidden');
+}
+
+var HEALTH_INFO = {
+  dormant: { label: '已停滯 180天+', color: '#e5484d' },
+  warning: { label: '90天未下單', color: '#f5a623' },
+  decline: { label: '業績衰退', color: '#e5484d' },
+  growth:  { label: '成長中', color: '#3ecf8e' },
+  no_sales:{ label: '無銷售記錄', color: 'var(--text2)' },
+  normal:  { label: '正常', color: 'var(--text2)' }
+};
+
+function loadCustomerAnalysis() {
+  var container = document.getElementById('main-content');
+  if (window._customerData) { renderCustomerAnalysis(window._customerData); return; }
+  container.innerHTML = '<div class="welcome" style="padding:40px;text-align:center;color:var(--text2)">載入中...</div>';
+  apiGet('customer-analysis', {}, function(res) {
+    if (!res.success) { container.innerHTML = '<div class="welcome"><p style="color:var(--red)">❌ ' + res.msg + '</p></div>'; return; }
+    window._customerData = res.data;
+    renderCustomerAnalysis(res.data);
+  });
+}
+
+function renderCustomerAnalysis(data) {
+  var filter = window._customerHealthFilter || '';
+  var counts = {};
+  data.forEach(function(c) { counts[c.health] = (counts[c.health] || 0) + 1; });
+
+  var list = filter ? data.filter(function(c) { return c.health === filter; }) : data;
+
+  var html = '<div class="kpi-row">';
+  ['warning', 'dormant', 'decline', 'growth'].forEach(function(key) {
+    var info = HEALTH_INFO[key];
+    var active = filter === key;
+    html += '<div class="kpi-card" style="cursor:pointer;border:1px solid ' + (active ? info.color : 'var(--border)') + '" onclick="window._customerHealthFilter=' + (active ? "''" : "'" + key + "'") + ';renderCustomerAnalysis(window._customerData)">' +
+      '<div class="label">' + info.label + '</div><div class="value" style="color:' + info.color + '">' + (counts[key] || 0) + '</div><div class="sub">家客戶</div></div>';
+  });
+  html += '</div>';
+
+  html += '<div class="product-list">';
+  list.forEach(function(c) {
+    var info = HEALTH_INFO[c.health];
+    var yoyText = c.yoyPct === null ? '—' : (c.yoyPct > 0 ? '+' : '') + c.yoyPct + '%';
+    html += '<div class="product-card" style="grid-template-columns:1fr;cursor:pointer" onclick="showCustomerTimeline(\'' + c.name.replace(/'/g, "\\'") + '\')">' +
+      '<div class="prod-info">' +
+        '<div class="prod-summary-row">' +
+          '<div class="prod-summary-main"><div class="prod-title">' + c.name + '</div></div>' +
+          '<div class="prod-summary-stats">' +
+            '<div class="prod-stat"><div class="ps-label">今年業績</div><div class="ps-value">' + fmt(c.thisYearAmount) + '</div></div>' +
+            '<div class="prod-stat"><div class="ps-label">YOY</div><div class="ps-value">' + yoyText + '</div></div>' +
+            '<div class="prod-stat"><div class="ps-label">最後下單</div><div class="ps-value">' + (c.lastOrderDate || '無') + (c.daysSinceLastOrder !== null ? '（' + c.daysSinceLastOrder + '天前）' : '') + '</div></div>' +
+            '<div class="prod-stat"><div class="ps-label">拜訪次數</div><div class="ps-value">' + c.visits + '</div></div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="action-badge" style="background:' + info.color + '15;border:1px solid ' + info.color + '30;color:' + info.color + ';padding:4px 8px;border-radius:6px;font-size:11px;font-weight:800;display:inline-block;margin-top:6px">' + info.label + '</div>' +
+        (c.lastNote ? '<div style="margin-top:6px;font-size:12px;color:var(--text2)">最新備註（' + (c.lastNoteDate || '') + '）：' + c.lastNote + '</div>' : '') +
+      '</div>' +
+    '</div>';
+  });
+  html += '</div>';
+
+  document.getElementById('main-content').innerHTML = html;
+}
+
+function showCustomerTimeline(customer) {
+  var title = document.getElementById('modal-title');
+  var body = document.getElementById('modal-body');
+  title.textContent = customer + ' 歷史時間軸';
+  body.innerHTML = '載入中...';
+  document.getElementById('modal-detail').classList.remove('hidden');
+
+  apiGet('customer-timeline', { customer: customer }, function(res) {
+    if (!res.success) { body.innerHTML = '<div style="color:var(--text2)">載入失敗</div>'; return; }
+    var rows = res.data.timeline || [];
+    if (rows.length === 0) { body.innerHTML = '<div style="color:var(--text2)">無歷史記錄</div>'; return; }
+    var typeColor = { '銷售': '#3ecf8e', '拜訪': '#60a5fa', '備註': 'var(--gold)' };
+    var html = '<div style="display:flex;flex-direction:column;gap:8px">';
+    rows.forEach(function(r) {
+      var c = typeColor[r.type] || 'var(--text2)';
+      html += '<div style="display:flex;gap:10px;border-top:1px solid var(--border);padding-top:6px;font-size:12px">' +
+        '<div style="width:90px;color:var(--text2);flex-shrink:0">' + r.date + '</div>' +
+        '<div style="width:48px;flex-shrink:0;color:' + c + ';font-weight:800">' + r.type + '</div>' +
+        '<div style="flex:1;min-width:0">' + (r.desc || '') + (r.sales ? '　<span style="color:var(--text2)">（' + r.sales + '）</span>' : '') + '</div>' +
+        '</div>';
+    });
+    html += '</div>';
+    body.innerHTML = html;
+  });
 }
 
 function showLifecycle(sku) {

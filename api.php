@@ -3359,6 +3359,250 @@ class SleeperService
         return ['success' => true, 'data' => $results];
     }
 
+    public function getCustomerAnalysis()
+    {
+        $now = new DateTime();
+        $thisYear = (int)$now->format('Y');
+        $lastYear = $thisYear - 1;
+
+        $customers = [];
+        $getC = function ($key) use (&$customers) {
+            if (!isset($customers[$key])) {
+                $customers[$key] = [
+                    'name' => $key,
+                    'totalAmount' => 0, 'thisYearAmount' => 0, 'lastYearAmount' => 0,
+                    'lastOrderDate' => null, 'visits' => 0, 'lastVisitDate' => null,
+                    'noteCount' => 0, 'lastNote' => '', 'lastNoteDate' => null
+                ];
+            }
+            return $key;
+        };
+
+        // 1. 銷售
+        $raw = $this->gs->readSheet(SALES_SHEET);
+        if (count($raw) >= 2) {
+            $h = $raw[0];
+            $idxDate = $this->findHeader($h, ['日期','單據日期','銷貨日期']);
+            $idxCust = $this->findHeader($h, ['客戶名稱','客戶']);
+            $idxQty  = $this->findHeader($h, ['數量','片數']);
+            $idxAmt  = $this->findHeader($h, ['金額','銷額','銷售金額','成交金額','小計','總計']);
+            $idxNote = $this->findHeader($h, ['備註','說明','案名','專案','工地']);
+            if ($idxCust !== -1 && $idxDate !== -1) {
+                for ($i = 1; $i < count($raw); $i++) {
+                    $row = $raw[$i];
+                    $custRaw = trim($this->getVal($row, $idxCust));
+                    if ($custRaw === '') continue;
+                    $note = $idxNote !== -1 ? trim($this->getVal($row, $idxNote)) : '';
+                    if (strpos($note, '樣品') !== false || strpos($note, '扣帶') !== false) continue;
+                    $d = $this->parseDate($this->getVal($row, $idxDate));
+                    if (!$d) continue;
+                    $qty = $idxQty !== -1 ? $this->optFloat($this->getVal($row, $idxQty)) : 0;
+                    $amt = $idxAmt !== -1 ? $this->optFloat($this->getVal($row, $idxAmt)) : 0;
+                    if ($qty == 0 || $amt == 0) continue;
+
+                    $key = $this->displayCustomerName($custRaw);
+                    $getC($key);
+                    $customers[$key]['totalAmount'] += $amt;
+                    $y = (int)$d->format('Y');
+                    if ($y === $thisYear) $customers[$key]['thisYearAmount'] += $amt;
+                    if ($y === $lastYear) $customers[$key]['lastYearAmount'] += $amt;
+                    $ds = $d->format('Y-m-d');
+                    if ($customers[$key]['lastOrderDate'] === null || $ds > $customers[$key]['lastOrderDate']) {
+                        $customers[$key]['lastOrderDate'] = $ds;
+                    }
+                }
+            }
+        }
+
+        // 2. 拜訪 (智能_工作日誌)
+        try {
+            $gsLayout = new GoogleSheetsClient(SS_ID_LAYOUT);
+            $workRows = $gsLayout->readSheet('智能_工作日誌');
+            if (count($workRows) >= 2) {
+                $h = $workRows[0];
+                $idxDate = $this->findHeader($h, ['日期']);
+                $idxCustomer = $this->findHeader($h, ['客戶名稱','客戶']);
+                for ($i = 1; $i < count($workRows); $i++) {
+                    $row = $workRows[$i];
+                    $d = $this->parseDate($this->getVal($row, $idxDate));
+                    if (!$d) continue;
+                    $names = $this->parseWorkLogCustomers($this->getVal($row, $idxCustomer));
+                    foreach ($names as $key) {
+                        $getC($key);
+                        $customers[$key]['visits'] += 1;
+                        $ds = $d->format('Y-m-d');
+                        if ($customers[$key]['lastVisitDate'] === null || $ds > $customers[$key]['lastVisitDate']) {
+                            $customers[$key]['lastVisitDate'] = $ds;
+                        }
+                    }
+                }
+            }
+
+            // 3. 客戶備註歷史
+            $noteRows = $gsLayout->readSheet('智能_客戶備註歷史');
+            if (count($noteRows) >= 2) {
+                $h = $noteRows[0];
+                $idxDate = $this->findHeader($h, ['日期']);
+                $idxCustomer = $this->findHeader($h, ['客戶名稱','客戶']);
+                $idxNote = $this->findHeader($h, ['備註']);
+                for ($i = 1; $i < count($noteRows); $i++) {
+                    $row = $noteRows[$i];
+                    $custRaw = trim($this->getVal($row, $idxCustomer));
+                    if ($custRaw === '') continue;
+                    $key = $this->displayCustomerName($custRaw);
+                    $getC($key);
+                    $customers[$key]['noteCount'] += 1;
+                    $ds = trim($this->getVal($row, $idxDate));
+                    $note = trim($this->getVal($row, $idxNote));
+                    if ($customers[$key]['lastNoteDate'] === null || $ds > $customers[$key]['lastNoteDate']) {
+                        $customers[$key]['lastNoteDate'] = $ds;
+                        $customers[$key]['lastNote'] = $note;
+                    }
+                }
+            }
+        } catch (Exception $e) {
+            // 拜訪/備註資料來源若讀取失敗，仍回傳銷售統計
+        }
+
+        $result = [];
+        foreach ($customers as $key => $c) {
+            $daysSinceLastOrder = $c['lastOrderDate'] ? (int)$now->diff(new DateTime($c['lastOrderDate']))->days : null;
+            $yoyPct = $c['lastYearAmount'] > 0
+                ? round((($c['thisYearAmount'] - $c['lastYearAmount']) / $c['lastYearAmount']) * 100, 1)
+                : null;
+
+            if ($c['totalAmount'] <= 0) {
+                $health = 'no_sales';
+            } elseif ($daysSinceLastOrder !== null && $daysSinceLastOrder > 180) {
+                $health = 'dormant';
+            } elseif ($daysSinceLastOrder !== null && $daysSinceLastOrder > 90) {
+                $health = 'warning';
+            } elseif ($yoyPct !== null && $yoyPct >= 10) {
+                $health = 'growth';
+            } elseif ($yoyPct !== null && $yoyPct <= -30) {
+                $health = 'decline';
+            } else {
+                $health = 'normal';
+            }
+
+            $result[] = [
+                'name' => $key,
+                'totalAmount' => round($c['totalAmount']),
+                'thisYearAmount' => round($c['thisYearAmount']),
+                'lastYearAmount' => round($c['lastYearAmount']),
+                'yoyPct' => $yoyPct,
+                'lastOrderDate' => $c['lastOrderDate'],
+                'daysSinceLastOrder' => $daysSinceLastOrder,
+                'visits' => $c['visits'],
+                'lastVisitDate' => $c['lastVisitDate'],
+                'noteCount' => $c['noteCount'],
+                'lastNote' => $c['lastNote'],
+                'lastNoteDate' => $c['lastNoteDate'],
+                'health' => $health
+            ];
+        }
+
+        usort($result, function ($a, $b) { return $b['totalAmount'] <=> $a['totalAmount']; });
+
+        return ['success' => true, 'data' => $result];
+    }
+
+    public function getCustomerTimeline($customer)
+    {
+        $key = $this->displayCustomerName($customer);
+        $timeline = [];
+
+        // 銷售
+        $raw = $this->gs->readSheet(SALES_SHEET);
+        if (count($raw) >= 2) {
+            $h = $raw[0];
+            $idxDate = $this->findHeader($h, ['日期','單據日期','銷貨日期']);
+            $idxSales = $this->findHeader($h, ['負責業務','業務','業務員','負責人']);
+            $idxCust  = $this->findHeader($h, ['客戶名稱','客戶']);
+            $idxCode  = $this->findHeader($h, ['產品編號','編號','品碼','序號']);
+            $idxQty   = $this->findHeader($h, ['數量','片數']);
+            $idxAmt   = $this->findHeader($h, ['金額','銷額','銷售金額','成交金額','小計','總計']);
+            $idxNote  = $this->findHeader($h, ['備註','說明','案名','專案','工地']);
+            if ($idxCust !== -1 && $idxDate !== -1) {
+                for ($i = 1; $i < count($raw); $i++) {
+                    $row = $raw[$i];
+                    $custRaw = trim($this->getVal($row, $idxCust));
+                    if ($custRaw === '' || $this->displayCustomerName($custRaw) !== $key) continue;
+                    $d = $this->parseDate($this->getVal($row, $idxDate));
+                    if (!$d) continue;
+                    $note = $idxNote !== -1 ? trim($this->getVal($row, $idxNote)) : '';
+                    if (strpos($note, '樣品') !== false || strpos($note, '扣帶') !== false) continue;
+                    $sku = $idxCode !== -1 ? $this->cleanSku($this->getVal($row, $idxCode)) : '';
+                    $qty = $idxQty !== -1 ? $this->optFloat($this->getVal($row, $idxQty)) : 0;
+                    $amt = $idxAmt !== -1 ? $this->optFloat($this->getVal($row, $idxAmt)) : 0;
+                    if ($qty == 0 || $amt == 0) continue;
+                    $timeline[] = [
+                        'date' => $d->format('Y-m-d'),
+                        'type' => '銷售',
+                        'sales' => $idxSales !== -1 ? trim($this->getVal($row, $idxSales)) : '',
+                        'desc' => $sku . ' ' . $qty . '片 / ' . round($amt) . '元'
+                    ];
+                }
+            }
+        }
+
+        try {
+            $gsLayout = new GoogleSheetsClient(SS_ID_LAYOUT);
+
+            // 拜訪
+            $workRows = $gsLayout->readSheet('智能_工作日誌');
+            if (count($workRows) >= 2) {
+                $h = $workRows[0];
+                $idxDate = $this->findHeader($h, ['日期']);
+                $idxSales = $this->findHeader($h, ['業務姓名','業務']);
+                $idxCustomer = $this->findHeader($h, ['客戶名稱','客戶']);
+                $idxTask = $this->findHeader($h, ['任務摘要','摘要']);
+                for ($i = 1; $i < count($workRows); $i++) {
+                    $row = $workRows[$i];
+                    $d = $this->parseDate($this->getVal($row, $idxDate));
+                    if (!$d) continue;
+                    $names = $this->parseWorkLogCustomers($this->getVal($row, $idxCustomer));
+                    if (!in_array($key, $names)) continue;
+                    $timeline[] = [
+                        'date' => $d->format('Y-m-d'),
+                        'type' => '拜訪',
+                        'sales' => $idxSales !== -1 ? trim($this->getVal($row, $idxSales)) : '',
+                        'desc' => $idxTask !== -1 ? trim($this->getVal($row, $idxTask)) : ''
+                    ];
+                }
+            }
+
+            // 客戶備註歷史
+            $noteRows = $gsLayout->readSheet('智能_客戶備註歷史');
+            if (count($noteRows) >= 2) {
+                $h = $noteRows[0];
+                $idxDate = $this->findHeader($h, ['日期']);
+                $idxSales = $this->findHeader($h, ['業務姓名','業務']);
+                $idxCustomer = $this->findHeader($h, ['客戶名稱','客戶']);
+                $idxNote = $this->findHeader($h, ['備註']);
+                for ($i = 1; $i < count($noteRows); $i++) {
+                    $row = $noteRows[$i];
+                    $custRaw = trim($this->getVal($row, $idxCustomer));
+                    if ($custRaw === '' || $this->displayCustomerName($custRaw) !== $key) continue;
+                    $ds = trim($this->getVal($row, $idxDate));
+                    if ($ds === '') continue;
+                    $timeline[] = [
+                        'date' => $ds,
+                        'type' => '備註',
+                        'sales' => $idxSales !== -1 ? trim($this->getVal($row, $idxSales)) : '',
+                        'desc' => trim($this->getVal($row, $idxNote))
+                    ];
+                }
+            }
+        } catch (Exception $e) {
+        }
+
+        usort($timeline, function ($a, $b) { return strcmp($b['date'], $a['date']); });
+        $timeline = array_slice($timeline, 0, 150);
+
+        return ['success' => true, 'data' => ['name' => $key, 'timeline' => $timeline]];
+    }
+
     public function getSleeperProductOverview()
     {
         $configRes = $this->getSleeperConfig();
@@ -4427,6 +4671,17 @@ try {
 
         case 'normal-products':
             $res = $svc->getNormalProductOverview();
+            echo json_encode($res);
+            break;
+
+        case 'customer-analysis':
+            $res = $svc->getCustomerAnalysis();
+            echo json_encode($res);
+            break;
+
+        case 'customer-timeline':
+            $customer = $_GET['customer'] ?? '';
+            $res = $svc->getCustomerTimeline($customer);
             echo json_encode($res);
             break;
 
