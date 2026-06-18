@@ -3860,6 +3860,9 @@ class SleeperService
             usort($g['items'], function ($a, $b) { return $b['salesAmt'] <=> $a['salesAmt']; });
             $g['topSku'] = $g['items'][0]['sku'];
             $g['topSharePct'] = $g['totalAmt'] > 0 ? round($g['items'][0]['salesAmt'] / $g['totalAmt'] * 100) : 0;
+            $g['totalPing'] = round($g['totalPing'], 1);
+            foreach ($g['items'] as &$it) { $it['salesPing'] = round($it['salesPing'], 1); }
+            unset($it);
             $totalAmt += $g['totalAmt'];
             $totalPing += $g['totalPing'];
             $displays[] = $g;
