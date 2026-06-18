@@ -4014,7 +4014,7 @@ class SleeperService
         $payload = [
             'system_instruction' => ['parts' => [['text' => $systemPrompt]]],
             'contents' => $contents,
-            'generationConfig' => ['temperature' => 0.7, 'maxOutputTokens' => 1024]
+            'generationConfig' => ['temperature' => 0.7, 'maxOutputTokens' => 4096]
         ];
 
         $ch = curl_init($url);
@@ -4114,7 +4114,7 @@ class SleeperService
         $payload = [
             'system_instruction' => ['parts'=>[['text'=>$systemPrompt]]],
             'contents' => $contents,
-            'generationConfig' => ['temperature'=>0.7, 'maxOutputTokens'=>1024]
+            'generationConfig' => ['temperature'=>0.7, 'maxOutputTokens'=>4096]
         ];
         $ch = curl_init($url);
         curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER=>true, CURLOPT_POST=>true, CURLOPT_TIMEOUT=>30, CURLOPT_HTTPHEADER=>['Content-Type: application/json'], CURLOPT_POSTFIELDS=>json_encode($payload, JSON_UNESCAPED_UNICODE)]);
