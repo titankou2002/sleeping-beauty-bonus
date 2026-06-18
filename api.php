@@ -1071,9 +1071,9 @@ class SleeperService
         $rows = $this->gs->readSheet('保留單');
         if (count($rows) < 2) return [];
         $h = $rows[0];
-        $skuIdx = findHeader($h, ['編號']);
-        $qtyIdx = findHeader($h, ['數量']);
-        if ($skuIdx === null || $qtyIdx === null) return [];
+        $skuIdx = $this->findHeader($h, ['編號','產品編號']);
+        $qtyIdx = $this->findHeader($h, ['數量','片數']);
+        if ($skuIdx === -1 || $qtyIdx === -1) return [];
         $map = [];
         for ($i = 1; $i < count($rows); $i++) {
             $row = $rows[$i];
@@ -3874,6 +3874,83 @@ class SleeperService
         ]];
     }
 
+    public function getCustomerSalesBreakdown($customer)
+    {
+        $key = $this->displayCustomerName($customer);
+        $now = new DateTime();
+        $metaMap = $this->getMetaMap();
+
+        // 時段邊界
+        $monthStart  = new DateTime($now->format('Y-m-01'));
+        $qStart      = new DateTime($now->format('Y-') . sprintf('%02d', (int)ceil($now->format('n') / 3) * 3 - 2) . '-01');
+        $halfStart   = (clone $now)->modify('-6 months');
+        $yearStart   = new DateTime(($now->format('Y') - 1) . '-01-01');
+        $yearEnd     = new DateTime(($now->format('Y') - 1) . '-12-31');
+
+        $skuMap = [];
+        $raw = $this->gs->readSheet(SALES_SHEET);
+        if (count($raw) >= 2) {
+            $h = $raw[0];
+            $idxDate  = $this->findHeader($h, ['日期','單據日期','銷貨日期']);
+            $idxCust  = $this->findHeader($h, ['客戶名稱','客戶']);
+            $idxQty   = $this->findHeader($h, ['數量','片數']);
+            $idxAmt   = $this->findHeader($h, ['金額','銷額','銷售金額','成交金額','小計','總計']);
+            $idxCode  = $this->findHeader($h, ['產品編號','編號','品碼','序號']);
+            $idxNote  = $this->findHeader($h, ['備註','說明','案名']);
+            for ($i = 1; $i < count($raw); $i++) {
+                $row = $raw[$i];
+                $custRaw = trim($this->getVal($row, $idxCust));
+                if ($custRaw === '' || $this->displayCustomerName($custRaw) !== $key) continue;
+                $note = $idxNote !== -1 ? trim($this->getVal($row, $idxNote)) : '';
+                if (strpos($note, '樣品') !== false || strpos($note, '扣帶') !== false) continue;
+                $d = $this->parseDate($this->getVal($row, $idxDate));
+                if (!$d) continue;
+                $sku = $this->cleanSku($this->getVal($row, $idxCode));
+                if (!$sku) continue;
+                $qty = $this->optFloat($this->getVal($row, $idxQty));
+                $amt = $this->optFloat($this->getVal($row, $idxAmt));
+                if ($qty == 0 && $amt == 0) continue;
+
+                $ts = $d->format('Y-m-d');
+                $inMonth  = $d >= $monthStart;
+                $inQ      = $d >= $qStart;
+                $inHalf   = $d >= $halfStart;
+                $inPrevY  = $d >= $yearStart && $d <= $yearEnd;
+
+                if (!isset($skuMap[$sku])) {
+                    $meta = $metaMap[$sku] ?? ['series' => '一般', 'perPing' => 36];
+                    $skuMap[$sku] = ['sku'=>$sku,'series'=>$meta['series']??'一般','perPing'=>$meta['perPing']??36,
+                        'month'=>0,'quarter'=>0,'half'=>0,'prevYear'=>0,
+                        'monthQ'=>0,'quarterQ'=>0,'halfQ'=>0,'prevYearQ'=>0];
+                }
+                if ($inMonth)  { $skuMap[$sku]['month']   += $amt; $skuMap[$sku]['monthQ']   += $qty; }
+                if ($inQ)      { $skuMap[$sku]['quarter']  += $amt; $skuMap[$sku]['quarterQ']  += $qty; }
+                if ($inHalf)   { $skuMap[$sku]['half']     += $amt; $skuMap[$sku]['halfQ']     += $qty; }
+                if ($inPrevY)  { $skuMap[$sku]['prevYear'] += $amt; $skuMap[$sku]['prevYearQ'] += $qty; }
+            }
+        }
+
+        $list = array_values($skuMap);
+        usort($list, function($a, $b){ return ($b['half'] + $b['prevYear']) <=> ($a['half'] + $a['prevYear']); });
+        $list = array_slice($list, 0, 20);
+        foreach ($list as &$it) {
+            $pp = $it['perPing'] ?: 36;
+            $it['month']    = round($it['month']);   $it['monthPing']    = round($it['monthQ']/$pp,1);
+            $it['quarter']  = round($it['quarter']); $it['quarterPing']  = round($it['quarterQ']/$pp,1);
+            $it['half']     = round($it['half']);     $it['halfPing']     = round($it['halfQ']/$pp,1);
+            $it['prevYear'] = round($it['prevYear']); $it['prevYearPing'] = round($it['prevYearQ']/$pp,1);
+            unset($it['monthQ'],$it['quarterQ'],$it['halfQ'],$it['prevYearQ'],$it['perPing']);
+        }
+        unset($it);
+
+        $totals = ['month'=>0,'quarter'=>0,'half'=>0,'prevYear'=>0];
+        foreach ($list as $it) {
+            foreach ($totals as $k => $_) $totals[$k] += $it[$k];
+        }
+
+        return ['success'=>true,'data'=>['skus'=>$list,'totals'=>$totals,'prevYearLabel'=>($now->format('Y')-1).'年全年']];
+    }
+
     public function getSleeperProductOverview()
     {
         $configRes = $this->getSleeperConfig();
@@ -4959,6 +5036,12 @@ try {
         case 'customer-warroom':
             $customer = $_GET['customer'] ?? '';
             $res = $svc->getCustomerWarRoom($customer);
+            echo json_encode($res);
+            break;
+
+        case 'customer-sales-breakdown':
+            $customer = $_GET['customer'] ?? '';
+            $res = $svc->getCustomerSalesBreakdown($customer);
             echo json_encode($res);
             break;
 

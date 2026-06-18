@@ -2043,11 +2043,23 @@ function renderCatBreakdown(catCounts) {
 
 function renderLowMarginDeals(deals) {
   if (!deals || deals.length === 0) return '';
-  var html = '<div style="margin-top:6px;font-size:11px;color:var(--red)">⚠ 低毛利案件：';
-  html += deals.map(function(d) {
-    return d.date + ' ' + d.sku + ' ' + d.qty + '片/' + d.amount + '元（毛利率 ' + d.marginPct + '%）';
-  }).join('　');
-  html += '</div>';
+  var uid = 'lmd-' + Math.random().toString(36).slice(2,7);
+  var html = '<div style="margin-top:6px">' +
+    '<button class="btn" style="padding:3px 8px;font-size:11px;color:var(--red);border-color:var(--red)40" onclick="event.stopPropagation();var el=document.getElementById(\'' + uid + '\');el.style.display=el.style.display===\'none\'?\'block\':\'none\'">⚠ 低毛利案件 ' + deals.length + ' 筆 ▾</button>' +
+    '<div id="' + uid + '" style="display:none;margin-top:4px;display:none">' +
+    '<table style="font-size:11px;border-collapse:collapse;width:100%">' +
+    '<tr style="color:var(--text2)"><th style="text-align:left;padding:2px 6px">日期</th><th style="text-align:left;padding:2px 6px">SKU</th><th style="text-align:right;padding:2px 6px">數量</th><th style="text-align:right;padding:2px 6px">金額</th><th style="text-align:right;padding:2px 6px;color:var(--red)">毛利率</th></tr>';
+  deals.forEach(function(d) {
+    var c = d.marginPct < 0 ? 'var(--red)' : '#f5a623';
+    html += '<tr style="border-top:1px solid var(--border)20">' +
+      '<td style="padding:2px 6px;color:var(--text2)">' + d.date + '</td>' +
+      '<td style="padding:2px 6px">' + d.sku + '</td>' +
+      '<td style="padding:2px 6px;text-align:right;color:var(--text2)">' + d.qty + '片</td>' +
+      '<td style="padding:2px 6px;text-align:right">' + fmtNum(d.amount) + '</td>' +
+      '<td style="padding:2px 6px;text-align:right;color:' + c + ';font-weight:800">' + d.marginPct + '%</td>' +
+    '</tr>';
+  });
+  html += '</table></div></div>';
   return html;
 }
 
@@ -2138,22 +2150,28 @@ function loadCustomerExpand(el, customer) {
 
   var warRoomHtml = '';
   var timelineHtml = '';
-  var renderBoth = function() {
-    if (warRoomHtml === null || timelineHtml === null) return;
-    el.innerHTML = headerHtml + warRoomHtml +
+  var salesHtml = '';
+  var renderAll = function() {
+    if (warRoomHtml === null || timelineHtml === null || salesHtml === null) return;
+    el.innerHTML = headerHtml + salesHtml + warRoomHtml +
       '<div style="margin-top:10px"><button class="btn" style="padding:6px 12px;font-size:12px" onclick="event.stopPropagation();var el=this.nextElementSibling;el.style.display=el.style.display===\'none\'?\'block\':\'none\'">📜 互動紀錄明細 ▾</button>' +
       '<div style="display:none;margin-top:10px">' + timelineHtml + '</div></div>';
   };
 
+  apiGet('customer-sales-breakdown', { customer: customer }, function(res) {
+    salesHtml = res.success ? renderSalesBreakdown(res.data) : '';
+    renderAll();
+  }, function() { salesHtml = ''; renderAll(); });
+
   apiGet('customer-warroom', { customer: customer }, function(res) {
     warRoomHtml = (res.success ? renderWarRoomDisplays(res.data) : '');
-    renderBoth();
-  }, function() { warRoomHtml = ''; renderBoth(); });
+    renderAll();
+  }, function() { warRoomHtml = ''; renderAll(); });
 
   apiGet('customer-timeline', { customer: customer }, function(res) {
-    if (!res.success) { timelineHtml = '<div style="color:var(--text2)">載入失敗</div>'; renderBoth(); return; }
+    if (!res.success) { timelineHtml = '<div style="color:var(--text2)">載入失敗</div>'; renderAll(); return; }
     var rows = res.data.timeline || [];
-    if (rows.length === 0) { timelineHtml = '<div style="color:var(--text2)">無歷史記錄</div>'; renderBoth(); return; }
+    if (rows.length === 0) { timelineHtml = '<div style="color:var(--text2)">無歷史記錄</div>'; renderAll(); return; }
     var typeColor = { '銷售': '#3ecf8e', '拜訪': '#60a5fa', '備註': 'var(--gold)' };
     var html = '<div style="display:flex;flex-direction:column;gap:8px">';
     rows.forEach(function(r) {
@@ -2168,10 +2186,83 @@ function loadCustomerExpand(el, customer) {
     });
     html += '</div>';
     timelineHtml = html;
-    renderBoth();
-  }, function() { timelineHtml = ''; renderBoth(); });
+    renderAll();
+  }, function() { timelineHtml = ''; renderAll(); });
 
-  warRoomHtml = null; timelineHtml = null;
+  warRoomHtml = null; timelineHtml = null; salesHtml = null;
+}
+
+function renderSalesBreakdown(data) {
+  if (!data || !data.skus || data.skus.length === 0) return '';
+  var periods = [
+    { key: 'month',    label: '當月' },
+    { key: 'quarter',  label: '當季' },
+    { key: 'half',     label: '近半年' },
+    { key: 'prevYear', label: data.prevYearLabel || '前年全年' }
+  ];
+  var totals = data.totals || {};
+  var skus = data.skus;
+
+  // 找各時段最大值，用來畫橫條比例
+  var maxByPeriod = {};
+  periods.forEach(function(p) {
+    maxByPeriod[p.key] = Math.max.apply(null, skus.map(function(s){ return s[p.key] || 0; })) || 1;
+  });
+
+  var html = '<div style="margin-bottom:14px"><div style="font-size:12px;font-weight:800;color:var(--gold);margin-bottom:8px">📦 銷售品項分析</div>';
+
+  // 時段總額概覽
+  html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">';
+  periods.forEach(function(p) {
+    html += '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;min-width:80px">' +
+      '<div style="font-size:10px;color:var(--text2)">' + p.label + '</div>' +
+      '<div style="font-size:14px;font-weight:800;color:var(--gold)">' + fmt(totals[p.key] || 0) + '</div>' +
+    '</div>';
+  });
+  html += '</div>';
+
+  // 選擇時段 tab
+  var tabId = 'sbtab-' + Math.random().toString(36).slice(2,6);
+  html += '<div id="' + tabId + '-tabs" style="display:flex;gap:4px;margin-bottom:8px">';
+  periods.forEach(function(p, i) {
+    html += '<button class="btn" style="padding:3px 10px;font-size:11px' + (i===2?';border-color:var(--gold);color:var(--gold)':'') + '" onclick="event.stopPropagation();showSalesTab(\'' + tabId + '\',\'' + p.key + '\',this)">' + p.label + '</button>';
+  });
+  html += '</div>';
+
+  // 每個時段的 SKU 排行
+  periods.forEach(function(p, i) {
+    var sorted = skus.slice().sort(function(a,b){ return b[p.key]-a[p.key]; }).filter(function(s){ return s[p.key]>0; });
+    html += '<div id="' + tabId + '-' + p.key + '" style="display:' + (i===2?'block':'none') + '">';
+    if (sorted.length === 0) { html += '<div style="font-size:12px;color:var(--text2)">此時段無銷售記錄</div>'; }
+    sorted.slice(0, 10).forEach(function(s, si) {
+      var pct = Math.round(s[p.key] / maxByPeriod[p.key] * 100);
+      var color = si===0 ? 'var(--gold)' : (si<=2 ? '#60a5fa' : 'var(--text2)');
+      var pingKey = p.key + 'Ping';
+      html += '<div style="display:flex;align-items:center;gap:6px;font-size:12px;margin-bottom:4px">' +
+        '<span style="width:16px;text-align:right;color:var(--text2);font-size:10px;flex-shrink:0">' + (si===0?'🥇':si===1?'🥈':si===2?'🥉':(si+1)) + '</span>' +
+        '<span style="width:90px;flex-shrink:0;color:var(--text1);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + s.series + '">' + s.sku + '</span>' +
+        '<div style="flex:1;background:var(--bg2);border-radius:3px;height:8px;overflow:hidden"><div style="width:' + pct + '%;height:100%;background:' + color + '"></div></div>' +
+        '<span style="width:50px;text-align:right;flex-shrink:0;font-weight:800">' + fmt(s[p.key]) + '</span>' +
+        '<span style="width:36px;text-align:right;flex-shrink:0;color:var(--text2);font-size:10px">' + (s[pingKey]||0) + '坪</span>' +
+      '</div>';
+    });
+    html += '</div>';
+  });
+
+  html += '</div>';
+  return html;
+}
+
+function showSalesTab(tabId, period, btn) {
+  ['month','quarter','half','prevYear'].forEach(function(k) {
+    var el = document.getElementById(tabId + '-' + k);
+    if (el) el.style.display = k === period ? 'block' : 'none';
+  });
+  var tabs = document.getElementById(tabId + '-tabs');
+  if (tabs) tabs.querySelectorAll('button').forEach(function(b) {
+    b.style.borderColor = ''; b.style.color = '';
+  });
+  if (btn) { btn.style.borderColor = 'var(--gold)'; btn.style.color = 'var(--gold)'; }
 }
 
 function showLifecycle(sku) {
