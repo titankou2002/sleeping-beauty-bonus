@@ -4039,6 +4039,93 @@ class SleeperService
         return ['success'=>true,'reply'=>trim($reply)];
     }
 
+    public function globalAiChat($message, $history, $tab, $context)
+    {
+        if (GEMINI_API_KEY === '') return ['success'=>false,'msg'=>'尚未設定 GEMINI_API_KEY'];
+        if (trim($message) === '') return ['success'=>false,'msg'=>'訊息不得為空'];
+
+        $tabLabels = ['products'=>'產品總覽', 'reports'=>'銷售報表', 'bonus'=>'睡美人銷售', 'customers'=>'客戶分析'];
+        $tabLabel = $tabLabels[$tab] ?? '業務分析';
+
+        // 根據分頁建立情境摘要
+        $ctxText = '';
+        if ($tab === 'products' && !empty($context['products'])) {
+            $lines = ["【產品庫存概覽（共 ".count($context['products'])." 項）】"];
+            foreach (array_slice($context['products'], 0, 30) as $p) {
+                $lines[] = "• {$p['sku']} {$p['seriesCn']} 庫存 {$p['stockPing']}坪 月銷速 {$p['monthlySpeedPings']}坪/月 健康度 {$p['grade']} 毛利率 {$p['marginPct']}%";
+            }
+            $ctxText = implode("\n", $lines);
+        } elseif ($tab === 'reports' && !empty($context)) {
+            $lines = ["【銷售報表摘要】"];
+            if (isset($context['periodTotal'])) $lines[] = "本期業績：" . number_format(round($context['periodTotal']/10000,1),1) . "萬";
+            if (isset($context['yoyPct'])) $lines[] = "YOY：{$context['yoyPct']}%";
+            if (!empty($context['topProducts'])) {
+                $lines[] = "暢銷產品 Top10：";
+                foreach (array_slice($context['topProducts'],0,10) as $p) {
+                    $lines[] = "  {$p['sku']} {$p['seriesCn']} {$p['totalPings']}坪 {$p['totalAmt']}元";
+                }
+            }
+            if (!empty($context['trend'])) {
+                $lines[] = "近12月趨勢：";
+                foreach (array_slice($context['trend'],0,12) as $m) {
+                    $lines[] = "  {$m['month']} 業績 ".number_format(round(($m['amt']??0)/10000,1),1)."萬 去年同期 ".number_format(round(($m['lastYearAmt']??0)/10000,1),1)."萬";
+                }
+            }
+            $ctxText = implode("\n", $lines);
+        } elseif ($tab === 'bonus' && !empty($context)) {
+            $lines = ["【睡美人銷售摘要】"];
+            if (isset($context['thisYearAmt'])) $lines[] = "今年累積業績：".number_format(round($context['thisYearAmt']/10000,1),1)."萬";
+            if (isset($context['yoyPct'])) $lines[] = "YOY：{$context['yoyPct']}%";
+            if (!empty($context['topSkus'])) {
+                $lines[] = "睡美人暢銷前15：";
+                foreach (array_slice($context['topSkus'],0,15) as $p) {
+                    $lines[] = "  {$p['sku']} {$p['seriesCn']} 庫存{$p['stockPing']}坪 月銷{$p['monthlySpeedPings']}坪 等級{$p['grade']}";
+                }
+            }
+            $ctxText = implode("\n", $lines);
+        } elseif ($tab === 'customers' && !empty($context)) {
+            $lines = ["【客戶整體概覽】"];
+            if (isset($context['customerCount'])) $lines[] = "有效客戶數：{$context['customerCount']}";
+            if (isset($context['thisYearAmount'])) $lines[] = "今年整體業績：".number_format(round($context['thisYearAmount']/10000,1),1)."萬";
+            if (isset($context['yoyPct'])) $lines[] = "整體YOY：{$context['yoyPct']}%";
+            if (!empty($context['healthCounts'])) {
+                $lines[] = "客戶健康度：成長中{$context['healthCounts']['growth']} 正常{$context['healthCounts']['normal']} 警示{$context['healthCounts']['warning']} 衰退{$context['healthCounts']['decline']} 沉睡{$context['healthCounts']['dormant']}";
+            }
+            if (!empty($context['topCustomers'])) {
+                $lines[] = "業績 Top 客戶：";
+                foreach (array_slice($context['topCustomers'],0,10) as $c) {
+                    $lines[] = "  {$c['name']} ".number_format(round($c['totalAmount']/10000,1),1)."萬 YOY".($c['yoyPct']!==null?$c['yoyPct'].'%':'—');
+                }
+            }
+            $ctxText = implode("\n", $lines);
+        }
+
+        $systemPrompt = "你是高雅瓷磁磚公司的業務分析 AI 顧問，熟悉瓷磚經銷業務（品牌：elitile，主打睡美人系列磁磚）。你的任務是根據提供的即時資料，用繁體中文（台灣用語）回答業務主管問題，提供具體可操作的分析與建議。回答要精準、務實、有條理，避免廢話。目前使用者在「{$tabLabel}」分頁。\n\n{$ctxText}";
+
+        $contents = [];
+        foreach ($history as $h) {
+            if (isset($h['role'], $h['content'])) {
+                $contents[] = ['role'=>$h['role'], 'parts'=>[['text'=>$h['content']]]];
+            }
+        }
+        $contents[] = ['role'=>'user', 'parts'=>[['text'=>$message]]];
+
+        $url = "https://generativelanguage.googleapis.com/v1beta/models/" . GEMINI_MODEL . ":generateContent?key=" . GEMINI_API_KEY;
+        $payload = [
+            'system_instruction' => ['parts'=>[['text'=>$systemPrompt]]],
+            'contents' => $contents,
+            'generationConfig' => ['temperature'=>0.7, 'maxOutputTokens'=>1024]
+        ];
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER=>true, CURLOPT_POST=>true, CURLOPT_TIMEOUT=>30, CURLOPT_HTTPHEADER=>['Content-Type: application/json'], CURLOPT_POSTFIELDS=>json_encode($payload, JSON_UNESCAPED_UNICODE)]);
+        $resp = curl_exec($ch); $err = curl_error($ch); curl_close($ch);
+        if ($err) return ['success'=>false,'msg'=>"連線失敗：{$err}"];
+        $result = json_decode($resp, true);
+        $reply = $result['candidates'][0]['content']['parts'][0]['text'] ?? '';
+        if ($reply === '') return ['success'=>false,'msg'=>'Gemini 無回應（'.($result['candidates'][0]['finishReason']??'UNKNOWN').'）'];
+        return ['success'=>true,'reply'=>trim($reply)];
+    }
+
     public function getSleeperProductOverview()
     {
         $configRes = $this->getSleeperConfig();
@@ -5139,6 +5226,17 @@ try {
                 $body['customer'] ?? '',
                 $body['message'] ?? '',
                 $body['history'] ?? [],
+                $body['context'] ?? []
+            );
+            echo json_encode($res);
+            break;
+
+        case 'global-ai-chat':
+            $body = json_decode(file_get_contents('php://input'), true) ?: [];
+            $res = $svc->globalAiChat(
+                $body['message'] ?? '',
+                $body['history'] ?? [],
+                $body['tab'] ?? '',
                 $body['context'] ?? []
             );
             echo json_encode($res);

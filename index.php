@@ -2387,7 +2387,103 @@ function closeDetail() {
   document.getElementById('modal-detail').classList.add('hidden');
 }
 
+// ── 全域 AI 顧問 ──────────────────────────────────────────
+var _globalAiHistory = [];
+
+function buildGlobalAiContext() {
+  var tab = (typeof currentTab !== 'undefined') ? currentTab : '';
+  var ctx = {};
+  if (tab === 'products' && window._normalData) {
+    ctx.products = (window._normalData.sleeper||[]).concat(window._normalData.normal||[]).slice(0,40).map(function(p){
+      return { sku:p.sku, seriesCn:p.seriesCn||p.series||'', stockPing:p.stockPing||0, monthlySpeedPings:p.monthlySpeedPings||0, grade:p.grade||p.mosLevel||0, marginPct:p.marginPct||0 };
+    });
+  } else if (tab === 'reports' && window._strategyReport) {
+    var r = window._strategyReport;
+    ctx.periodTotal = r.periodTotal||0;
+    ctx.yoyPct = r.yoyPct||null;
+    ctx.topProducts = (r.rankings||r.topProducts||[]).slice(0,15).map(function(p){ return {sku:p.sku,seriesCn:p.seriesCn||p.series||'',totalPings:p.totalPings||p.pings||0,totalAmt:p.totalAmt||p.amt||0}; });
+    ctx.trend = (r.trend||[]).map(function(m){ return {month:m.month,amt:m.amt||0,lastYearAmt:m.lastYearAmt||0}; });
+  } else if (tab === 'bonus' && (window._dashboard||window._bonusData)) {
+    var d = window._dashboard||{};
+    ctx.thisYearAmt = d.thisYearAmt||d.totalAmt||0;
+    ctx.yoyPct = d.yoyPct||null;
+    ctx.topSkus = (window._bonusData||window._sleeperData||[]).slice(0,20).map(function(p){ return {sku:p.sku,seriesCn:p.seriesCn||p.series||'',stockPing:p.stockPing||0,monthlySpeedPings:p.monthlySpeedPings||0,grade:p.mosLevel||0}; });
+  } else if (tab === 'customers' && window._customerSummary) {
+    ctx = window._customerSummary;
+  }
+  return { tab: tab, context: ctx };
+}
+
+function toggleGlobalAi() {
+  var drawer = document.getElementById('global-ai-drawer');
+  var isOpen = drawer.style.transform === 'translateY(0px)' || drawer.style.transform === 'translateY(0%)';
+  drawer.style.transform = isOpen ? 'translateY(100%)' : 'translateY(0%)';
+  if (!isOpen) {
+    setTimeout(function(){ var inp = document.getElementById('global-ai-input'); if(inp) inp.focus(); }, 200);
+  }
+}
+
+function sendGlobalAi() {
+  var inputEl = document.getElementById('global-ai-input');
+  var msgsEl = document.getElementById('global-ai-msgs');
+  var statusEl = document.getElementById('global-ai-status');
+  var msg = inputEl.value.trim();
+  if (!msg) return;
+
+  msgsEl.innerHTML += '<div style="display:flex;justify-content:flex-end;margin-bottom:8px"><div style="background:var(--gold)18;border:1px solid var(--gold)30;border-radius:10px 10px 2px 10px;padding:8px 12px;max-width:80%;font-size:13px;white-space:pre-wrap">' + msg.replace(/</g,'&lt;') + '</div></div>';
+  inputEl.value = '';
+  statusEl.textContent = 'AI 思考中...';
+  msgsEl.scrollTop = msgsEl.scrollHeight;
+
+  var tabCtx = buildGlobalAiContext();
+
+  fetch('api.php?action=global-ai-chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: msg, history: _globalAiHistory, tab: tabCtx.tab, context: tabCtx.context })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(res) {
+    statusEl.textContent = '';
+    if (!res.success) {
+      msgsEl.innerHTML += '<div style="color:var(--red);font-size:13px;margin-bottom:8px">❌ ' + (res.msg||'錯誤') + '</div>';
+    } else {
+      var reply = res.reply || '';
+      var formatted = reply.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+      msgsEl.innerHTML += '<div style="display:flex;gap:8px;margin-bottom:8px"><div style="width:26px;height:26px;border-radius:50%;background:var(--gold)20;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;margin-top:2px">🤖</div><div style="background:var(--bg2);border:1px solid var(--border);border-radius:2px 10px 10px 10px;padding:10px 14px;max-width:85%;font-size:13px;line-height:1.7">' + formatted + '</div></div>';
+      _globalAiHistory.push({ role:'user', content: msg });
+      _globalAiHistory.push({ role:'model', content: reply });
+      if (_globalAiHistory.length > 20) _globalAiHistory = _globalAiHistory.slice(-20);
+    }
+    msgsEl.scrollTop = msgsEl.scrollHeight;
+  })
+  .catch(function(){ statusEl.textContent=''; msgsEl.innerHTML += '<div style="color:var(--red);font-size:13px;margin-bottom:8px">❌ 連線錯誤</div>'; });
+}
+
 </script>
+
+<!-- 全域 AI 浮動按鈕 -->
+<button onclick="toggleGlobalAi()" style="position:fixed;bottom:28px;right:28px;z-index:9998;width:52px;height:52px;border-radius:50%;background:var(--gold);border:none;cursor:pointer;font-size:22px;box-shadow:0 4px 16px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;color:#000" title="AI 業務顧問">🤖</button>
+
+<!-- AI 對話抽屜 -->
+<div id="global-ai-drawer" style="position:fixed;bottom:0;right:0;width:420px;max-width:100vw;height:560px;background:var(--bg1);border:1px solid var(--border);border-bottom:none;border-radius:12px 12px 0 0;z-index:9997;transform:translateY(100%);transition:transform 0.3s ease;display:flex;flex-direction:column;box-shadow:0 -4px 24px rgba(0,0,0,0.4)">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0">
+    <div>
+      <span style="font-size:14px;font-weight:800;color:var(--gold)">🤖 AI 業務顧問</span>
+      <span style="font-size:11px;color:var(--text2);margin-left:8px">自動讀取當前分頁資料</span>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="_globalAiHistory=[];document.getElementById('global-ai-msgs').innerHTML='';document.getElementById('global-ai-status').textContent=''" style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:5px;padding:3px 8px;cursor:pointer;font-size:11px">清除</button>
+      <button onclick="toggleGlobalAi()" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:18px;padding:0 4px">×</button>
+    </div>
+  </div>
+  <div id="global-ai-msgs" style="flex:1;overflow-y:auto;padding:14px 16px"></div>
+  <div id="global-ai-status" style="padding:0 16px 4px;font-size:11px;color:var(--text2);min-height:18px;flex-shrink:0"></div>
+  <div style="padding:10px 16px 14px;display:flex;gap:8px;flex-shrink:0;border-top:1px solid var(--border)">
+    <textarea id="global-ai-input" placeholder="問任何關於當前分頁資料的問題... (⌘↵送出)" rows="2" style="flex:1;background:var(--bg2);border:1px solid var(--border);color:var(--text1);border-radius:8px;padding:8px 10px;font-size:13px;resize:none;font-family:inherit" onkeydown="if((event.metaKey||event.ctrlKey)&&event.key==='Enter')sendGlobalAi()"></textarea>
+    <button onclick="sendGlobalAi()" style="background:var(--gold);border:none;color:#000;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:13px;font-weight:800;flex-shrink:0">送出</button>
+  </div>
+</div>
 
 </body>
 </html>
