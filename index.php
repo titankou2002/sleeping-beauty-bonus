@@ -2151,11 +2151,15 @@ function loadCustomerExpand(el, customer) {
   var warRoomHtml = '';
   var timelineHtml = '';
   var salesHtml = '';
+  var custCtx = c || {};
+  var chatId = 'ai-chat-' + Math.random().toString(36).slice(2,8);
   var renderAll = function() {
     if (warRoomHtml === null || timelineHtml === null || salesHtml === null) return;
     el.innerHTML = headerHtml + salesHtml + warRoomHtml +
       '<div style="margin-top:10px"><button class="btn" style="padding:6px 12px;font-size:12px" onclick="event.stopPropagation();var el=this.nextElementSibling;el.style.display=el.style.display===\'none\'?\'block\':\'none\'">📜 互動紀錄明細 ▾</button>' +
-      '<div style="display:none;margin-top:10px">' + timelineHtml + '</div></div>';
+      '<div style="display:none;margin-top:10px">' + timelineHtml + '</div></div>' +
+      renderAiChat(chatId, customer);
+    initAiChat(chatId, custCtx);
   };
 
   apiGet('customer-sales-breakdown', { customer: customer }, function(res) {
@@ -2263,6 +2267,66 @@ function showSalesTab(tabId, period, btn) {
     b.style.borderColor = ''; b.style.color = '';
   });
   if (btn) { btn.style.borderColor = 'var(--gold)'; btn.style.color = 'var(--gold)'; }
+}
+
+function renderAiChat(chatId, customer) {
+  return '<div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px">' +
+    '<div style="font-size:12px;font-weight:800;color:var(--gold);margin-bottom:8px">🤖 AI 客戶顧問</div>' +
+    '<div id="' + chatId + '-msgs" style="display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto;margin-bottom:8px;padding:4px 0"></div>' +
+    '<div style="display:flex;gap:6px;align-items:flex-end">' +
+      '<textarea id="' + chatId + '-input" placeholder="問任何關於 ' + customer + ' 的問題，例如：這個客戶最近業績下滑的原因？該怎麼挽救？" rows="2" style="flex:1;background:var(--bg2);border:1px solid var(--border);color:var(--text1);border-radius:6px;padding:8px;font-size:12px;resize:none;font-family:inherit" onkeydown="if((event.metaKey||event.ctrlKey)&&event.key===\'Enter\'){event.stopPropagation();sendAiChat(\'' + chatId + '\')}"></textarea>' +
+      '<button class="btn" style="padding:8px 14px;font-size:12px" onclick="event.stopPropagation();sendAiChat(\'' + chatId + '\')">送出<br><span style="font-size:9px;color:var(--text2)">⌘↵</span></button>' +
+    '</div>' +
+    '<div id="' + chatId + '-status" style="font-size:11px;color:var(--text2);margin-top:4px;min-height:16px"></div>' +
+  '</div>';
+}
+
+var _aiChatStore = {};
+function initAiChat(chatId, custCtx) {
+  _aiChatStore[chatId] = { history: [], ctx: custCtx };
+}
+
+function sendAiChat(chatId) {
+  var inputEl = document.getElementById(chatId + '-input');
+  var msgsEl  = document.getElementById(chatId + '-msgs');
+  var statusEl = document.getElementById(chatId + '-status');
+  if (!inputEl || !msgsEl) return;
+  var msg = inputEl.value.trim();
+  if (!msg) return;
+
+  var store = _aiChatStore[chatId] || { history: [], ctx: {} };
+
+  // 顯示用戶訊息
+  msgsEl.innerHTML += '<div style="display:flex;justify-content:flex-end"><div style="background:var(--gold)18;border:1px solid var(--gold)30;border-radius:10px 10px 2px 10px;padding:8px 12px;max-width:80%;font-size:12px;white-space:pre-wrap">' + msg.replace(/</g,'&lt;') + '</div></div>';
+  inputEl.value = '';
+  statusEl.textContent = 'AI 思考中...';
+  msgsEl.scrollTop = msgsEl.scrollHeight;
+
+  fetch('api.php?action=customer-ai-chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ customer: store.ctx.name || '', message: msg, history: store.history, context: store.ctx })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(res) {
+    statusEl.textContent = '';
+    if (!res.success) {
+      msgsEl.innerHTML += '<div style="color:var(--red);font-size:12px">❌ ' + (res.msg||'錯誤') + '</div>';
+    } else {
+      var reply = res.reply || '';
+      // 簡單 markdown 粗體支援
+      var formatted = reply.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+      msgsEl.innerHTML += '<div style="display:flex;gap:6px"><div style="width:22px;height:22px;border-radius:50%;background:var(--gold)20;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0">🤖</div><div style="background:var(--bg2);border:1px solid var(--border);border-radius:2px 10px 10px 10px;padding:8px 12px;max-width:85%;font-size:12px;line-height:1.6">' + formatted + '</div></div>';
+      store.history.push({ role: 'user', content: msg });
+      store.history.push({ role: 'model', content: reply });
+      if (store.history.length > 20) store.history = store.history.slice(-20);
+    }
+    msgsEl.scrollTop = msgsEl.scrollHeight;
+  })
+  .catch(function(e) {
+    statusEl.textContent = '';
+    msgsEl.innerHTML += '<div style="color:var(--red);font-size:12px">❌ 連線錯誤</div>';
+  });
 }
 
 function showLifecycle(sku) {

@@ -3954,6 +3954,91 @@ class SleeperService
         return ['success'=>true,'data'=>['skus'=>$list,'totals'=>$totals,'prevYearLabel'=>($now->format('Y')-1).'年全年']];
     }
 
+    public function customerAiChat($customer, $message, $history, $context)
+    {
+        if (GEMINI_API_KEY === '') return ['success'=>false,'msg'=>'尚未設定 GEMINI_API_KEY'];
+        if (trim($message) === '') return ['success'=>false,'msg'=>'訊息不得為空'];
+
+        // 從 context 建立客戶情境摘要（context 由前端從已載入的資料直接傳入）
+        $c = $context;
+        $name = $c['name'] ?? $customer;
+        $now = new DateTime();
+        $year = $now->format('Y');
+        $lastYear = $year - 1;
+
+        $ctxLines = [
+            "客戶名稱：{$name}",
+            "今年累積業績：" . number_format(round(($c['thisYearAmount']??0)/10000,1),1) . " 萬元",
+            "去年同期業績：" . number_format(round(($c['lastYearAmount']??0)/10000,1),1) . " 萬元",
+            "YOY：" . (isset($c['yoyPct']) ? $c['yoyPct'].'%' : '—'),
+            "最後下單：" . ($c['lastOrderDate'] ?? '—') . ($c['daysSinceLastOrder']!==null ? "（{$c['daysSinceLastOrder']} 天前）" : ''),
+            "健康狀態：" . ($c['health'] ?? '—'),
+            "拜訪次數：" . ($c['visits'] ?? 0) . " 次",
+            "平均毛利率：" . (isset($c['avgMarginPct']) ? $c['avgMarginPct'].'%' : '—'),
+            "合約狀態：" . ($c['contractHealth'] ?? '無合約') . (isset($c['contractBalance']) ? "，餘額 ".number_format($c['contractBalance'])."元" : '') . ($c['contractExpiry'] ? "，到期 ".$c['contractExpiry'] : ''),
+            "現正陳列 SKU 數：" . ($c['activeDisplayCount'] ?? 0),
+            "負責業務：" . ($c['salesRep'] ?? '未分配'),
+            "最新備註：" . ($c['lastNote'] ? "（{$c['lastNoteDate']}）{$c['lastNote']}" : '無'),
+        ];
+
+        // 互動類型
+        if (!empty($c['catCounts'])) {
+            $catTotal = array_sum($c['catCounts']);
+            $catSummary = [];
+            foreach ($c['catCounts'] as $cat => $n) {
+                $catSummary[] = $cat . ' ' . $n . '次(' . round($n/$catTotal*100) . '%)';
+            }
+            arsort($c['catCounts']);
+            $ctxLines[] = "互動類型分布：" . implode('、', $catSummary);
+        }
+
+        // 低毛利案件
+        if (!empty($c['lowMarginDeals'])) {
+            $deals = array_map(function($d){ return "{$d['date']} {$d['sku']} 毛利率{$d['marginPct']}%"; }, $c['lowMarginDeals']);
+            $ctxLines[] = "低毛利案件（最近5筆）：" . implode('；', $deals);
+        }
+
+        $systemPrompt = "你是高雅瓷磁磚公司的業務分析顧問，熟悉瓷磚經銷業務。你的任務是根據以下客戶資料，用繁體中文（台灣用語）回答業務主管的問題，提供具體可操作的分析與建議。回答要精準、務實，不要廢話。\n\n" .
+            "【客戶資料】\n" . implode("\n", $ctxLines);
+
+        // 建立對話歷史（Gemini 格式）
+        $contents = [];
+        foreach ($history as $h) {
+            if (isset($h['role']) && isset($h['content'])) {
+                $contents[] = ['role' => $h['role'], 'parts' => [['text' => $h['content']]]];
+            }
+        }
+        $contents[] = ['role' => 'user', 'parts' => [['text' => $message]]];
+
+        $url = "https://generativelanguage.googleapis.com/v1beta/models/" . GEMINI_MODEL . ":generateContent?key=" . GEMINI_API_KEY;
+        $payload = [
+            'system_instruction' => ['parts' => [['text' => $systemPrompt]]],
+            'contents' => $contents,
+            'generationConfig' => ['temperature' => 0.7, 'maxOutputTokens' => 1024]
+        ];
+
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST => true,
+            CURLOPT_TIMEOUT => 30,
+            CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+            CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE)
+        ]);
+        $resp = curl_exec($ch);
+        $err = curl_error($ch);
+        curl_close($ch);
+
+        if ($err) return ['success'=>false,'msg'=>"連線失敗：{$err}"];
+        $result = json_decode($resp, true);
+        $reply = $result['candidates'][0]['content']['parts'][0]['text'] ?? '';
+        if ($reply === '') {
+            $blockReason = $result['candidates'][0]['finishReason'] ?? ($result['promptFeedback']['blockReason'] ?? 'UNKNOWN');
+            return ['success'=>false,'msg'=>"Gemini 無回應（{$blockReason}）"];
+        }
+        return ['success'=>true,'reply'=>trim($reply)];
+    }
+
     public function getSleeperProductOverview()
     {
         $configRes = $this->getSleeperConfig();
@@ -5045,6 +5130,17 @@ try {
         case 'customer-sales-breakdown':
             $customer = $_GET['customer'] ?? '';
             $res = $svc->getCustomerSalesBreakdown($customer);
+            echo json_encode($res);
+            break;
+
+        case 'customer-ai-chat':
+            $body = json_decode(file_get_contents('php://input'), true) ?: [];
+            $res = $svc->customerAiChat(
+                $body['customer'] ?? '',
+                $body['message'] ?? '',
+                $body['history'] ?? [],
+                $body['context'] ?? []
+            );
             echo json_encode($res);
             break;
 
