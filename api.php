@@ -339,7 +339,7 @@ class GoogleSheetsClient
 // ====== SleeperService ======
 class SleeperService
 {
-    private static $salesMerge = ['薛佶姈' => '高弘治'];
+    private static $salesMerge = ['薛佶姈' => '高弘治', '陳育瑋' => '陳勁多'];
     private static $customerSuffixes = [
         '企業股份有限公司', '開發有限公司', '股份有限公司', '有限公司',
         '企業', '建材', '國際', '磁磚', '磁藝', '工程', '設計部', '出貨',
@@ -375,6 +375,9 @@ class SleeperService
         if (mb_strpos($s, '今冠') !== false || mb_strpos($s, '金冠') !== false) return '金冠';
         if (mb_strpos($s, '東春') !== false || mb_strpos($s, '滿財') !== false) return '東春';
         if (mb_strpos($s, '德思特尼') !== false || mb_strpos($s, '德思') !== false) return '德思特尼';
+        // 客戶合併規則 (2026-06-22 新增)
+        if (mb_strpos($s, '太爾') !== false) return '信義星';
+        if (mb_strpos($s, '琮達') !== false) return '琮威';
 
         $parts = preg_split('/[-－—]/u', $s);
         $s = $parts[0] ?? $s;
@@ -3400,7 +3403,8 @@ class SleeperService
                     'marginAmt' => 0, 'marginRevenue' => 0, 'lowMarginDeals' => [],
                     'salesRepCounts' => [],
                     'contractHealth' => null, 'contractExpiry' => null, 'contractBalance' => null,
-                    'activeDisplays' => []
+                    'activeDisplays' => [],
+                    'saleCount' => 0
                 ];
             }
             return $key;
@@ -3434,6 +3438,7 @@ class SleeperService
 
                     $key = $this->displayCustomerName($custRaw);
                     $getC($key);
+                    $customers[$key]['saleCount']++;
                     $customers[$key]['totalAmount'] += $amt;
                     $y = (int)$d->format('Y');
                     if ($y === $thisYear) $customers[$key]['thisYearAmount'] += $amt;
@@ -3445,6 +3450,7 @@ class SleeperService
 
                     $rep = $idxSales !== -1 ? trim($this->getVal($row, $idxSales)) : '';
                     if ($rep !== '') {
+                        $rep = self::$salesMerge[$rep] ?? $rep;
                         if (!isset($customers[$key]['salesRepCounts'][$rep])) $customers[$key]['salesRepCounts'][$rep] = 0;
                         $customers[$key]['salesRepCounts'][$rep]++;
                     }
@@ -3641,8 +3647,8 @@ class SleeperService
 
         usort($result, function ($a, $b) { return $b['totalAmount'] <=> $a['totalAmount']; });
 
-        // 月報摘要（僅統計有銷售紀錄的客戶，排除拜訪/備註誤判出來的假客戶）
-        $activeCustomers = array_values(array_filter($result, function ($c) { return $c['totalAmount'] > 0; }));
+        // 月報摘要（僅統計有銷售紀錄且交易 >= 15 筆的客戶，排除單一案件與拜訪/備註誤判出來的假客戶）
+        $activeCustomers = array_values(array_filter($result, function ($c) { return $c['totalAmount'] > 0 && $c['saleCount'] >= 15; }));
         $summary = [
             'customerCount' => count($activeCustomers),
             'totalAmount' => 0, 'thisYearAmount' => 0, 'lastYearAmount' => 0,
@@ -3702,10 +3708,12 @@ class SleeperService
                     $qty = $idxQty !== -1 ? $this->optFloat($this->getVal($row, $idxQty)) : 0;
                     $amt = $idxAmt !== -1 ? $this->optFloat($this->getVal($row, $idxAmt)) : 0;
                     if ($qty == 0 || $amt == 0) continue;
+                    $sales = $idxSales !== -1 ? trim($this->getVal($row, $idxSales)) : '';
+                    $sales = self::$salesMerge[$sales] ?? $sales;
                     $timeline[] = [
                         'date' => $d->format('Y-m-d'),
                         'type' => '銷售',
-                        'sales' => $idxSales !== -1 ? trim($this->getVal($row, $idxSales)) : '',
+                        'sales' => $sales,
                         'desc' => $sku . ' ' . $qty . '片 / ' . round($amt) . '元'
                     ];
                 }
