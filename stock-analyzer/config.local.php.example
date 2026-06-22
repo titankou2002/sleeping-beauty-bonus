@@ -1,0 +1,18 @@
+<?php
+/**
+ * Local configuration overrides.
+ * Copy this file to config.local.php and fill in your values.
+ */
+
+// Telegram Bot
+define('TELEGRAM_BOT_TOKEN', 'your-bot-token-here');
+define('TELEGRAM_CHAT_ID', 'your-chat-id-here');
+
+// Email alerts
+define('ALERT_EMAIL', 'your-email@example.com');
+
+// Optional: Gemini AI integration
+// define('GEMINI_API_KEY', 'your-gemini-key');
+
+// Optional: FinMind API for extended TW data
+// define('FINMIND_API_TOKEN', 'your-finmind-token');
