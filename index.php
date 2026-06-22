@@ -931,8 +931,8 @@ function recalcAll() {
   });
 }
 
-function fmt(n) { n = n || 0; return (n / 10000).toFixed(1) + '萬'; }
-function fmtNum(n) { return isNaN(n) ? '0萬' : (n / 10000).toFixed(1) + '萬'; }
+function fmt(n) { n = n || 0; var wan = n / 10000; return (n < 50000 ? wan.toFixed(1) : Math.ceil(wan)) + '萬'; }
+function fmtNum(n) { if (isNaN(n)) return '0萬'; var wan = n / 10000; return (n < 50000 ? wan.toFixed(1) : Math.ceil(wan)) + '萬'; }
 
 var currentTab = 'products';
 var currentProdTab = 'normal';
@@ -1807,24 +1807,6 @@ function renderCustomerDashboard(summary) {
     html += '</div></div>';
   }
 
-  // 互動類型分布
-  if (summary.catCounts) {
-    var catTotal = 0;
-    Object.keys(summary.catCounts).forEach(function(k) { catTotal += summary.catCounts[k]; });
-    if (catTotal > 0) {
-      var order = ['客訴', '送樣', '帳款', '版面', '送貨退貨', '案件', '客情', '其他'];
-      html += '<div class="kpi-card" style="margin-top:10px"><div class="label">整體拜訪互動類型分布（共 ' + catTotal + ' 筆）</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">';
-      order.forEach(function(cat) {
-        var n = summary.catCounts[cat] || 0;
-        if (n === 0) return;
-        var pct = Math.round(n / catTotal * 100);
-        var color = CAT_COLOR[cat] || 'var(--text2)';
-        html += '<span style="font-size:12px;color:' + color + ';border:1px solid ' + color + '40;border-radius:5px;padding:3px 8px">' + cat + ' ' + n + ' (' + pct + '%)</span>';
-      });
-      html += '</div></div>';
-    }
-  }
-
   html += '<div style="font-size:15px;font-weight:800;color:var(--gold);margin:16px 0 8px">📋 客戶明細</div>';
   return html;
 }
@@ -1839,10 +1821,17 @@ function renderCustomerAnalysis(data) {
   if (daysThreshold > 0) {
     base = base.filter(function(c) { return c.totalAmount > 0 && c.daysSinceLastOrder !== null && c.daysSinceLastOrder >= daysThreshold; });
   }
-  var counts = {};
-  base.forEach(function(c) { counts[c.health] = (counts[c.health] || 0) + 1; });
 
-  var list = filter ? base.filter(function(c) { return c.health === filter; }) : base;
+  // 先做業務篩選
+  var filtered = base;
+  if (salesFilter) {
+    filtered = filtered.filter(function(c) { return (c.salesRep || '未分配') === salesFilter; });
+  }
+
+  var counts = {};
+  filtered.forEach(function(c) { counts[c.health] = (counts[c.health] || 0) + 1; });
+
+  var list = filter ? filtered.filter(function(c) { return c.health === filter; }) : filtered;
 
   // 績效分類篩選
   if (performanceFilter === 'growth') {
@@ -1853,11 +1842,6 @@ function renderCustomerAnalysis(data) {
     list = list.filter(function(c) { return c.daysSinceLastOrder !== null && c.daysSinceLastOrder >= 90; });
   } else if (performanceFilter === 'no_order_180') {
     list = list.filter(function(c) { return c.daysSinceLastOrder !== null && c.daysSinceLastOrder >= 180; });
-  }
-
-  // 業務篩選
-  if (salesFilter) {
-    list = list.filter(function(c) { return (c.salesRep || '未分配') === salesFilter; });
   }
 
   var search = (window._customerSearch || '').trim();
@@ -1883,32 +1867,14 @@ function renderCustomerAnalysis(data) {
 
   var html = '';
   html += renderCustomerDashboard(window._customerSummary);
-  html += '<div class="kpi-row" style="align-items:center">' +
-    '<div class="kpi-card" style="flex:0 0 auto">' +
-      '<div class="label">查詢未出貨天數</div>' +
-      '<div style="display:flex;gap:6px;align-items:center;margin-top:6px">' +
-        '<span style="font-size:12px;color:var(--text2)">查詢</span>' +
-        '<input id="customer-days-input" type="number" value="' + (daysThreshold || '') + '" placeholder="天數" style="width:70px;background:var(--bg2);border:1px solid var(--border);color:var(--text1);border-radius:6px;padding:4px 8px;font-size:13px" onkeydown="if(event.key===\'Enter\')applyCustomerDaysFilter()">' +
-        '<span style="font-size:12px;color:var(--text2)">天未出貨</span>' +
-        '<button class="btn" style="padding:4px 10px;font-size:12px" onclick="applyCustomerDaysFilter()">查詢</button>' +
-        '<button class="btn" style="padding:4px 10px;font-size:12px' + (daysThreshold === 90 ? ';border-color:var(--gold);color:var(--gold)' : '') + '" onclick="window._customerDaysFilter=90;renderCustomerAnalysis(window._customerData)">3個月</button>' +
-        '<button class="btn" style="padding:4px 10px;font-size:12px' + (daysThreshold === 180 ? ';border-color:var(--gold);color:var(--gold)' : '') + '" onclick="window._customerDaysFilter=180;renderCustomerAnalysis(window._customerData)">半年</button>' +
-        (daysThreshold > 0 ? '<button class="btn" style="padding:4px 10px;font-size:12px" onclick="window._customerDaysFilter=0;renderCustomerAnalysis(window._customerData)">清除</button>' : '') +
-      '</div>' +
-    '</div>' +
-  '</div>';
 
-  var allSalesReps = ['未分配'];
+  var allSalesReps = [];
   var salesRepSet = {};
   base.forEach(function(c) {
     var rep = c.salesRep || '未分配';
-    if (!salesRepSet[rep]) { salesRepSet[rep] = true; allSalesReps.push(rep); }
+    if (rep !== '未分配' && !salesRepSet[rep]) { salesRepSet[rep] = true; allSalesReps.push(rep); }
   });
-  allSalesReps.sort(function(a, b) {
-    if (a === '未分配') return 1;
-    if (b === '未分配') return -1;
-    return a.localeCompare(b);
-  });
+  allSalesReps.sort();
 
   html += '<div class="kpi-row" style="align-items:center">' +
     '<div class="kpi-card" style="flex:0 0 auto">' +
@@ -1954,10 +1920,10 @@ function renderCustomerAnalysis(data) {
   });
   html += '</div>';
 
-  var growthCount = list.filter(function(c) { return c.yoyPct !== null && c.yoyPct >= 10; }).length;
-  var declineCount = list.filter(function(c) { return c.yoyPct !== null && c.yoyPct <= -30; }).length;
-  var no90Count = list.filter(function(c) { return c.daysSinceLastOrder !== null && c.daysSinceLastOrder >= 90; }).length;
-  var no180Count = list.filter(function(c) { return c.daysSinceLastOrder !== null && c.daysSinceLastOrder >= 180; }).length;
+  var growthCount = filtered.filter(function(c) { return c.yoyPct !== null && c.yoyPct >= 10; }).length;
+  var declineCount = filtered.filter(function(c) { return c.yoyPct !== null && c.yoyPct <= -30; }).length;
+  var no90Count = filtered.filter(function(c) { return c.daysSinceLastOrder !== null && c.daysSinceLastOrder >= 90; }).length;
+  var no180Count = filtered.filter(function(c) { return c.daysSinceLastOrder !== null && c.daysSinceLastOrder >= 180; }).length;
 
   html += '<div class="kpi-row">' +
     '<div class="kpi-card" style="cursor:pointer;border:2px solid ' + (performanceFilter === 'growth' ? 'var(--gold)' : 'var(--border)') + ';background:' + (performanceFilter === 'growth' ? 'rgba(212,180,64,0.1)' : 'transparent') + '" onclick="window._customerPerformanceFilter=' + (performanceFilter === 'growth' ? "''" : "'growth'") + ';renderCustomerAnalysis(window._customerData)">' +
