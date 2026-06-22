@@ -565,7 +565,8 @@ input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-colo
         <img src="logo.svg" alt="eliTile" class="top-logo">
         <h1 class="logo">高雅瓷戰情室</h1>
         <div class="tab-bar">
-          <button class="tab-btn active" id="tab-products" onclick="switchTab('products')">產品總覽</button>
+          <button class="tab-btn active" id="tab-home" onclick="switchTab('home')">📊 戰情總覽</button>
+          <button class="tab-btn" id="tab-products" onclick="switchTab('products')">產品總覽</button>
           <button class="tab-btn" id="tab-reports" onclick="switchTab('reports')">銷售報表</button>
           <button class="tab-btn" id="tab-bonus" onclick="switchTab('bonus')">睡美人銷售</button>
           <button class="tab-btn" id="tab-customers" onclick="switchTab('customers')">客戶分析</button>
@@ -948,6 +949,7 @@ window._normalData = null;
 window._disconProducts = null;
 function switchTab(tab) {
   currentTab = tab;
+  document.getElementById('tab-home').classList.toggle('active', tab === 'home');
   document.getElementById('tab-bonus').classList.toggle('active', tab === 'bonus');
   document.getElementById('tab-products').classList.toggle('active', tab === 'products');
   document.getElementById('tab-reports').classList.toggle('active', tab === 'reports');
@@ -955,7 +957,9 @@ function switchTab(tab) {
   document.getElementById('ctrl-bonus').classList.toggle('hidden', tab !== 'bonus');
   document.getElementById('ctrl-products').classList.toggle('hidden', tab !== 'products');
   document.getElementById('ctrl-reports').classList.toggle('hidden', tab !== 'reports');
-  if (tab === 'products') {
+  if (tab === 'home') {
+    loadDashboardHome();
+  } else if (tab === 'products') {
     var el = document.getElementById('filter-grade');
     el.style.display = currentProdTab === 'sleeper' ? '' : 'none';
     if (!window._normalData) loadProducts();
@@ -1013,7 +1017,7 @@ function switchProdTab(tab) {
   renderProducts();
 }
 
-switchTab('products');
+switchTab('home');
 
 function loadProducts() {
   showLoading(true);
@@ -1899,11 +1903,13 @@ function renderCustomerAnalysis(data) {
       if (b === '未分配') return -1;
       return a.localeCompare(b);
     });
-    order.forEach(function(area) {
-      html += '<div style="margin:14px 0 6px;font-size:14px;font-weight:800;color:var(--gold)">📍 ' + area + '（' + groups[area].length + '）</div>';
-      html += '<div class="product-list">';
-      groups[area].forEach(function(c) { html += renderCustomerCard(c); });
-      html += '</div>';
+    order.forEach(function(area, idx) {
+      var expandId = 'area-expand-' + idx;
+      var isExpanded = window._expandedAreas && window._expandedAreas[area];
+      html += '<div style="margin:14px 0 0;cursor:pointer;user-select:none" onclick="window._expandedAreas=window._expandedAreas||{};window._expandedAreas[\'' + area + '\']=!window._expandedAreas[\'' + area + '\'];renderCustomerAnalysis(window._customerData)">' +
+        '<div style="font-size:14px;font-weight:800;color:var(--gold);padding:6px 0">' + (isExpanded ? '▼' : '▶') + ' 📍 ' + area + '（' + groups[area].length + '）</div>' +
+      '</div>' +
+      (isExpanded ? '<div class="product-list">' + groups[area].map(function(c) { return renderCustomerCard(c); }).join('') + '</div>' : '');
     });
   } else {
     html += '<div class="product-list">';
@@ -2465,6 +2471,51 @@ function sendGlobalAi() {
     <button onclick="sendGlobalAi()" style="background:var(--gold);border:none;color:#000;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:13px;font-weight:800;flex-shrink:0">送出</button>
   </div>
 </div>
+
+<script>
+function loadDashboardHome() {
+  showLoading(true);
+  var loaded = 0, total = 3;
+  function checkDone() {
+    loaded++;
+    if (loaded === total) { showLoading(false); renderDashboardHome(); }
+  }
+  apiGet('customer-analysis', {}, function(res) {
+    if (res.success) { window._dashCustomers = res.data; window._dashSummary = res.summary; }
+    checkDone();
+  });
+  apiGet('products', {}, function(res) {
+    if (res.success) { window._dashProducts = res.data; }
+    checkDone();
+  });
+  apiGet('strategy-report', { year: currentYear, month: currentMonth }, function(res) {
+    if (res.success) { window._dashReport = res.data; }
+    checkDone();
+  });
+}
+
+function renderDashboardHome() {
+  var html = '<div style="padding:20px">';
+  var s = window._dashSummary || {};
+  var r = window._dashReport || {};
+  var reportSummary = r.summary || {};
+  html += '<div class="kpi-row">';
+  html += '<div class="kpi-card kpi-gold"><div class="label">當月銷售</div><div class="value">' + fmtNum(reportSummary.total || 0) + '</div><div class="sub">當月睡美人 ' + fmtNum(reportSummary.sleeperSales || 0) + '</div></div>';
+  var yoyText = (r.comparisons && r.comparisons.yoy && r.comparisons.yoy.totalPct !== undefined) ? (r.comparisons.yoy.totalPct >= 0 ? '+' : '') + r.comparisons.yoy.totalPct.toFixed(1) + '%' : '—';
+  html += '<div class="kpi-card kpi-blue"><div class="label">同期相比</div><div class="value" style="color:' + (parseFloat(yoyText) >= 0 ? 'var(--gold)' : 'var(--red)') + '">' + yoyText + '</div></div>';
+  html += '<div class="kpi-card"><div class="label">年銷售</div><div class="value">' + (s.totalAmount ? fmtNum(s.totalAmount) : '—') + '</div></div>';
+  html += '</div>';
+  html += '<div class="kpi-row" style="margin-top:20px">';
+  var healthLabels = { warning: '90天未單', dormant: '半年未單', decline: '業績衰退', growth: '成長中' };
+  ['warning', 'dormant', 'decline', 'growth'].forEach(function(key) {
+    var count = (s.healthCounts && s.healthCounts[key]) || 0;
+    var info = HEALTH_INFO[key];
+    html += '<div class="kpi-card" style="border:1px solid ' + info.color + '"><div class="label">' + healthLabels[key] + '</div><div class="value" style="color:' + info.color + '">' + count + '</div><div class="sub">家客戶</div></div>';
+  });
+  html += '</div></div>';
+  document.getElementById('main-content').innerHTML = html;
+}
+</script>
 
 </body>
 </html>
