@@ -991,7 +991,40 @@ function renderDashboardHome() {
 
   html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px">';
 
-  html += '<div style="padding:15px;background:var(--bg2);border-radius:8px"><div style="text-align:center;margin-bottom:10px;font-weight:bold;color:var(--gold)">前10大客戶</div>';
+  html += '<div style="padding:15px;background:var(--bg2);border-radius:8px"><div style="text-align:center;margin-bottom:10px;font-weight:bold;color:var(--gold)">產品類型</div>';
+  var ptAmts = s.productTypeAmounts || {};
+  var ptSum = (ptAmts.sleeper || 0) + (ptAmts.normal || 0) + (ptAmts.discontinued || 0);
+  var ptLabels = { sleeper: '睡美人', normal: '正常品', discontinued: '不續辦' };
+  var ptColors = { sleeper: 'var(--gold)', normal: '#4CAF50', discontinued: '#FF6B6B' };
+  if (ptSum === 0) {
+    html += '<div style="padding:8px;color:var(--border)">無數據</div>';
+  } else {
+    Object.keys(ptLabels).forEach(function(key) {
+      var amt = ptAmts[key] || 0;
+      var pct = ptSum > 0 ? ((amt / ptSum) * 100).toFixed(1) : 0;
+      html += '<div style="padding:8px;border-bottom:1px solid var(--border);font-size:12px">';
+      html += '<div style="display:flex;justify-content:space-between"><span style="color:' + ptColors[key] + '">' + ptLabels[key] + '</span> <span style="color:var(--gold)">' + pct + '%</span></div>';
+      html += '<div style="background:var(--border);height:4px;border-radius:2px;overflow:hidden;margin-top:4px">';
+      html += '<div style="background:' + ptColors[key] + ';height:100%;width:' + pct + '%"></div></div></div>';
+    });
+  }
+  html += '</div>';
+
+  html += '<div style="padding:15px;background:var(--bg2);border-radius:8px"><div style="text-align:center;margin-bottom:10px;font-weight:bold;color:var(--gold)">前10大系列</div>';
+  var topSeries = s.topSeries || [];
+  if (topSeries.length === 0) {
+    html += '<div style="padding:8px;color:var(--border)">無數據</div>';
+  } else {
+    topSeries.forEach(function(ser, i) {
+      html += '<div style="padding:8px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;font-size:12px">';
+      html += '<span>' + (i+1) + '. ' + ser.name + '</span>';
+      html += '<span style="color:var(--gold);font-weight:bold">' + fmtNum(ser.amount) + '</span>';
+      html += '</div>';
+    });
+  }
+  html += '</div></div>';
+
+  html += '<div style="padding:15px;background:var(--bg2);border-radius:8px;margin-top:20px"><div style="text-align:center;margin-bottom:10px;font-weight:bold;color:var(--gold)">前10大客戶</div>';
   var topCust = s.topCustomers || [];
   if (topCust.length === 0) {
     html += '<div style="padding:8px;color:var(--border)">無數據</div>';
@@ -1003,25 +1036,7 @@ function renderDashboardHome() {
       html += '</div>';
     });
   }
-  html += '</div>';
-
-  html += '<div style="padding:15px;background:var(--bg2);border-radius:8px"><div style="text-align:center;margin-bottom:10px;font-weight:bold;color:var(--gold)">產品分類</div>';
-  var catCounts = s.catCounts || {};
-  var catKeys = Object.keys(catCounts).sort(function(a, b) { return catCounts[b] - catCounts[a]; });
-  var catSum = catKeys.reduce(function(sum, k) { return sum + catCounts[k]; }, 0);
-  if (catKeys.length === 0) {
-    html += '<div style="padding:8px;color:var(--border)">無數據</div>';
-  } else {
-    catKeys.forEach(function(cat) {
-      var cnt = catCounts[cat];
-      var pct = catSum > 0 ? ((cnt / catSum) * 100).toFixed(1) : 0;
-      html += '<div style="padding:8px;border-bottom:1px solid var(--border);font-size:12px">';
-      html += '<div style="display:flex;justify-content:space-between">' + cat + ' <span style="color:var(--gold)">' + pct + '%</span></div>';
-      html += '<div style="background:var(--border);height:4px;border-radius:2px;overflow:hidden;margin-top:4px">';
-      html += '<div style="background:var(--gold);height:100%;width:' + pct + '%"></div></div></div>';
-    });
-  }
-  html += '</div></div></div>';
+  html += '</div></div>';
   document.getElementById('main-content').innerHTML = html;
 }
 
