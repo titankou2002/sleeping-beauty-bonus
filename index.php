@@ -1847,30 +1847,12 @@ function renderCustomerAnalysis(data) {
   };
   list = list.slice().sort(sorters[sortKey] || sorters.amount_desc);
 
-  var groupBySales = !!window._customerGroupBySales;
+  var groupByArea = !!window._customerGroupByArea;
 
   var html = '';
   html += renderCustomerDashboard(window._customerSummary);
 
-  var allSalesReps = [];
-  var salesRepSet = {};
-  base.forEach(function(c) {
-    var rep = c.salesRep || '未分配';
-    if (rep !== '未分配' && !salesRepSet[rep]) { salesRepSet[rep] = true; allSalesReps.push(rep); }
-  });
-  allSalesReps.sort();
-
   html += '<div class="kpi-row" style="align-items:center">' +
-    '<div class="kpi-card" style="flex:0 0 auto">' +
-      '<div class="label">業務篩選</div>' +
-      '<div style="position:relative;display:inline-block;width:130px;margin-top:6px">' +
-        '<select id="customer-sales-select" style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text1);border-radius:6px;padding:6px 8px;font-size:13px;appearance:none;padding-right:24px;cursor:pointer" onchange="window._customerSalesFilter=this.value;renderCustomerAnalysis(window._customerData)">' +
-          '<option value=""' + (salesFilter === '' ? ' selected' : '') + '>所有業務</option>' +
-          allSalesReps.map(function(rep) { return '<option value="' + rep + '"' + (salesFilter === rep ? ' selected' : '') + '>' + rep + '</option>'; }).join('') +
-        '</select>' +
-        '<span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--text2);font-size:11px">▼</span>' +
-      '</div>' +
-    '</div>' +
     '<div class="kpi-card" style="flex:1 1 200px">' +
       '<div class="label">搜尋客戶</div>' +
       '<input id="customer-search-input" type="text" value="' + (search || '').replace(/"/g, '&quot;') + '" placeholder="輸入客戶名稱..." style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text1);border-radius:6px;padding:6px 8px;font-size:13px;margin-top:6px" oninput="window._customerSearch=this.value;renderCustomerAnalysis(window._customerData)">' +
@@ -1891,7 +1873,7 @@ function renderCustomerAnalysis(data) {
     '</div>' +
     '<div class="kpi-card" style="flex:0 0 auto">' +
       '<div class="label">顯示方式</div>' +
-      '<div style="margin-top:6px"><button class="btn" style="padding:6px 12px;font-size:12px' + (groupBySales ? ';border-color:var(--gold);color:var(--gold)' : '') + '" onclick="window._customerGroupBySales=' + (groupBySales ? 'false' : 'true') + ';renderCustomerAnalysis(window._customerData)">依業務分組</button></div>' +
+      '<div style="margin-top:6px"><button class="btn" style="padding:6px 12px;font-size:12px' + (groupByArea ? ';border-color:var(--gold);color:var(--gold)' : '') + '" onclick="window._customerGroupByArea=' + (groupByArea ? 'false' : 'true') + ';renderCustomerAnalysis(window._customerData)">依區域分組</button></div>' +
     '</div>' +
   '</div>';
 
@@ -1904,23 +1886,23 @@ function renderCustomerAnalysis(data) {
   });
   html += '</div>';
 
-  if (groupBySales) {
+  if (groupByArea) {
     var groups = {};
     var order = [];
     list.forEach(function(c) {
-      var rep = c.salesRep || '未分配';
-      if (!groups[rep]) { groups[rep] = []; order.push(rep); }
-      groups[rep].push(c);
+      var area = c.area || '未分配';
+      if (!groups[area]) { groups[area] = []; order.push(area); }
+      groups[area].push(c);
     });
     order.sort(function(a, b) {
       if (a === '未分配') return 1;
       if (b === '未分配') return -1;
       return a.localeCompare(b);
     });
-    order.forEach(function(rep) {
-      html += '<div style="margin:14px 0 6px;font-size:14px;font-weight:800;color:var(--gold)">👤 ' + rep + '（' + groups[rep].length + '）</div>';
+    order.forEach(function(area) {
+      html += '<div style="margin:14px 0 6px;font-size:14px;font-weight:800;color:var(--gold)">📍 ' + area + '（' + groups[area].length + '）</div>';
       html += '<div class="product-list">';
-      groups[rep].forEach(function(c) { html += renderCustomerCard(c); });
+      groups[area].forEach(function(c) { html += renderCustomerCard(c); });
       html += '</div>';
     });
   } else {

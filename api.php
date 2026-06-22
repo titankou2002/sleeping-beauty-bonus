@@ -340,6 +340,7 @@ class GoogleSheetsClient
 class SleeperService
 {
     private static $salesMerge = ['薛佶姈' => '高弘治', '陳育瑋' => '陳勁多'];
+    private $areaMap = null;
     private static $customerSuffixes = [
         '企業股份有限公司', '開發有限公司', '股份有限公司', '有限公司',
         '企業', '建材', '國際', '磁磚', '磁藝', '工程', '設計部', '出貨',
@@ -356,6 +357,32 @@ class SleeperService
     public function __construct($gs)
     {
         $this->gs = $gs;
+    }
+
+    private function getSalesRepAreaMap()
+    {
+        if ($this->areaMap !== null) return $this->areaMap;
+        $this->areaMap = [];
+        try {
+            $rows = $this->gs->readSheet('業務分區');
+            if (count($rows) >= 2) {
+                $h = $rows[0];
+                $idxRep = $this->findHeader($h, ['業務', '業務名稱', '負責業務']);
+                $idxArea = $this->findHeader($h, ['區域', '地區']);
+                if ($idxRep !== -1 && $idxArea !== -1) {
+                    for ($i = 1; $i < count($rows); $i++) {
+                        $rep = trim($this->getVal($rows[$i], $idxRep));
+                        $area = trim($this->getVal($rows[$i], $idxArea));
+                        if ($rep !== '' && $area !== '') {
+                            $rep = self::$salesMerge[$rep] ?? $rep;
+                            $this->areaMap[$rep] = $area;
+                        }
+                    }
+                }
+            }
+        } catch (Exception $e) {
+        }
+        return $this->areaMap;
     }
 
     private function normalizeCustomerName($name)
@@ -3390,6 +3417,7 @@ class SleeperService
         $thisYear = (int)$now->format('Y');
         $lastYear = $thisYear - 1;
         $todayMD = $now->format('m-d');
+        $areaMap = $this->getSalesRepAreaMap();
 
         $customers = [];
         $getC = function ($key) use (&$customers) {
@@ -3404,7 +3432,8 @@ class SleeperService
                     'salesRepCounts' => [],
                     'contractHealth' => null, 'contractExpiry' => null, 'contractBalance' => null,
                     'activeDisplays' => [],
-                    'saleCount' => 0
+                    'saleCount' => 0,
+                    'area' => null
                 ];
             }
             return $key;
@@ -3630,6 +3659,12 @@ class SleeperService
                     if (empty($counts)) return '未分配';
                     arsort($counts);
                     return array_key_first($counts);
+                })($c['salesRepCounts']),
+                'area' => (function ($counts) use ($areaMap) {
+                    if (empty($counts)) return '未分配';
+                    arsort($counts);
+                    $rep = array_key_first($counts);
+                    return $areaMap[$rep] ?? '未分配';
                 })($c['salesRepCounts']),
                 'contractHealth' => $c['contractHealth'],
                 'contractExpiry' => $c['contractExpiry'],
