@@ -973,6 +973,7 @@ function renderDashboardHome() {
   var s = window._dashSummary || {};
   var r = window._dashReport || {};
   var reportSummary = r.summary || {};
+  console.log('Dashboard data:', s, r);
   html += '<div class="kpi-row">';
   html += '<div class="kpi-card kpi-gold"><div class="label">當月銷售</div><div class="value">' + fmtNum(reportSummary.total || 0) + '</div><div class="sub">當月睡美人 ' + fmtNum(reportSummary.sleeperSales || 0) + '</div></div>';
   var yoyText = (r.comparisons && r.comparisons.yoy && r.comparisons.yoy.totalPct !== undefined) ? (r.comparisons.yoy.totalPct >= 0 ? '+' : '') + r.comparisons.yoy.totalPct.toFixed(1) + '%' : '—';
@@ -989,28 +990,37 @@ function renderDashboardHome() {
   html += '</div>';
 
   html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px">';
+
   html += '<div style="padding:15px;background:var(--bg2);border-radius:8px"><div style="text-align:center;margin-bottom:10px;font-weight:bold;color:var(--gold)">前10大客戶</div>';
   var topCust = s.topCustomers || [];
-  topCust.slice(0, 10).forEach(function(c, i) {
-    html += '<div style="padding:8px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between">';
-    html += '<span>' + (i+1) + '. ' + c.name + '</span>';
-    html += '<span style="color:var(--gold);font-weight:bold">' + fmtNum(c.totalAmount) + '</span>';
-    html += '</div>';
-  });
+  if (topCust.length === 0) {
+    html += '<div style="padding:8px;color:var(--border)">無數據</div>';
+  } else {
+    topCust.forEach(function(c, i) {
+      html += '<div style="padding:8px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;font-size:12px">';
+      html += '<span>' + (i+1) + '. ' + c.name + '</span>';
+      html += '<span style="color:var(--gold);font-weight:bold">' + fmtNum(c.totalAmount) + '</span>';
+      html += '</div>';
+    });
+  }
   html += '</div>';
 
   html += '<div style="padding:15px;background:var(--bg2);border-radius:8px"><div style="text-align:center;margin-bottom:10px;font-weight:bold;color:var(--gold)">產品分類</div>';
   var catCounts = s.catCounts || {};
   var catKeys = Object.keys(catCounts).sort(function(a, b) { return catCounts[b] - catCounts[a]; });
   var catSum = catKeys.reduce(function(sum, k) { return sum + catCounts[k]; }, 0);
-  catKeys.forEach(function(cat) {
-    var cnt = catCounts[cat];
-    var pct = catSum > 0 ? ((cnt / catSum) * 100).toFixed(1) : 0;
-    html += '<div style="padding:8px;border-bottom:1px solid var(--border)">';
-    html += '<div style="display:flex;justify-content:space-between">' + cat + ' <span style="color:var(--gold)">' + pct + '%</span></div>';
-    html += '<div style="background:var(--border);height:6px;border-radius:3px;overflow:hidden;margin-top:4px">';
-    html += '<div style="background:var(--gold);height:100%;width:' + pct + '%"></div></div></div>';
-  });
+  if (catKeys.length === 0) {
+    html += '<div style="padding:8px;color:var(--border)">無數據</div>';
+  } else {
+    catKeys.forEach(function(cat) {
+      var cnt = catCounts[cat];
+      var pct = catSum > 0 ? ((cnt / catSum) * 100).toFixed(1) : 0;
+      html += '<div style="padding:8px;border-bottom:1px solid var(--border);font-size:12px">';
+      html += '<div style="display:flex;justify-content:space-between">' + cat + ' <span style="color:var(--gold)">' + pct + '%</span></div>';
+      html += '<div style="background:var(--border);height:4px;border-radius:2px;overflow:hidden;margin-top:4px">';
+      html += '<div style="background:var(--gold);height:100%;width:' + pct + '%"></div></div></div>';
+    });
+  }
   html += '</div></div></div>';
   document.getElementById('main-content').innerHTML = html;
 }
