@@ -3465,7 +3465,8 @@ class SleeperService
                         if ($marginPct < 15) {
                             $customers[$key]['lowMarginDeals'][] = [
                                 'date' => $ds, 'sku' => $sku, 'qty' => $qty,
-                                'amount' => round($amt), 'marginPct' => $marginPct
+                                'amount' => round($amt), 'marginPct' => $marginPct,
+                                'note' => $idxNote !== -1 ? trim($this->getVal($row, $idxNote)) : ''
                             ];
                         }
                     }

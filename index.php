@@ -1913,10 +1913,13 @@ function renderCustomerAnalysis(data) {
   html += '<div class="kpi-row" style="align-items:center">' +
     '<div class="kpi-card" style="flex:0 0 auto">' +
       '<div class="label">業務篩選</div>' +
-      '<select id="customer-sales-select" style="width:130px;background:var(--bg2);border:1px solid var(--border);color:var(--text1);border-radius:6px;padding:6px 8px;font-size:13px;margin-top:6px" onchange="window._customerSalesFilter=this.value;renderCustomerAnalysis(window._customerData)">' +
-        '<option value=""' + (salesFilter === '' ? ' selected' : '') + '>所有業務</option>' +
-        allSalesReps.map(function(rep) { return '<option value="' + rep + '"' + (salesFilter === rep ? ' selected' : '') + '>' + rep + '</option>'; }).join('') +
-      '</select>' +
+      '<div style="position:relative;display:inline-block;width:130px;margin-top:6px">' +
+        '<select id="customer-sales-select" style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text1);border-radius:6px;padding:6px 8px;font-size:13px;appearance:none;padding-right:24px;cursor:pointer" onchange="window._customerSalesFilter=this.value;renderCustomerAnalysis(window._customerData)">' +
+          '<option value=""' + (salesFilter === '' ? ' selected' : '') + '>所有業務</option>' +
+          allSalesReps.map(function(rep) { return '<option value="' + rep + '"' + (salesFilter === rep ? ' selected' : '') + '>' + rep + '</option>'; }).join('') +
+        '</select>' +
+        '<span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--text2);font-size:11px">▼</span>' +
+      '</div>' +
     '</div>' +
     '<div class="kpi-card" style="flex:1 1 200px">' +
       '<div class="label">搜尋客戶</div>' +
@@ -1957,14 +1960,22 @@ function renderCustomerAnalysis(data) {
   var no180Count = list.filter(function(c) { return c.daysSinceLastOrder !== null && c.daysSinceLastOrder >= 180; }).length;
 
   html += '<div class="kpi-row">' +
-    '<div class="kpi-card" style="cursor:pointer;border:1px solid ' + (performanceFilter === 'growth' ? 'var(--gold)' : 'var(--border)') + '" onclick="window._customerPerformanceFilter=' + (performanceFilter === 'growth' ? "''" : "'growth'") + ';renderCustomerAnalysis(window._customerData)">' +
-      '<div class="label">進成</div><div class="value" style="color:var(--gold)">📈</div><div class="sub">' + growthCount + ' 家</div></div>' +
-    '<div class="kpi-card" style="cursor:pointer;border:1px solid ' + (performanceFilter === 'decline' ? 'var(--red)' : 'var(--border)') + '" onclick="window._customerPerformanceFilter=' + (performanceFilter === 'decline' ? "''" : "'decline'") + ';renderCustomerAnalysis(window._customerData)">' +
-      '<div class="label">退步</div><div class="value" style="color:var(--red)">📉</div><div class="sub">' + declineCount + ' 家</div></div>' +
-    '<div class="kpi-card" style="cursor:pointer;border:1px solid ' + (performanceFilter === 'no_order_90' ? 'var(--orange)' : 'var(--border)') + '" onclick="window._customerPerformanceFilter=' + (performanceFilter === 'no_order_90' ? "''" : "'no_order_90'") + ';renderCustomerAnalysis(window._customerData)">' +
-      '<div class="label">90天未單</div><div class="value" style="color:var(--orange)">⏰</div><div class="sub">' + no90Count + ' 家</div></div>' +
-    '<div class="kpi-card" style="cursor:pointer;border:1px solid ' + (performanceFilter === 'no_order_180' ? 'var(--red)' : 'var(--border)') + '" onclick="window._customerPerformanceFilter=' + (performanceFilter === 'no_order_180' ? "''" : "'no_order_180'") + ';renderCustomerAnalysis(window._customerData)">' +
-      '<div class="label">半年未單</div><div class="value" style="color:var(--red)">🚨</div><div class="sub">' + no180Count + ' 家</div></div>' +
+    '<div class="kpi-card" style="cursor:pointer;border:2px solid ' + (performanceFilter === 'growth' ? 'var(--gold)' : 'var(--border)') + ';background:' + (performanceFilter === 'growth' ? 'rgba(212,180,64,0.1)' : 'transparent') + '" onclick="window._customerPerformanceFilter=' + (performanceFilter === 'growth' ? "''" : "'growth'") + ';renderCustomerAnalysis(window._customerData)">' +
+      '<div style="font-size:13px;color:var(--text2)">成長中</div>' +
+      '<div style="font-size:32px;font-weight:800;color:var(--gold);margin:8px 0">' + growthCount + '</div>' +
+      '<div style="font-size:12px;color:var(--text2)">家客戶</div></div>' +
+    '<div class="kpi-card" style="cursor:pointer;border:2px solid ' + (performanceFilter === 'decline' ? 'var(--red)' : 'var(--border)') + ';background:' + (performanceFilter === 'decline' ? 'rgba(255,77,77,0.1)' : 'transparent') + '" onclick="window._customerPerformanceFilter=' + (performanceFilter === 'decline' ? "''" : "'decline'") + ';renderCustomerAnalysis(window._customerData)">' +
+      '<div style="font-size:13px;color:var(--text2)">衰退中</div>' +
+      '<div style="font-size:32px;font-weight:800;color:var(--red);margin:8px 0">' + declineCount + '</div>' +
+      '<div style="font-size:12px;color:var(--text2)">家客戶</div></div>' +
+    '<div class="kpi-card" style="cursor:pointer;border:2px solid ' + (performanceFilter === 'no_order_90' ? 'var(--orange)' : 'var(--border)') + ';background:' + (performanceFilter === 'no_order_90' ? 'rgba(255,152,0,0.1)' : 'transparent') + '" onclick="window._customerPerformanceFilter=' + (performanceFilter === 'no_order_90' ? "''" : "'no_order_90'") + ';renderCustomerAnalysis(window._customerData)">' +
+      '<div style="font-size:13px;color:var(--text2)">90天未下單</div>' +
+      '<div style="font-size:32px;font-weight:800;color:var(--orange);margin:8px 0">' + no90Count + '</div>' +
+      '<div style="font-size:12px;color:var(--text2)">家客戶</div></div>' +
+    '<div class="kpi-card" style="cursor:pointer;border:2px solid ' + (performanceFilter === 'no_order_180' ? 'var(--red)' : 'var(--border)') + ';background:' + (performanceFilter === 'no_order_180' ? 'rgba(255,77,77,0.1)' : 'transparent') + '" onclick="window._customerPerformanceFilter=' + (performanceFilter === 'no_order_180' ? "''" : "'no_order_180'") + ';renderCustomerAnalysis(window._customerData)">' +
+      '<div style="font-size:13px;color:var(--text2)">半年未下單</div>' +
+      '<div style="font-size:32px;font-weight:800;color:var(--red);margin:8px 0">' + no180Count + '</div>' +
+      '<div style="font-size:12px;color:var(--text2)">家客戶</div></div>' +
   '</div>';
 
   if (groupBySales) {
@@ -2109,12 +2120,13 @@ function renderLowMarginDeals(deals) {
     '<button class="btn" style="padding:3px 8px;font-size:11px;color:var(--red);border-color:var(--red)40" onclick="event.stopPropagation();var el=document.getElementById(\'' + uid + '\');el.style.display=el.style.display===\'none\'?\'block\':\'none\'">⚠ 低毛利案件 ' + deals.length + ' 筆 ▾</button>' +
     '<div id="' + uid + '" style="display:none;margin-top:4px;display:none">' +
     '<table style="font-size:11px;border-collapse:collapse;width:100%">' +
-    '<tr style="color:var(--text2)"><th style="text-align:left;padding:2px 6px">日期</th><th style="text-align:left;padding:2px 6px">SKU</th><th style="text-align:right;padding:2px 6px">數量</th><th style="text-align:right;padding:2px 6px">金額</th><th style="text-align:right;padding:2px 6px;color:var(--red)">毛利率</th></tr>';
+    '<tr style="color:var(--text2)"><th style="text-align:left;padding:2px 6px">日期</th><th style="text-align:left;padding:2px 6px">SKU</th><th style="text-align:left;padding:2px 6px">案名</th><th style="text-align:right;padding:2px 6px">數量</th><th style="text-align:right;padding:2px 6px">金額</th><th style="text-align:right;padding:2px 6px;color:var(--red)">毛利率</th></tr>';
   deals.forEach(function(d) {
     var c = d.marginPct < 0 ? 'var(--red)' : '#f5a623';
     html += '<tr style="border-top:1px solid var(--border)20">' +
       '<td style="padding:2px 6px;color:var(--text2)">' + d.date + '</td>' +
       '<td style="padding:2px 6px">' + d.sku + '</td>' +
+      '<td style="padding:2px 6px;color:var(--text2);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (d.note || '-') + '</td>' +
       '<td style="padding:2px 6px;text-align:right;color:var(--text2)">' + d.qty + '片</td>' +
       '<td style="padding:2px 6px;text-align:right">' + fmtNum(d.amount) + '</td>' +
       '<td style="padding:2px 6px;text-align:right;color:' + c + ';font-weight:800">' + d.marginPct + '%</td>' +
