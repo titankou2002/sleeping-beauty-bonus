@@ -565,8 +565,7 @@ input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-colo
         <img src="logo.svg" alt="eliTile" class="top-logo">
         <h1 class="logo">高雅瓷戰情室</h1>
         <div class="tab-bar">
-          <button class="tab-btn active" id="tab-home" onclick="switchTab('home')">📊 戰情總覽</button>
-          <button class="tab-btn" id="tab-products" onclick="switchTab('products')">產品總覽</button>
+          <button class="tab-btn active" id="tab-products" onclick="switchTab('products')">產品總覽</button>
           <button class="tab-btn" id="tab-reports" onclick="switchTab('reports')">銷售報表</button>
           <button class="tab-btn" id="tab-bonus" onclick="switchTab('bonus')">睡美人銷售</button>
           <button class="tab-btn" id="tab-customers" onclick="switchTab('customers')">客戶分析</button>
@@ -993,7 +992,6 @@ function renderDashboardHome() {
 
 function switchTab(tab) {
   currentTab = tab;
-  document.getElementById('tab-home').classList.toggle('active', tab === 'home');
   document.getElementById('tab-bonus').classList.toggle('active', tab === 'bonus');
   document.getElementById('tab-products').classList.toggle('active', tab === 'products');
   document.getElementById('tab-reports').classList.toggle('active', tab === 'reports');
@@ -1001,9 +999,7 @@ function switchTab(tab) {
   document.getElementById('ctrl-bonus').classList.toggle('hidden', tab !== 'bonus');
   document.getElementById('ctrl-products').classList.toggle('hidden', tab !== 'products');
   document.getElementById('ctrl-reports').classList.toggle('hidden', tab !== 'reports');
-  if (tab === 'home') {
-    loadDashboardHome();
-  } else if (tab === 'products') {
+  if (tab === 'products') {
     var el = document.getElementById('filter-grade');
     el.style.display = currentProdTab === 'sleeper' ? '' : 'none';
     if (!window._normalData) loadProducts();
@@ -1061,7 +1057,7 @@ function switchProdTab(tab) {
   renderProducts();
 }
 
-switchTab('home');
+loadDashboardHome();
 
 function loadProducts() {
   showLoading(true);
