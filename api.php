@@ -3618,6 +3618,7 @@ class SleeperService
                 'lastOrderDate' => $c['lastOrderDate'],
                 'daysSinceLastOrder' => $daysSinceLastOrder,
                 'visits' => $c['visits'],
+                'saleCount' => $c['saleCount'],
                 'lastVisitDate' => $c['lastVisitDate'],
                 'noteCount' => $c['noteCount'],
                 'lastNote' => $c['lastNote'],
