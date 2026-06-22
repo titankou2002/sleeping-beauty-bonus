@@ -1814,13 +1814,8 @@ function renderCustomerDashboard(summary) {
 function renderCustomerAnalysis(data) {
   _custCardSeq = 0;
   var filter = window._customerHealthFilter || '';
-  var performanceFilter = window._customerPerformanceFilter || '';
   var salesFilter = window._customerSalesFilter || '';
-  var daysThreshold = window._customerDaysFilter || 0;
   var base = data;
-  if (daysThreshold > 0) {
-    base = base.filter(function(c) { return c.totalAmount > 0 && c.daysSinceLastOrder !== null && c.daysSinceLastOrder >= daysThreshold; });
-  }
 
   // 先做業務篩選
   var filtered = base;
@@ -1832,17 +1827,6 @@ function renderCustomerAnalysis(data) {
   filtered.forEach(function(c) { counts[c.health] = (counts[c.health] || 0) + 1; });
 
   var list = filter ? filtered.filter(function(c) { return c.health === filter; }) : filtered;
-
-  // 績效分類篩選
-  if (performanceFilter === 'growth') {
-    list = list.filter(function(c) { return c.yoyPct !== null && c.yoyPct >= 10; });
-  } else if (performanceFilter === 'decline') {
-    list = list.filter(function(c) { return c.yoyPct !== null && c.yoyPct <= -30; });
-  } else if (performanceFilter === 'no_order_90') {
-    list = list.filter(function(c) { return c.daysSinceLastOrder !== null && c.daysSinceLastOrder >= 90; });
-  } else if (performanceFilter === 'no_order_180') {
-    list = list.filter(function(c) { return c.daysSinceLastOrder !== null && c.daysSinceLastOrder >= 180; });
-  }
 
   var search = (window._customerSearch || '').trim();
   if (search) {
@@ -1919,30 +1903,6 @@ function renderCustomerAnalysis(data) {
       '<div class="label">' + info.label + '</div><div class="value" style="color:' + info.color + '">' + (counts[key] || 0) + '</div><div class="sub">家客戶</div></div>';
   });
   html += '</div>';
-
-  var growthCount = filtered.filter(function(c) { return c.yoyPct !== null && c.yoyPct >= 10; }).length;
-  var declineCount = filtered.filter(function(c) { return c.yoyPct !== null && c.yoyPct <= -30; }).length;
-  var no90Count = filtered.filter(function(c) { return c.daysSinceLastOrder !== null && c.daysSinceLastOrder >= 90; }).length;
-  var no180Count = filtered.filter(function(c) { return c.daysSinceLastOrder !== null && c.daysSinceLastOrder >= 180; }).length;
-
-  html += '<div class="kpi-row">' +
-    '<div class="kpi-card" style="cursor:pointer;border:2px solid ' + (performanceFilter === 'growth' ? 'var(--gold)' : 'var(--border)') + ';background:' + (performanceFilter === 'growth' ? 'rgba(212,180,64,0.1)' : 'transparent') + '" onclick="window._customerPerformanceFilter=' + (performanceFilter === 'growth' ? "''" : "'growth'") + ';renderCustomerAnalysis(window._customerData)">' +
-      '<div style="font-size:13px;color:var(--text2)">成長中</div>' +
-      '<div style="font-size:32px;font-weight:800;color:var(--gold);margin:8px 0">' + growthCount + '</div>' +
-      '<div style="font-size:12px;color:var(--text2)">家客戶</div></div>' +
-    '<div class="kpi-card" style="cursor:pointer;border:2px solid ' + (performanceFilter === 'decline' ? 'var(--red)' : 'var(--border)') + ';background:' + (performanceFilter === 'decline' ? 'rgba(255,77,77,0.1)' : 'transparent') + '" onclick="window._customerPerformanceFilter=' + (performanceFilter === 'decline' ? "''" : "'decline'") + ';renderCustomerAnalysis(window._customerData)">' +
-      '<div style="font-size:13px;color:var(--text2)">衰退中</div>' +
-      '<div style="font-size:32px;font-weight:800;color:var(--red);margin:8px 0">' + declineCount + '</div>' +
-      '<div style="font-size:12px;color:var(--text2)">家客戶</div></div>' +
-    '<div class="kpi-card" style="cursor:pointer;border:2px solid ' + (performanceFilter === 'no_order_90' ? 'var(--orange)' : 'var(--border)') + ';background:' + (performanceFilter === 'no_order_90' ? 'rgba(255,152,0,0.1)' : 'transparent') + '" onclick="window._customerPerformanceFilter=' + (performanceFilter === 'no_order_90' ? "''" : "'no_order_90'") + ';renderCustomerAnalysis(window._customerData)">' +
-      '<div style="font-size:13px;color:var(--text2)">90天未下單</div>' +
-      '<div style="font-size:32px;font-weight:800;color:var(--orange);margin:8px 0">' + no90Count + '</div>' +
-      '<div style="font-size:12px;color:var(--text2)">家客戶</div></div>' +
-    '<div class="kpi-card" style="cursor:pointer;border:2px solid ' + (performanceFilter === 'no_order_180' ? 'var(--red)' : 'var(--border)') + ';background:' + (performanceFilter === 'no_order_180' ? 'rgba(255,77,77,0.1)' : 'transparent') + '" onclick="window._customerPerformanceFilter=' + (performanceFilter === 'no_order_180' ? "''" : "'no_order_180'") + ';renderCustomerAnalysis(window._customerData)">' +
-      '<div style="font-size:13px;color:var(--text2)">半年未下單</div>' +
-      '<div style="font-size:32px;font-weight:800;color:var(--red);margin:8px 0">' + no180Count + '</div>' +
-      '<div style="font-size:12px;color:var(--text2)">家客戶</div></div>' +
-  '</div>';
 
   if (groupBySales) {
     var groups = {};
