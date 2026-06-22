@@ -3420,6 +3420,9 @@ class SleeperService
         $areaMap = $this->getSalesRepAreaMap();
 
         $customers = [];
+        $productTypeAmounts = ['sleeper'=>0, 'normal'=>0, 'discontinued'=>0];
+        $seriesAmounts = [];
+
         $getC = function ($key) use (&$customers) {
             if (!isset($customers[$key])) {
                 $customers[$key] = [
@@ -3472,6 +3475,20 @@ class SleeperService
                     $y = (int)$d->format('Y');
                     if ($y === $thisYear) $customers[$key]['thisYearAmount'] += $amt;
                     if ($y === $lastYear && $d->format('m-d') <= $todayMD) $customers[$key]['lastYearAmount'] += $amt;
+
+                    // 按產品類型統計
+                    if (isset($sleeperMap[$sku])) {
+                        $productTypeAmounts['sleeper'] += $amt;
+                    } elseif (isset($discMap[$sku])) {
+                        $productTypeAmounts['discontinued'] += $amt;
+                    } else {
+                        $productTypeAmounts['normal'] += $amt;
+                    }
+
+                    // 按系列統計
+                    $series = $seriesMap[$sku] ?? '其他';
+                    if (!isset($seriesAmounts[$series])) $seriesAmounts[$series] = 0;
+                    $seriesAmounts[$series] += $amt;
                     $ds = $d->format('Y-m-d');
                     if ($customers[$key]['lastOrderDate'] === null || $ds > $customers[$key]['lastOrderDate']) {
                         $customers[$key]['lastOrderDate'] = $ds;
@@ -3684,6 +3701,13 @@ class SleeperService
 
         usort($result, function ($a, $b) { return $b['totalAmount'] <=> $a['totalAmount']; });
 
+        // 獲取睡美人列表和系列映射，用於分類統計
+        $sleeperConfig = $this->getSleeperConfig();
+        $sleeperMap = $sleeperConfig['success'] ? $sleeperConfig['data'] : [];
+        $seriesMap = $this->getSeriesMap();
+        $disconfigRes = $this->getDiscontinuedConfig();
+        $discMap = $disconfigRes['success'] ? $disconfigRes['data'] : [];
+
         // 月報摘要（僅統計有銷售紀錄且交易 >= 15 筆的客戶，排除單一案件與拜訪/備註誤判出來的假客戶）
         $activeCustomers = array_values(array_filter($result, function ($c) { return $c['totalAmount'] > 0 && $c['saleCount'] >= 15; }));
         $summary = [
@@ -3692,7 +3716,9 @@ class SleeperService
             'healthCounts' => ['growth'=>0,'decline'=>0,'warning'=>0,'dormant'=>0,'normal'=>0,'no_sales'=>0],
             'catCounts' => [],
             'topCustomers' => [],
-            'totalActiveDisplays' => 0
+            'totalActiveDisplays' => 0,
+            'productTypeAmounts' => ['sleeper'=>0, 'normal'=>0, 'discontinued'=>0],
+            'topSeries' => []
         ];
         foreach ($activeCustomers as $c) {
             $summary['totalAmount'] += $c['totalAmount'];
@@ -3712,6 +3738,16 @@ class SleeperService
         $summary['topCustomers'] = array_map(function ($c) {
             return ['name' => $c['name'], 'totalAmount' => $c['totalAmount'], 'yoyPct' => $c['yoyPct'], 'health' => $c['health']];
         }, $top10);
+
+        // 產品類型佔比
+        $summary['productTypeAmounts'] = $productTypeAmounts;
+
+        // 前10大系列
+        arsort($seriesAmounts);
+        $topSeriesArray = array_slice($seriesAmounts, 0, 10, true);
+        $summary['topSeries'] = array_map(function ($series, $amount) {
+            return ['name' => $series, 'amount' => $amount];
+        }, array_keys($topSeriesArray), array_values($topSeriesArray));
 
         return ['success' => true, 'data' => $result, 'summary' => $summary];
     }
