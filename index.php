@@ -2547,50 +2547,5 @@ function sendGlobalAi() {
   </div>
 </div>
 
-<script>
-function loadDashboardHome() {
-  showLoading(true);
-  var loaded = 0, total = 3;
-  function checkDone() {
-    loaded++;
-    if (loaded === total) { showLoading(false); renderDashboardHome(); }
-  }
-  apiGet('customer-analysis', {}, function(res) {
-    if (res.success) { window._dashCustomers = res.data; window._dashSummary = res.summary; }
-    checkDone();
-  });
-  apiGet('products', {}, function(res) {
-    if (res.success) { window._dashProducts = res.data; }
-    checkDone();
-  });
-  apiGet('strategy-report', { year: currentYear, month: currentMonth }, function(res) {
-    if (res.success) { window._dashReport = res.data; }
-    checkDone();
-  });
-}
-
-function renderDashboardHome() {
-  var html = '<div style="padding:20px">';
-  var s = window._dashSummary || {};
-  var r = window._dashReport || {};
-  var reportSummary = r.summary || {};
-  html += '<div class="kpi-row">';
-  html += '<div class="kpi-card kpi-gold"><div class="label">當月銷售</div><div class="value">' + fmtNum(reportSummary.total || 0) + '</div><div class="sub">當月睡美人 ' + fmtNum(reportSummary.sleeperSales || 0) + '</div></div>';
-  var yoyText = (r.comparisons && r.comparisons.yoy && r.comparisons.yoy.totalPct !== undefined) ? (r.comparisons.yoy.totalPct >= 0 ? '+' : '') + r.comparisons.yoy.totalPct.toFixed(1) + '%' : '—';
-  html += '<div class="kpi-card kpi-blue"><div class="label">同期相比</div><div class="value" style="color:' + (parseFloat(yoyText) >= 0 ? 'var(--gold)' : 'var(--red)') + '">' + yoyText + '</div></div>';
-  html += '<div class="kpi-card"><div class="label">年銷售</div><div class="value">' + (s.totalAmount ? fmtNum(s.totalAmount) : '—') + '</div></div>';
-  html += '</div>';
-  html += '<div class="kpi-row" style="margin-top:20px">';
-  var healthLabels = { warning: '90天未單', dormant: '半年未單', decline: '業績衰退', growth: '成長中' };
-  ['warning', 'dormant', 'decline', 'growth'].forEach(function(key) {
-    var count = (s.healthCounts && s.healthCounts[key]) || 0;
-    var info = HEALTH_INFO[key];
-    html += '<div class="kpi-card" style="border:1px solid ' + info.color + '"><div class="label">' + healthLabels[key] + '</div><div class="value" style="color:' + info.color + '">' + count + '</div><div class="sub">家客戶</div></div>';
-  });
-  html += '</div></div>';
-  document.getElementById('main-content').innerHTML = html;
-}
-</script>
-
 </body>
 </html>
