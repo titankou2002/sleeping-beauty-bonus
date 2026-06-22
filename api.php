@@ -3701,12 +3701,27 @@ class SleeperService
 
         usort($result, function ($a, $b) { return $b['totalAmount'] <=> $a['totalAmount']; });
 
-        // 獲取睡美人列表和系列映射，用於分類統計
+        // 獲取睡美人列表、不續辦列表和系列映射，用於分類統計
         $sleeperConfig = $this->getSleeperConfig();
         $sleeperMap = $sleeperConfig['success'] ? $sleeperConfig['data'] : [];
         $seriesMap = $this->getSeriesMap();
-        $disconfigRes = $this->getDiscontinuedConfig();
-        $discMap = $disconfigRes['success'] ? $disconfigRes['data'] : [];
+
+        // 不續辦 SKU 列表
+        $discMap = [];
+        $pData = $this->gs->readSheet(PRICE_SHEET);
+        if (count($pData) >= 2) {
+            $pH = $pData[0];
+            $pCode = $this->findHeader($pH, ['編號','產品編號']);
+            $pDisc = $this->findHeader($pH, ['不續辦']);
+            if ($pCode !== -1 && $pDisc !== -1) {
+                for ($i = 1; $i < count($pData); $i++) {
+                    $sku = $this->cleanSku($this->getVal($pData[$i], $pCode));
+                    if ($sku && trim($this->getVal($pData[$i], $pDisc)) !== '') {
+                        $discMap[$sku] = true;
+                    }
+                }
+            }
+        }
 
         // 月報摘要（僅統計有銷售紀錄且交易 >= 15 筆的客戶，排除單一案件與拜訪/備註誤判出來的假客戶）
         $activeCustomers = array_values(array_filter($result, function ($c) { return $c['totalAmount'] > 0 && $c['saleCount'] >= 15; }));
