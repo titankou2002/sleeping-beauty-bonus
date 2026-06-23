@@ -224,9 +224,9 @@ class SignalEngine
         elseif ($valuation['zone'] === 'expensive') { $score -= 10; $reasons[] = '估值偏貴'; }
 
         // Chip
-        if ($chip['trend'] === 'bullish') { $score += 10; $reasons[] = $chip['label']; }
-        elseif ($chip['trend'] === 'bearish') { $score -= 10; $reasons[] = $chip['label']; }
-        if ($chip['warning']) $reasons[] = $chip['warning'];
+        if (($chip['trend'] ?? '') === 'bullish') { $score += 10; $reasons[] = $chip['label']; }
+        elseif (($chip['trend'] ?? '') === 'bearish') { $score -= 10; $reasons[] = $chip['label']; }
+        if (!empty($chip['warning'])) $reasons[] = $chip['warning'];
 
         $score = max(0, min(100, $score));
 

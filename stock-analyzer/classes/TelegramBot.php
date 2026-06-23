@@ -65,7 +65,7 @@ class TelegramBot
         if ($chip && $chip['trend'] !== 'unknown') {
             $text .= "\n💰 <b>籌碼</b>：{$chip['label']}\n";
             if ($chip['foreignNet'] ?? false) $text .= "外資: " . number_format($chip['foreignNet']) . "\n";
-            if ($chip['warning']) $text .= "⚠️ {$chip['warning']}\n";
+            if (!empty($chip['warning'])) $text .= "⚠️ {$chip['warning']}\n";
         }
 
         // Valuation
