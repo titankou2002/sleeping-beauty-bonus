@@ -7,13 +7,14 @@ set_error_handler(function ($severity, $msg, $file, $line) {
     throw new ErrorException($msg, 0, $severity, $file, $line);
 });
 
+try {
+
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/classes/TwseClient.php';
 require_once __DIR__ . '/classes/UsStockClient.php';
 require_once __DIR__ . '/classes/TechnicalAnalysis.php';
 require_once __DIR__ . '/classes/SignalEngine.php';
 require_once __DIR__ . '/classes/TelegramBot.php';
-require_once __DIR__ . '/classes/LineBot.php';
 require_once __DIR__ . '/classes/PortfolioManager.php';
 
 $twse = new TwseClient();
@@ -23,8 +24,7 @@ $portfolio = new PortfolioManager();
 
 $action = $_GET['action'] ?? '';
 
-try {
-    switch ($action) {
+switch ($action) {
 
         case 'analyze':
             $stockId = trim($_GET['stock'] ?? '');
