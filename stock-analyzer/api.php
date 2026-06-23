@@ -16,6 +16,7 @@ require_once __DIR__ . '/classes/TechnicalAnalysis.php';
 require_once __DIR__ . '/classes/SignalEngine.php';
 require_once __DIR__ . '/classes/TelegramBot.php';
 require_once __DIR__ . '/classes/PortfolioManager.php';
+require_once __DIR__ . '/classes/PatternEngine.php';
 
 $twse = new TwseClient();
 $us = new UsStockClient();
@@ -31,11 +32,13 @@ switch ($action) {
             $market = trim($_GET['market'] ?? 'tw');
             if (!$stockId) throw new RuntimeException('缺少 stock 參數');
 
+            $pe = new PatternEngine();
             if ($market === 'us') {
                 $data = $us->getQuote($stockId);
                 if (empty($data['quotes'])) throw new RuntimeException("查無美股 {$stockId} 資料");
                 $quotes = $data['quotes'];
                 $result = $engine->analyzeStock($stockId, $quotes);
+                $result['patterns'] = $pe->detectPatterns($quotes);
                 $result['name'] = $data['name'] ?? $stockId;
                 $result['market'] = 'us';
                 $result['quotes'] = array_values(array_slice($quotes, -60));
@@ -46,6 +49,7 @@ switch ($action) {
                 $instData = [];
                 $marginData = $twse->getMarginTrading($stockId);
                 $result = $engine->analyzeStock($stockId, $quotes, $peData, $instData, $marginData);
+                $result['patterns'] = $pe->detectPatterns($quotes);
 
                 $info = $twse->getStockInfo($stockId);
                 $result['name'] = $info['name'] ?? $stockId;
@@ -77,6 +81,8 @@ switch ($action) {
             $instData = $twse->getInstitutional30Days($stockId);
             $marginData = $twse->getMarginTrading($stockId);
             $result = $engine->analyzeStock($stockId, $quotes, $peData, $instData, $marginData);
+            $pe = new PatternEngine();
+            $result['patterns'] = $pe->detectPatterns($quotes);
 
             $info = $twse->getStockInfo($stockId);
             $result['name'] = $info['name'] ?? $stockId;
@@ -192,6 +198,134 @@ switch ($action) {
 
         case 'alert-history':
             echo json_encode(['success' => true, 'data' => $portfolio->getAlertHistory()], JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'scan-market':
+            $scanCache = CACHE_DIR . '/market_scan.json';
+            $scanProgress = CACHE_DIR . '/scan_progress.json';
+
+            // Check if cached scan exists and is fresh (< 4 hours)
+            $hasFreshCache = false;
+            $scanData = null;
+            if (is_file($scanCache)) {
+                $cacheAge = time() - filemtime($scanCache);
+                if ($cacheAge < 14400) {
+                    $hasFreshCache = true;
+                    $scanData = json_decode(file_get_contents($scanCache), true);
+                }
+            }
+
+            if ($hasFreshCache && !empty($scanData['stocks'])) {
+                $stocks = $scanData['stocks'];
+
+                // Apply filters if provided
+                $filterParam = trim($_GET['filters'] ?? '');
+                if ($filterParam !== '') {
+                    $filterCodes = array_map('trim', explode(',', $filterParam));
+                    $filtered = [];
+                    foreach ($stocks as $s) {
+                        $stockPatterns = $s['patterns'] ?? [];
+                        $matched = false;
+                        foreach ($filterCodes as $fc) {
+                            if (in_array($fc, $stockPatterns)) {
+                                $matched = true;
+                                break;
+                            }
+                        }
+                        if ($matched) {
+                            $filtered[] = $s;
+                        }
+                    }
+                    $stocks = $filtered;
+                }
+
+                // Apply sort
+                $sortParam = trim($_GET['sort'] ?? '');
+                if ($sortParam === 'score') {
+                    usort($stocks, function ($a, $b) {
+                        $sa = $a['recommendation'] ?? 0;
+                        $sb = $b['recommendation'] ?? 0;
+                        return $sb - $sa;
+                    });
+                } elseif ($sortParam === 'change') {
+                    usort($stocks, function ($a, $b) {
+                        $ca = $a['changePct'] ?? 0;
+                        $cb = $b['changePct'] ?? 0;
+                        if ($cb == $ca) return 0;
+                        return ($cb > $ca) ? 1 : -1;
+                    });
+                }
+
+                echo json_encode([
+                    'success' => true,
+                    'data' => $stocks,
+                    'meta' => [
+                        'total' => (int)($scanData['total'] ?? count($scanData['stocks'])),
+                        'filtered' => count($stocks),
+                        'scanTime' => $scanData['scanTime'] ?? '',
+                        'fresh' => true,
+                    ],
+                ], JSON_UNESCAPED_UNICODE);
+            } else {
+                // Check if scan is already running
+                $isRunning = false;
+                $progress = null;
+                if (is_file($scanProgress)) {
+                    $progress = json_decode(file_get_contents($scanProgress), true);
+                    if (!empty($progress['running'])) {
+                        $isRunning = true;
+                    }
+                }
+
+                if ($isRunning) {
+                    echo json_encode([
+                        'success' => true,
+                        'data' => [],
+                        'meta' => [
+                            'total' => (int)($progress['total'] ?? 0),
+                            'filtered' => 0,
+                            'scanTime' => '',
+                            'fresh' => false,
+                        ],
+                        'progress' => $progress,
+                        'msg' => '掃描進行中',
+                    ], JSON_UNESCAPED_UNICODE);
+                } else {
+                    // Trigger background scan
+                    exec('php ' . __DIR__ . '/cron-scan.php > /dev/null 2>&1 &');
+                    echo json_encode([
+                        'success' => true,
+                        'data' => [],
+                        'meta' => [
+                            'total' => 0,
+                            'filtered' => 0,
+                            'scanTime' => '',
+                            'fresh' => false,
+                        ],
+                        'msg' => '已啟動背景掃描',
+                    ], JSON_UNESCAPED_UNICODE);
+                }
+            }
+            break;
+
+        case 'scan-progress':
+            $scanProgress = CACHE_DIR . '/scan_progress.json';
+            if (is_file($scanProgress)) {
+                $progress = json_decode(file_get_contents($scanProgress), true);
+                echo json_encode(['success' => true, 'data' => $progress], JSON_UNESCAPED_UNICODE);
+            } else {
+                echo json_encode(['success' => true, 'data' => ['total' => 0, 'done' => 0, 'running' => false, 'lastUpdate' => '']], JSON_UNESCAPED_UNICODE);
+            }
+            break;
+
+        case 'patterns':
+            $stockId = trim($_GET['stock'] ?? '');
+            if (!$stockId) throw new RuntimeException('缺少 stock 參數');
+            $quotes = $twse->getMultiMonthQuotes($stockId, 3);
+            if (empty($quotes)) throw new RuntimeException("查無台股 {$stockId} 資料");
+            $pe = new PatternEngine();
+            $patternResults = $pe->detectPatterns($quotes);
+            echo json_encode(['success' => true, 'data' => $patternResults], JSON_UNESCAPED_UNICODE);
             break;
 
         default:
