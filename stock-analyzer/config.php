@@ -7,6 +7,10 @@ define('CACHE_DIR', __DIR__ . '/cache');
 define('TELEGRAM_BOT_TOKEN', getenv('TELEGRAM_BOT_TOKEN') ?: '');
 define('TELEGRAM_CHAT_ID', getenv('TELEGRAM_CHAT_ID') ?: '');
 
+// LINE Bot
+define('LINE_CHANNEL_TOKEN', getenv('LINE_CHANNEL_TOKEN') ?: '');
+define('LINE_USER_ID', getenv('LINE_USER_ID') ?: '');
+
 // Email (SMTP)
 define('SMTP_HOST', getenv('SMTP_HOST') ?: '');
 define('SMTP_PORT', (int)(getenv('SMTP_PORT') ?: 587));

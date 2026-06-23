@@ -17,6 +17,7 @@ require_once __DIR__ . '/classes/UsStockClient.php';
 require_once __DIR__ . '/classes/TechnicalAnalysis.php';
 require_once __DIR__ . '/classes/SignalEngine.php';
 require_once __DIR__ . '/classes/TelegramBot.php';
+require_once __DIR__ . '/classes/LineBot.php';
 require_once __DIR__ . '/classes/PortfolioManager.php';
 
 $mode = $argv[1] ?? 'daily';
@@ -25,6 +26,7 @@ $us = new UsStockClient();
 $engine = new SignalEngine();
 $portfolio = new PortfolioManager();
 $bot = new TelegramBot();
+$line = new LineBot();
 
 $list = $portfolio->getWatchlist();
 if (empty($list)) {
@@ -102,37 +104,46 @@ foreach ($list as $item) {
     }
 }
 
-// Send alerts via Telegram
+// Send alerts via Telegram + LINE
 if (!empty($alerts)) {
-    echo "\nSending " . count($alerts) . " individual alerts via Telegram...\n";
+    echo "\nSending " . count($alerts) . " individual alerts...\n";
     foreach ($alerts as $a) {
         try {
             if (!empty($a['stopLossTriggered'])) {
-                $msg = "🚨 <b>停損警報</b>\n";
-                $msg .= "<b>{$a['stockId']}</b> {$a['name']}\n";
+                $msg = "🚨 停損警報\n";
+                $msg .= "{$a['stockId']} {$a['name']}\n";
                 $msg .= "進場價: \${$a['entryPrice']} → 現價: \${$a['price']}\n";
                 $drawdown = round(($a['price'] - $a['entryPrice']) / $a['entryPrice'] * 100, 2);
                 $msg .= "跌幅: {$drawdown}%\n";
                 $msg .= "建議立即檢視是否停損出場";
-                $bot->sendMessage($msg);
+
+                $bot->sendMessage("🚨 <b>停損警報</b>\n<b>{$a['stockId']}</b> {$a['name']}\n進場價: \${$a['entryPrice']} → 現價: \${$a['price']}\n跌幅: {$drawdown}%\n建議立即檢視是否停損出場");
+                $line->sendMessage($msg);
             } else {
                 $bot->sendStockAlert($a);
+                $line->sendStockAlert($a);
             }
             usleep(500000);
         } catch (Exception $e) {
-            echo "  Telegram error: {$e->getMessage()}\n";
+            echo "  Alert send error: {$e->getMessage()}\n";
         }
     }
 }
 
 // Send daily summary
 if ($mode === 'daily' && !empty($results)) {
-    echo "\nSending daily summary via Telegram...\n";
+    echo "\nSending daily summary...\n";
     try {
         $bot->sendDailySummary($results);
-        echo "  Daily summary sent.\n";
+        echo "  Telegram summary sent.\n";
     } catch (Exception $e) {
-        echo "  Summary Telegram error: {$e->getMessage()}\n";
+        echo "  Telegram error: {$e->getMessage()}\n";
+    }
+    try {
+        $line->sendDailySummary($results);
+        echo "  LINE summary sent.\n";
+    } catch (Exception $e) {
+        echo "  LINE error: {$e->getMessage()}\n";
     }
 
     // Send email summary if configured
