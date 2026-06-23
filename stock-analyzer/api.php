@@ -38,17 +38,29 @@ switch ($action) {
                 $result = $engine->analyzeStock($stockId, $quotes);
                 $result['name'] = $data['name'] ?? $stockId;
                 $result['market'] = 'us';
+                $result['quotes'] = array_values(array_slice($quotes, -60));
             } else {
                 $quotes = $twse->getMultiMonthQuotes($stockId, 6);
                 if (empty($quotes)) throw new RuntimeException("查無台股 {$stockId} 資料");
-                $peData = $twse->getPERatio($stockId);
-                $instData = []; // getInstitutional30Days is slow, skip for quick analysis
+                $peData = $twse->getMultiMonthPE($stockId, 6);
+                $instData = [];
                 $marginData = $twse->getMarginTrading($stockId);
                 $result = $engine->analyzeStock($stockId, $quotes, $peData, $instData, $marginData);
 
                 $info = $twse->getStockInfo($stockId);
                 $result['name'] = $info['name'] ?? $stockId;
                 $result['market'] = 'tw';
+                $result['quotes'] = array_values(array_map(function($q) {
+                    return [
+                        'date' => $q['date'],
+                        'open' => $q['open'],
+                        'high' => $q['high'],
+                        'low' => $q['low'],
+                        'close' => $q['close'],
+                        'volume' => $q['volume'],
+                    ];
+                }, array_slice($quotes, -60)));
+                $result['peHistory'] = $peData;
             }
 
             echo json_encode(['success' => true, 'data' => $result], JSON_UNESCAPED_UNICODE);
@@ -100,6 +112,13 @@ switch ($action) {
             if (!$stockId) throw new RuntimeException('缺少 stock 參數');
             $data = $twse->getPERatio($stockId);
             echo json_encode(['success' => true, 'data' => $data], JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'search':
+            $keyword = trim($_GET['q'] ?? '');
+            if (mb_strlen($keyword) < 1) throw new RuntimeException('搜尋關鍵字太短');
+            $results = $twse->searchStocks($keyword, 10);
+            echo json_encode(['success' => true, 'data' => $results], JSON_UNESCAPED_UNICODE);
             break;
 
         case 'watchlist':

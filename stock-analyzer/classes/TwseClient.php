@@ -213,6 +213,100 @@ class TwseClient
         return $info;
     }
 
+    public function getAllStocks(): array
+    {
+        $cacheKey = 'all_stocks_list';
+        $cached = $this->getCache($cacheKey, 86400);
+        if ($cached !== null) return $cached;
+
+        $url = 'https://www.twse.com.tw/exchangeReport/STOCK_DAY_ALL?response=json';
+        $data = $this->fetch($url);
+
+        if (!isset($data['data'])) return [];
+
+        $stocks = [];
+        foreach ($data['data'] as $row) {
+            $code = trim($row[0] ?? '');
+            $name = trim($row[1] ?? '');
+            if ($code && $name) {
+                $stocks[] = ['code' => $code, 'name' => $name];
+            }
+        }
+
+        if (!empty($stocks)) $this->setCache($cacheKey, $stocks, 86400);
+        return $stocks;
+    }
+
+    public function searchStocks(string $keyword, int $limit = 10): array
+    {
+        $all = $this->getAllStocks();
+        if (empty($all)) return [];
+
+        $keyword = mb_strtolower(trim($keyword));
+        $results = [];
+
+        foreach ($all as $s) {
+            if (mb_strpos(mb_strtolower($s['name']), $keyword) !== false || strpos($s['code'], $keyword) === 0) {
+                $results[] = $s;
+                if (count($results) >= $limit) break;
+            }
+        }
+
+        return $results;
+    }
+
+    public function getMultiMonthPE(string $stockId, int $months = 6): array
+    {
+        $all = [];
+        $now = new DateTime();
+        for ($i = 0; $i < $months; $i++) {
+            $d = clone $now;
+            $d->modify("-{$i} months");
+            $ym = $d->format('Ymd');
+
+            $ymKey = substr($ym, 0, 6);
+            $cacheKey = "pe_m_{$stockId}_{$ymKey}";
+            $cached = $this->getCache($cacheKey);
+            if ($cached !== null) {
+                $all = array_merge($cached, $all);
+                continue;
+            }
+
+            $url = "https://www.twse.com.tw/exchangeReport/BWIBBU?response=json&date={$ym}&stockNo={$stockId}";
+            $data = $this->fetch($url);
+
+            $rows = [];
+            if (isset($data['data'])) {
+                foreach ($data['data'] as $row) {
+                    $pd = $this->parseRocDate($row[0]);
+                    if (!$pd) continue;
+                    $rows[] = [
+                        'date' => $pd,
+                        'per' => $this->safeFloat($row[4] ?? ''),
+                        'pbr' => $this->safeFloat($row[5] ?? ''),
+                        'dividendYield' => $this->safeFloat($row[2] ?? ''),
+                    ];
+                }
+            }
+
+            $this->setCache($cacheKey, $rows, $this->cacheTtl);
+            $all = array_merge($rows, $all);
+            usleep(300000);
+        }
+
+        usort($all, function($a, $b) { return strcmp($a['date'], $b['date']); });
+
+        $seen = [];
+        $unique = [];
+        foreach ($all as $row) {
+            if (!isset($seen[$row['date']])) {
+                $seen[$row['date']] = true;
+                $unique[] = $row;
+            }
+        }
+        return $unique;
+    }
+
     private function parseRocDate(string $s): string
     {
         $s = trim(str_replace('/', '', str_replace(' ', '', $s)));
