@@ -1,0 +1,24 @@
+RewriteEngine On
+
+# Deny access to sensitive files
+<FilesMatch "\.(json|log|md|example)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Deny access to config files
+<Files "config.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "config.local.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+# Deny access to data and cache directories
+RewriteRule ^(data|cache)/ - [F,L]
+
+# Deny access to classes directory
+RewriteRule ^classes/ - [F,L]

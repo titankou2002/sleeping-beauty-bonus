@@ -1,0 +1,8 @@
+config.local.php
+data/*.json
+cache/*.json
+cache/*.html
+*.log
+.DS_Store
+.idea/
+.vscode/
