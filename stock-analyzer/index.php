@@ -187,13 +187,13 @@ a { color: var(--gold); text-decoration: none; }
   <!-- Bottom tabs -->
   <div class="bottom-tabs">
     <div class="tab-item active" id="tab-dashboard" onclick="showTab('dashboard')">
-      <span class="tab-icon">📊</span><span>總覽</span>
+      <span class="tab-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span><span>總覽</span>
     </div>
     <div class="tab-item" id="tab-watchlist" onclick="showTab('watchlist')">
-      <span class="tab-icon">⭐</span><span>監控</span>
+      <span class="tab-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span><span>監控</span>
     </div>
     <div class="tab-item" id="tab-alerts" onclick="showTab('alerts')">
-      <span class="tab-icon">🔔</span><span>提醒</span>
+      <span class="tab-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span><span>提醒</span>
     </div>
   </div>
 </div>
@@ -222,7 +222,12 @@ function showTab(tab) {
 function apiGet(action, params) {
   var url = API + '?action=' + action;
   if (params) for (var k in params) url += '&' + k + '=' + encodeURIComponent(params[k]);
-  return fetch(url).then(function(r) { return r.json(); });
+  return fetch(url).then(function(r) {
+    return r.text().then(function(t) {
+      try { return JSON.parse(t); }
+      catch(e) { return { success: false, msg: 'API 回傳格式錯誤' }; }
+    });
+  });
 }
 
 function apiPost(action, body) {
@@ -230,7 +235,12 @@ function apiPost(action, body) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
-  }).then(function(r) { return r.json(); });
+  }).then(function(r) {
+    return r.text().then(function(t) {
+      try { return JSON.parse(t); }
+      catch(e) { return { success: false, msg: 'API 回傳格式錯誤' }; }
+    });
+  });
 }
 
 function scanAll() {
@@ -310,7 +320,7 @@ function renderStockCard(r) {
 
   if (topSignal) {
     var sigClass = topSignal.type === 'bullish' ? 'bullish' : 'bearish';
-    var sigIcon = topSignal.type === 'bullish' ? '⚡' : '⚡';
+    var sigIcon = topSignal.type === 'bullish' ? svgIcon('zap','var(--green)') : svgIcon('zap','var(--red)');
     h += '<div class="card-signal ' + sigClass + '"><span class="sig-icon">' + sigIcon + '</span> <b>' + topSignal.name + '</b>：' + topSignal.desc + '</div>';
   }
 
@@ -425,7 +435,7 @@ function renderDetail(d) {
     h += renderChipBar('自營', chip.dealerNet || 0, maxChip);
     if (chip.marginChange !== undefined) h += renderChipBar('融資', chip.marginChange, maxChip);
     h += '<div style="margin-top:8px;font-size:11px;color:var(--text2)">近 ' + (chip.days||0) + ' 日法人/融資流向; 最新法人淨額 ' + fmtNum(chip.totalNet || 0) + '。</div>';
-    if (chip.warning) h += '<div style="margin-top:4px;font-size:11px;color:var(--orange)">⚠️ ' + chip.warning + '</div>';
+    if (chip.warning) h += '<div style="margin-top:4px;font-size:11px;color:var(--orange);display:flex;align-items:center;gap:4px">' + svgIcon('alert-triangle','var(--orange)',14) + ' ' + chip.warning + '</div>';
     h += '</div>';
   }
 
@@ -504,13 +514,30 @@ function loadAlerts() {
     }
     var h = '';
     list.forEach(function(a) {
-      var icon = a.type === 'bullish' ? '🟢' : a.type === 'bearish' ? '🔴' : '🟡';
+      var icon = a.type === 'bullish' ? svgIcon('circle','var(--green)',14) : a.type === 'bearish' ? svgIcon('circle','var(--red)',14) : svgIcon('circle','var(--orange)',14);
       h += '<div class="signal-item"><div style="font-size:16px">' + icon + '</div>';
       h += '<div class="signal-text"><div class="signal-name">' + a.stockId + ' - ' + a.message + '</div>';
       h += '<div class="signal-desc">' + a.time + '</div></div></div>';
     });
     document.getElementById('alerts-content').innerHTML = h;
   });
+}
+
+// SVG Icons
+function svgIcon(name, color, size) {
+  size = size || 16;
+  color = color || 'currentColor';
+  var icons = {
+    'zap': '<path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="none" stroke="'+color+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
+    'alert-triangle': '<path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" fill="none" stroke="'+color+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="12" y1="9" x2="12" y2="13" stroke="'+color+'" stroke-width="2"/><line x1="12" y1="17" x2="12.01" y2="17" stroke="'+color+'" stroke-width="2"/>',
+    'circle': '<circle cx="12" cy="12" r="10" fill="'+color+'" stroke="none"/>',
+    'trending-up': '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18" fill="none" stroke="'+color+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><polyline points="17 6 23 6 23 12" fill="none" stroke="'+color+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
+    'trending-down': '<polyline points="23 18 13.5 8.5 8.5 13.5 1 6" fill="none" stroke="'+color+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><polyline points="17 18 23 18 23 12" fill="none" stroke="'+color+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
+    'bar-chart': '<line x1="18" y1="20" x2="18" y2="10" stroke="'+color+'" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="20" x2="12" y2="4" stroke="'+color+'" stroke-width="2" stroke-linecap="round"/><line x1="6" y1="20" x2="6" y2="14" stroke="'+color+'" stroke-width="2" stroke-linecap="round"/>',
+    'target': '<circle cx="12" cy="12" r="10" fill="none" stroke="'+color+'" stroke-width="2"/><circle cx="12" cy="12" r="6" fill="none" stroke="'+color+'" stroke-width="2"/><circle cx="12" cy="12" r="2" fill="none" stroke="'+color+'" stroke-width="2"/>',
+    'shield': '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill="none" stroke="'+color+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'
+  };
+  return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 24 24" style="display:inline-block;vertical-align:middle">' + (icons[name] || '') + '</svg>';
 }
 
 // Helpers

@@ -17,21 +17,11 @@ jobs:
 
       - name: Create config.local.php
         run: |
-          cat > config.local.php <<EOF
-          <?php
-          define('GEMINI_API_KEY', '${{ secrets.GEMINI_API_KEY }}');
-          EOF
+          printf '<?php\ndefine("GEMINI_API_KEY", "%s");\n' '${{ secrets.GEMINI_API_KEY }}' > config.local.php
 
       - name: Create stock-analyzer config.local.php
         run: |
-          cat > stock-analyzer/config.local.php <<EOF
-          <?php
-          define('TELEGRAM_BOT_TOKEN', '${{ secrets.TELEGRAM_BOT_TOKEN }}');
-          define('TELEGRAM_CHAT_ID', '${{ secrets.TELEGRAM_CHAT_ID }}');
-          define('LINE_CHANNEL_TOKEN', '${{ secrets.LINE_CHANNEL_TOKEN }}');
-          define('LINE_USER_ID', '${{ secrets.LINE_USER_ID }}');
-          define('ALERT_EMAIL', '${{ secrets.ALERT_EMAIL }}');
-          EOF
+          printf '<?php\ndefine("TELEGRAM_BOT_TOKEN", "%s");\ndefine("TELEGRAM_CHAT_ID", "%s");\ndefine("LINE_CHANNEL_TOKEN", "%s");\ndefine("LINE_USER_ID", "%s");\ndefine("ALERT_EMAIL", "%s");\n' '${{ secrets.TELEGRAM_BOT_TOKEN }}' '${{ secrets.TELEGRAM_CHAT_ID }}' '${{ secrets.LINE_CHANNEL_TOKEN }}' '${{ secrets.LINE_USER_ID }}' '${{ secrets.ALERT_EMAIL }}' > stock-analyzer/config.local.php
 
       - name: Ensure stock-analyzer directories are writable
         run: |
