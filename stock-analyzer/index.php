@@ -133,6 +133,24 @@ a { color: var(--gold); text-decoration: none; }
 
 .remove-btn { background: none; border: none; color: var(--red); font-size: 18px; cursor: pointer; padding: 4px; line-height: 1; }
 
+/* Search dropdown */
+.search-dropdown { position: absolute; top: 40px; left: 0; right: 0; background: var(--surface); border: 1px solid var(--border2); border-radius: 8px; max-height: 280px; overflow-y: auto; z-index: 200; display: none; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+.search-dropdown.show { display: block; }
+.search-item { padding: 10px 12px; cursor: pointer; border-bottom: 1px solid var(--border); font-size: 13px; display: flex; align-items: center; gap: 8px; }
+.search-item:last-child { border-bottom: none; }
+.search-item:hover, .search-item:active { background: rgba(194,157,102,0.1); }
+.search-item .si-code { font-weight: 800; color: var(--gold); min-width: 48px; }
+.search-item .si-name { color: var(--text); }
+
+/* KD prominent display */
+.kd-display { display: flex; gap: 32px; justify-content: center; align-items: center; padding: 16px 0; }
+.kd-item { text-align: center; }
+.kd-label { font-size: 12px; color: var(--text3); font-weight: 700; letter-spacing: 1px; margin-bottom: 6px; }
+.kd-value { font-size: 42px; font-weight: 900; line-height: 1; }
+.kd-bar { width: 100px; height: 6px; background: var(--bg2); border-radius: 3px; margin: 8px auto 0; overflow: hidden; }
+.kd-bar-fill { height: 100%; border-radius: 3px; transition: width 0.4s; }
+.kd-zone { font-size: 12px; color: var(--text2); text-align: center; margin-top: 12px; padding: 4px 16px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 16px; display: inline-block; }
+
 @media (min-width: 600px) {
   .app { border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
 }
@@ -142,9 +160,10 @@ a { color: var(--gold); text-decoration: none; }
 <div class="app">
   <div class="topbar">
     <h1>股票戰情室</h1>
-    <div class="search-box">
-      <input type="text" id="search-input" placeholder="輸入股票代號" onkeydown="if(event.key==='Enter')searchStock()">
+    <div class="search-box" style="position:relative">
+      <input type="text" id="search-input" placeholder="代號或公司名" oninput="onSearchInput()" onkeydown="if(event.key==='Enter'){searchStock();return;}">
       <button onclick="searchStock()">查詢</button>
+      <div class="search-dropdown" id="search-dropdown"></div>
     </div>
   </div>
 
@@ -347,11 +366,58 @@ function showDetail(stockId, market) {
   }).catch(function(err) { showLoading(false); alert('連線失敗'); });
 }
 
+var searchTimer = null;
+function onSearchInput() {
+  var val = document.getElementById('search-input').value.trim();
+  if (val.length < 1) { hideDropdown(); return; }
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(function() {
+    apiGet('search', { q: val }).then(function(res) {
+      if (!res.success || !res.data || !res.data.length) { hideDropdown(); return; }
+      showSearchDropdown(res.data);
+    }).catch(function() { hideDropdown(); });
+  }, 300);
+}
+
+function showSearchDropdown(items) {
+  var dd = document.getElementById('search-dropdown');
+  var h = '';
+  items.forEach(function(item) {
+    h += '<div class="search-item" onclick="selectSearchResult(\'' + item.code + '\')">';
+    h += '<span class="si-code">' + item.code + '</span>';
+    h += '<span class="si-name">' + item.name + '</span>';
+    h += '</div>';
+  });
+  dd.innerHTML = h;
+  dd.classList.add('show');
+}
+
+function hideDropdown() {
+  document.getElementById('search-dropdown').classList.remove('show');
+}
+
+function selectSearchResult(code) {
+  document.getElementById('search-input').value = code;
+  hideDropdown();
+  showDetail(code, 'tw');
+}
+
 function searchStock() {
-  var input = document.getElementById('search-input').value.trim().toUpperCase();
+  var input = document.getElementById('search-input').value.trim();
   if (!input) return;
-  var market = /^[A-Z]{1,5}$/.test(input) ? 'us' : 'tw';
-  showDetail(input, market);
+  hideDropdown();
+  if (/^\d{4,6}$/.test(input)) { showDetail(input, 'tw'); return; }
+  var upper = input.toUpperCase();
+  if (/^[A-Z]{1,5}$/.test(upper)) { showDetail(upper, 'us'); return; }
+  showLoading(true);
+  apiGet('search', { q: input }).then(function(res) {
+    showLoading(false);
+    if (res.success && res.data && res.data.length) {
+      showDetail(res.data[0].code, 'tw');
+    } else {
+      alert('查無「' + input + '」相關股票');
+    }
+  }).catch(function() { showLoading(false); alert('搜尋失敗'); });
 }
 
 function renderDetail(d) {
@@ -380,19 +446,54 @@ function renderDetail(d) {
   h += '<div class="dots">' + renderDots(risk.dots || [2,1,2]) + '</div>';
   h += '</div>';
 
-  // Indicators grid
+  // K-line chart
+  if (d.quotes && d.quotes.length > 5) {
+    h += '<div class="chart-box">';
+    h += '<div class="chart-title">' + svgIcon('bar-chart','var(--gold)',14) + ' K線圖 <span style="font-size:11px;color:var(--text2);font-weight:400">MA5 / MA20 / MA60</span></div>';
+    h += '<canvas id="kline-canvas" style="width:100%;height:260px"></canvas>';
+    h += '</div>';
+  }
+
+  // KD prominent display
+  var kVal = tech.k || 0;
+  var dVal = tech.d || 0;
+  var kColor = kVal > 80 ? 'var(--red)' : kVal < 20 ? 'var(--green)' : 'var(--gold)';
+  var dColor = dVal > 80 ? 'var(--red)' : dVal < 20 ? 'var(--green)' : 'var(--blue)';
+  var kdZone = '';
+  if (kVal > 80 && dVal > 80) kdZone = '超買區 - 注意回檔壓力';
+  else if (kVal < 20 && dVal < 20) kdZone = '超賣區 - 留意反彈機會';
+  else if (kVal > dVal) kdZone = 'K > D 短線偏多';
+  else kdZone = 'K < D 短線偏空';
+
+  h += '<div class="chart-box">';
+  h += '<div class="chart-title">' + svgIcon('target','var(--gold)',14) + ' KD 指標 (9日)</div>';
+  h += '<div class="kd-display">';
+  h += '<div class="kd-item"><div class="kd-label">K</div>';
+  h += '<div class="kd-value" style="color:' + kColor + '">' + kVal.toFixed(1) + '</div>';
+  h += '<div class="kd-bar"><div class="kd-bar-fill" style="width:' + kVal + '%;background:' + kColor + '"></div></div></div>';
+  h += '<div class="kd-item"><div class="kd-label">D</div>';
+  h += '<div class="kd-value" style="color:' + dColor + '">' + dVal.toFixed(1) + '</div>';
+  h += '<div class="kd-bar"><div class="kd-bar-fill" style="width:' + dVal + '%;background:' + dColor + '"></div></div></div>';
+  h += '</div>';
+  h += '<div style="text-align:center"><span class="kd-zone">' + kdZone + '</span></div>';
+  if (tech.kdSeries) {
+    h += '<canvas id="kd-chart-canvas" style="width:100%;height:120px;margin-top:12px"></canvas>';
+  }
+  h += '</div>';
+
+  // Indicators grid (without KD, replaced by MACD)
   h += '<div class="ind-grid">';
   h += indCard('MA5', fmtPrice(tech.ma5), tech.ma5 && d.price > tech.ma5 ? 'var(--green)' : 'var(--red)');
   h += indCard('MA20', fmtPrice(tech.ma20), tech.ma20 && d.price > tech.ma20 ? 'var(--green)' : 'var(--red)');
   h += indCard('MA60 (季線)', fmtPrice(tech.ma60), tech.ma60 && d.price > tech.ma60 ? 'var(--green)' : 'var(--red)');
   h += indCard('RSI(14)', (tech.rsi14||0).toFixed(1), tech.rsi14 > 70 ? 'var(--red)' : tech.rsi14 < 30 ? 'var(--green)' : 'var(--text)');
-  h += indCard('K / D', (tech.k||0).toFixed(1) + ' / ' + (tech.d||0).toFixed(1), '');
+  h += indCard('MACD', (tech.macdHist||0).toFixed(2), tech.macdHist > 0 ? 'var(--red)' : 'var(--green)');
   h += indCard('量比', (tech.volumeRatio||1).toFixed(2) + 'x', tech.volumeRatio > 1.3 ? 'var(--orange)' : 'var(--text)');
   h += '</div>';
 
   // Signals
   if (tech.signals && tech.signals.length) {
-    h += '<div class="section-title">信號</div><div class="signal-list">';
+    h += '<div class="section-title">' + svgIcon('zap','var(--gold)',14) + ' 信號</div><div class="signal-list">';
     tech.signals.forEach(function(s) {
       h += '<div class="signal-item"><div class="signal-dot ' + s.type + '"></div>';
       h += '<div class="signal-text"><div class="signal-name">' + s.name + '</div>';
@@ -401,8 +502,22 @@ function renderDetail(d) {
     h += '</div>';
   }
 
-  // Valuation
-  if (val.zone && val.zone !== 'unknown') {
+  // PE River Chart
+  var hasPeChart = d.peHistory && d.peHistory.length > 5 && d.quotes && d.quotes.length > 5 && val.zone && val.zone !== 'unknown' && val.perP25;
+  if (hasPeChart) {
+    h += '<div class="chart-box">';
+    h += '<div class="chart-title">' + svgIcon('trending-up','var(--gold)',14) + ' PE 估值河流 <span style="font-size:11px;color:var(--text2);font-weight:400">' + val.label + ' · PER ' + (val.per||0).toFixed(1) + '</span></div>';
+    h += '<canvas id="pe-river-canvas" style="width:100%;height:220px"></canvas>';
+    h += '<div style="display:flex;gap:12px;justify-content:center;margin-top:8px;font-size:10px">';
+    h += '<span style="color:rgba(34,197,94,0.8)">■ 便宜 (P25)</span>';
+    h += '<span style="color:rgba(194,157,102,0.8)">■ 合理 (P50)</span>';
+    h += '<span style="color:rgba(249,115,22,0.8)">■ 偏貴 (P75)</span>';
+    h += '</div>';
+    h += '</div>';
+  }
+
+  // Valuation bar (simpler fallback if no PE river data)
+  if (val.zone && val.zone !== 'unknown' && !hasPeChart) {
     h += '<div class="chart-box">';
     h += '<div class="chart-title">股價光譜 <span style="font-size:11px;color:var(--text2)">PER 分位估值帶</span></div>';
     h += '<div class="val-labels"><span>便宜</span><span>合理</span><span>偏貴</span><span>昂貴</span></div>';
@@ -416,19 +531,14 @@ function renderDetail(d) {
     h += '<div style="position:relative;height:20px;margin-bottom:8px">';
     h += '<div class="val-marker" style="position:absolute;left:' + pctPos + '%;transform:translateX(-50%)">$' + fmtPrice(d.price) + '</div>';
     h += '</div>';
-    h += '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3)">';
-    h += '<span>$' + fmtPrice(val.perMin * (d.price / (val.per || 1))) + '</span>';
-    h += '<span>$' + fmtPrice(val.perP50 * (d.price / (val.per || 1))) + '</span>';
-    h += '<span>$' + fmtPrice(val.perMax * (d.price / (val.per || 1))) + '</span>';
-    h += '</div>';
-    h += '<div style="margin-top:8px;font-size:12px;color:var(--text2)">現價位於近一年 PER 分位估值帶; 最新 PER ' + (val.per||0).toFixed(1) + '。</div>';
+    h += '<div style="margin-top:8px;font-size:12px;color:var(--text2)">最新 PER ' + (val.per||0).toFixed(1) + ' · ' + val.label + '</div>';
     h += '</div>';
   }
 
   // Chip flow
   if (chip.trend && chip.trend !== 'unknown') {
     h += '<div class="chart-box">';
-    h += '<div class="chart-title">籌碼流 <span style="font-size:11px;color:var(--text2)">法人 / 融資</span></div>';
+    h += '<div class="chart-title">' + svgIcon('shield','var(--gold)',14) + ' 籌碼流 <span style="font-size:11px;color:var(--text2)">法人 / 融資</span></div>';
     var maxChip = Math.max(Math.abs(chip.foreignNet||0), Math.abs(chip.trustNet||0), Math.abs(chip.dealerNet||0), 1);
     h += renderChipBar('外資', chip.foreignNet || 0, maxChip);
     h += renderChipBar('投信', chip.trustNet || 0, maxChip);
@@ -442,7 +552,7 @@ function renderDetail(d) {
   // Position sizing
   if (pos.suggestedShares) {
     h += '<div class="chart-box">';
-    h += '<div class="chart-title">建議部位</div>';
+    h += '<div class="chart-title">' + svgIcon('target','var(--gold)',14) + ' 建議部位</div>';
     h += '<div class="ind-grid" style="margin-bottom:0">';
     h += indCard('建議張數', pos.suggestedLots + ' 張', 'var(--gold)');
     h += indCard('投入金額', '$' + fmtNum(pos.investAmount), '');
@@ -452,6 +562,19 @@ function renderDetail(d) {
   }
 
   document.getElementById('detail-content').innerHTML = h;
+
+  // Draw charts after DOM is ready
+  setTimeout(function() {
+    if (d.quotes && d.quotes.length > 5) {
+      drawKlineChart(document.getElementById('kline-canvas'), d.quotes, tech.maSeries || {});
+    }
+    if (tech.kdSeries) {
+      drawKDChart(document.getElementById('kd-chart-canvas'), tech.kdSeries);
+    }
+    if (hasPeChart) {
+      drawPERiverChart(document.getElementById('pe-river-canvas'), d.quotes, d.peHistory, val);
+    }
+  }, 50);
 }
 
 function renderChipBar(label, value, max) {
@@ -549,6 +672,336 @@ function fmtNum(n) {
   if (Math.abs(n) >= 10000) return (n / 10000).toFixed(1) + '萬';
   return n.toLocaleString();
 }
+
+// Chart: K-line candlestick
+function drawKlineChart(canvas, quotes, maSeries) {
+  if (!canvas || !quotes || quotes.length < 2) return;
+  var ctx = canvas.getContext('2d');
+  var dpr = window.devicePixelRatio || 1;
+  var w = canvas.offsetWidth;
+  var h = canvas.offsetHeight;
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  ctx.scale(dpr, dpr);
+
+  var n = quotes.length;
+  var pad = { top: 10, right: 8, bottom: 22, left: 48 };
+  var chartH = (h - pad.top - pad.bottom) * 0.72;
+  var volH = (h - pad.top - pad.bottom) * 0.2;
+  var volTop = pad.top + chartH + (h - pad.top - pad.bottom) * 0.08;
+
+  var minP = Infinity, maxP = -Infinity, maxVol = 0;
+  for (var i = 0; i < n; i++) {
+    if (quotes[i].low < minP) minP = quotes[i].low;
+    if (quotes[i].high > maxP) maxP = quotes[i].high;
+    if (quotes[i].volume > maxVol) maxVol = quotes[i].volume;
+  }
+  var priceRange = maxP - minP;
+  if (priceRange <= 0) priceRange = 1;
+  var cw = w - pad.left - pad.right;
+  var gap = cw / n;
+  var candleW = Math.max(1, gap * 0.6);
+
+  function toX(i) { return pad.left + i * gap + gap / 2; }
+  function toPY(p) { return pad.top + (1 - (p - minP) / priceRange) * chartH; }
+
+  // Grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = 0.5;
+  for (var g = 0; g <= 4; g++) {
+    var gy = pad.top + (chartH * g / 4);
+    ctx.beginPath(); ctx.moveTo(pad.left, gy); ctx.lineTo(w - pad.right, gy); ctx.stroke();
+  }
+
+  // Volume bars + candlesticks
+  for (var i = 0; i < n; i++) {
+    var q = quotes[i];
+    var x = toX(i);
+    var isUp = q.close >= q.open;
+    var color = isUp ? '#ef4444' : '#22c55e';
+
+    // Volume
+    var vH = maxVol > 0 ? (q.volume / maxVol) * volH : 0;
+    ctx.fillStyle = isUp ? 'rgba(239,68,68,0.25)' : 'rgba(34,197,94,0.25)';
+    ctx.fillRect(x - candleW / 2, volTop + volH - vH, candleW, vH);
+
+    // Wick
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    ctx.moveTo(x, toPY(q.high));
+    ctx.lineTo(x, toPY(q.low));
+    ctx.stroke();
+
+    // Body
+    var yO = toPY(q.open), yC = toPY(q.close);
+    var bTop = Math.min(yO, yC);
+    var bH = Math.max(Math.abs(yO - yC), 1);
+    ctx.fillStyle = color;
+    ctx.fillRect(x - candleW / 2, bTop, candleW, bH);
+  }
+
+  // MA lines
+  var maColors = { ma5: '#f97316', ma20: '#3b82f6', ma60: '#a855f7' };
+  var maKeys = ['ma5', 'ma20', 'ma60'];
+  for (var m = 0; m < maKeys.length; m++) {
+    var key = maKeys[m];
+    var series = (maSeries || {})[key];
+    if (!series) continue;
+    var offset = n - series.length;
+    ctx.beginPath();
+    ctx.strokeStyle = maColors[key];
+    ctx.lineWidth = 1.5;
+    var started = false;
+    for (var i = 0; i < series.length; i++) {
+      if (series[i] === null || series[i] === undefined) continue;
+      var sx = toX(i + offset);
+      var sy = toPY(series[i]);
+      if (!started) { ctx.moveTo(sx, sy); started = true; }
+      else ctx.lineTo(sx, sy);
+    }
+    ctx.stroke();
+  }
+
+  // Y-axis labels
+  ctx.font = '10px -apple-system, sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.textAlign = 'right';
+  for (var g = 0; g <= 4; g++) {
+    var pv = minP + (priceRange * (4 - g) / 4);
+    ctx.fillText(fmtPrice(pv), pad.left - 4, pad.top + (chartH * g / 4) + 3);
+  }
+
+  // X-axis dates
+  ctx.textAlign = 'center';
+  var dateStep = Math.max(1, Math.floor(n / 5));
+  for (var i = 0; i < n; i += dateStep) {
+    ctx.fillText(quotes[i].date.substr(5), toX(i), h - 4);
+  }
+
+  // MA legend
+  ctx.textAlign = 'left';
+  ctx.font = 'bold 9px -apple-system, sans-serif';
+  ctx.fillStyle = '#f97316'; ctx.fillText('MA5', pad.left + 4, pad.top + 10);
+  ctx.fillStyle = '#3b82f6'; ctx.fillText('MA20', pad.left + 32, pad.top + 10);
+  ctx.fillStyle = '#a855f7'; ctx.fillText('MA60', pad.left + 66, pad.top + 10);
+}
+
+// Chart: KD line chart
+function drawKDChart(canvas, kdSeries) {
+  if (!canvas || !kdSeries) return;
+  var ctx = canvas.getContext('2d');
+  var dpr = window.devicePixelRatio || 1;
+  var w = canvas.offsetWidth;
+  var h = canvas.offsetHeight;
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  ctx.scale(dpr, dpr);
+
+  var kData = kdSeries.k || [];
+  var dData = kdSeries.d || [];
+  var n = kData.length;
+  if (n < 2) return;
+
+  var pad = { top: 6, right: 8, bottom: 16, left: 28 };
+  var cw = w - pad.left - pad.right;
+  var ch = h - pad.top - pad.bottom;
+
+  function toX(i) { return pad.left + (i / (n - 1)) * cw; }
+  function toY(v) { return pad.top + (1 - (v || 0) / 100) * ch; }
+
+  // Zone backgrounds
+  ctx.fillStyle = 'rgba(239,68,68,0.06)';
+  ctx.fillRect(pad.left, toY(100), cw, toY(80) - toY(100));
+  ctx.fillStyle = 'rgba(34,197,94,0.06)';
+  ctx.fillRect(pad.left, toY(20), cw, toY(0) - toY(20));
+
+  // Reference lines
+  var refs = [20, 50, 80];
+  for (var r = 0; r < refs.length; r++) {
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 0.5;
+    ctx.setLineDash([3, 3]);
+    ctx.moveTo(pad.left, toY(refs[r]));
+    ctx.lineTo(w - pad.right, toY(refs[r]));
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // K line
+  ctx.beginPath();
+  ctx.strokeStyle = '#f97316';
+  ctx.lineWidth = 2;
+  var started = false;
+  for (var i = 0; i < n; i++) {
+    if (kData[i] === null || kData[i] === undefined) continue;
+    if (!started) { ctx.moveTo(toX(i), toY(kData[i])); started = true; }
+    else ctx.lineTo(toX(i), toY(kData[i]));
+  }
+  ctx.stroke();
+
+  // D line
+  ctx.beginPath();
+  ctx.strokeStyle = '#a855f7';
+  ctx.lineWidth = 1.5;
+  started = false;
+  for (var i = 0; i < n; i++) {
+    if (dData[i] === null || dData[i] === undefined) continue;
+    if (!started) { ctx.moveTo(toX(i), toY(dData[i])); started = true; }
+    else ctx.lineTo(toX(i), toY(dData[i]));
+  }
+  ctx.stroke();
+
+  // Y labels
+  ctx.font = '9px -apple-system, sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillStyle = 'rgba(255,255,255,0.25)';
+  var yLabels = [0, 20, 50, 80, 100];
+  for (var r = 0; r < yLabels.length; r++) {
+    ctx.fillText(yLabels[r], pad.left - 3, toY(yLabels[r]) + 3);
+  }
+
+  // Legend
+  ctx.textAlign = 'left';
+  ctx.font = 'bold 9px -apple-system, sans-serif';
+  ctx.fillStyle = '#f97316'; ctx.fillText('K', w - pad.right - 30, pad.top + 10);
+  ctx.fillStyle = '#a855f7'; ctx.fillText('D', w - pad.right - 14, pad.top + 10);
+}
+
+// Chart: PE River
+function drawPERiverChart(canvas, quotes, peHistory, val) {
+  if (!canvas || !quotes || !peHistory || !val) return;
+  var ctx = canvas.getContext('2d');
+  var dpr = window.devicePixelRatio || 1;
+  var w = canvas.offsetWidth;
+  var h = canvas.offsetHeight;
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  ctx.scale(dpr, dpr);
+
+  // Build PE date map
+  var peMap = {};
+  for (var i = 0; i < peHistory.length; i++) {
+    if (peHistory[i].per > 0) peMap[peHistory[i].date] = peHistory[i];
+  }
+
+  // Build data points with PE-derived bands
+  var points = [];
+  var lastEps = null;
+  for (var i = 0; i < quotes.length; i++) {
+    var q = quotes[i];
+    var pe = peMap[q.date];
+    if (pe && pe.per > 0) lastEps = q.close / pe.per;
+    if (lastEps && lastEps > 0 && val.perP25 > 0) {
+      points.push({
+        date: q.date,
+        price: q.close,
+        bMin: lastEps * (val.perMin || val.perP25 * 0.7),
+        bP25: lastEps * val.perP25,
+        bP50: lastEps * val.perP50,
+        bP75: lastEps * val.perP75,
+        bMax: lastEps * (val.perMax || val.perP75 * 1.3)
+      });
+    }
+  }
+  if (points.length < 3) return;
+
+  // Price range
+  var allP = [];
+  for (var i = 0; i < points.length; i++) {
+    allP.push(points[i].price, points[i].bMin, points[i].bMax);
+  }
+  var minP = Math.min.apply(null, allP) * 0.97;
+  var maxP = Math.max.apply(null, allP) * 1.03;
+  var range = maxP - minP;
+  if (range <= 0) range = 1;
+
+  var pad = { top: 8, right: 8, bottom: 22, left: 48 };
+  var cw = w - pad.left - pad.right;
+  var ch = h - pad.top - pad.bottom;
+
+  function toX(i) { return pad.left + (i / (points.length - 1)) * cw; }
+  function toY(p) { return pad.top + (1 - (p - minP) / range) * ch; }
+
+  // Draw filled bands
+  function drawBandFill(keyBot, keyTop, color) {
+    ctx.beginPath();
+    for (var i = 0; i < points.length; i++) {
+      var x = toX(i), y = toY(points[i][keyTop]);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    for (var i = points.length - 1; i >= 0; i--) {
+      ctx.lineTo(toX(i), toY(points[i][keyBot]));
+    }
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+  }
+
+  drawBandFill('bMin', 'bP25', 'rgba(34,197,94,0.15)');
+  drawBandFill('bP25', 'bP50', 'rgba(194,157,102,0.12)');
+  drawBandFill('bP50', 'bP75', 'rgba(249,115,22,0.10)');
+  drawBandFill('bP75', 'bMax', 'rgba(239,68,68,0.08)');
+
+  // Band border lines
+  function drawBandLine(key, color) {
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 0.8;
+    for (var i = 0; i < points.length; i++) {
+      var x = toX(i), y = toY(points[i][key]);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  drawBandLine('bP25', 'rgba(34,197,94,0.4)');
+  drawBandLine('bP50', 'rgba(194,157,102,0.4)');
+  drawBandLine('bP75', 'rgba(249,115,22,0.4)');
+
+  // Price line
+  ctx.beginPath();
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 2;
+  for (var i = 0; i < points.length; i++) {
+    var x = toX(i), y = toY(points[i].price);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // Current price dot
+  var last = points[points.length - 1];
+  ctx.beginPath();
+  ctx.arc(toX(points.length - 1), toY(last.price), 4, 0, Math.PI * 2);
+  ctx.fillStyle = '#c29d66';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(toX(points.length - 1), toY(last.price), 6, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(194,157,102,0.4)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // Y-axis labels
+  ctx.font = '10px -apple-system, sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.textAlign = 'right';
+  for (var g = 0; g <= 4; g++) {
+    var pv = minP + (range * (4 - g) / 4);
+    ctx.fillText('$' + Math.round(pv), pad.left - 4, pad.top + (ch * g / 4) + 3);
+  }
+
+  // X-axis dates
+  ctx.textAlign = 'center';
+  var dateStep = Math.max(1, Math.floor(points.length / 5));
+  for (var i = 0; i < points.length; i += dateStep) {
+    ctx.fillText(points[i].date.substr(5), toX(i), h - 4);
+  }
+}
+
+// Close search dropdown on outside click
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.search-box')) hideDropdown();
+});
 
 // Init
 scanAll();
