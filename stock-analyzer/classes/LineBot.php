@@ -1,8 +1,8 @@
 <?php
 class LineBot
 {
-    private string $token;
-    private string $userId;
+    private $token;
+    private $userId;
 
     public function __construct()
     {

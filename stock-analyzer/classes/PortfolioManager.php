@@ -1,7 +1,7 @@
 <?php
 class PortfolioManager
 {
-    private string $file;
+    private $file;
 
     public function __construct()
     {

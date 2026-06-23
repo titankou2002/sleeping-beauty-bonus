@@ -1,7 +1,7 @@
 <?php
 class SignalEngine
 {
-    private TechnicalAnalysis $ta;
+    private $ta;
 
     public function __construct()
     {
@@ -58,7 +58,7 @@ class SignalEngine
         $per = $latestPe['per'] ?? 0;
         $pbr = $latestPe['pbr'] ?? 0;
 
-        $peValues = array_filter(array_column($peData, 'per'), fn($v) => $v > 0);
+        $peValues = array_filter(array_column($peData, 'per'), function($v) { return $v > 0; });
         if (empty($peValues)) return ['zone' => 'unknown', 'label' => '無 PER 資料', 'per' => $per, 'pbr' => $pbr];
 
         sort($peValues);
@@ -83,7 +83,7 @@ class SignalEngine
             'perP75' => round($p75, 2),
             'perMin' => round(min($peValues), 2),
             'perMax' => round(max($peValues), 2),
-            'percentile' => $count > 0 ? round(count(array_filter($peValues, fn($v) => $v <= $per)) / $count * 100, 1) : 50,
+            'percentile' => $count > 0 ? round(count(array_filter($peValues, function($v) use ($per) { return $v <= $per; })) / $count * 100, 1) : 50,
         ];
     }
 
@@ -210,8 +210,8 @@ class SignalEngine
         $reasons = [];
 
         // Technical
-        $bullishSignals = array_filter($technical['signals'], fn($s) => $s['type'] === 'bullish');
-        $bearishSignals = array_filter($technical['signals'], fn($s) => $s['type'] === 'bearish');
+        $bullishSignals = array_filter($technical['signals'], function($s) { return $s['type'] === 'bullish'; });
+        $bearishSignals = array_filter($technical['signals'], function($s) { return $s['type'] === 'bearish'; });
 
         if (count($bullishSignals) > count($bearishSignals)) {
             $reasons[] = '技術面偏多（' . count($bullishSignals) . ' 個多方信號）';

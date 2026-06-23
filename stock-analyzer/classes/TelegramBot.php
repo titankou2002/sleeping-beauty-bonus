@@ -1,8 +1,8 @@
 <?php
 class TelegramBot
 {
-    private string $token;
-    private string $chatId;
+    private $token;
+    private $chatId;
 
     public function __construct()
     {

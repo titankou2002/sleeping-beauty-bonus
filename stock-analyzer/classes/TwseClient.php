@@ -56,7 +56,7 @@ class TwseClient
             $rows = $this->getDailyQuote($stockId, $ym);
             $all = array_merge($rows, $all);
         }
-        usort($all, fn($a, $b) => strcmp($a['date'], $b['date']));
+        usort($all, function($a, $b) { return strcmp($a['date'], $b['date']); });
 
         $seen = [];
         $unique = [];

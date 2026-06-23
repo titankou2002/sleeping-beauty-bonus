@@ -150,7 +150,7 @@ class TechnicalAnalysis
             $signals[] = ['type' => $dir, 'name' => '爆量', 'desc' => sprintf('成交量為 20 日均量的 %.1f 倍', $volRatio), 'weight' => 1];
         }
 
-        usort($signals, fn($a, $b) => $b['weight'] <=> $a['weight']);
+        usort($signals, function($a, $b) { return $b['weight'] <=> $a['weight']; });
         return $signals;
     }
 
