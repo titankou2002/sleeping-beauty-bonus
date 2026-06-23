@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>股票戰情室</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23d4b483'/%3E%3Cstop offset='100%25' stop-color='%23a07840'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='%230a0a0a'/%3E%3Cpath d='M12 52 L12 12 Q12 8 16 8 L48 8 Q52 8 52 12 L52 38 Q52 42 48 42 L20 42 L12 52Z' fill='none' stroke='url(%23g)' stroke-width='2.5' stroke-linejoin='round'/%3E%3Crect x='20' y='20' width='4' height='14' rx='1' fill='%2322c55e'/%3E%3Cline x1='22' y1='17' x2='22' y2='37' stroke='%2322c55e' stroke-width='1.5' stroke-linecap='round'/%3E%3Crect x='28' y='16' width='4' height='12' rx='1' fill='%23ef4444'/%3E%3Cline x1='30' y1='13' x2='30' y2='31' stroke='%23ef4444' stroke-width='1.5' stroke-linecap='round'/%3E%3Crect x='36' y='18' width='4' height='10' rx='1' fill='%23ef4444'/%3E%3Cline x1='38' y1='14' x2='38' y2='32' stroke='%23ef4444' stroke-width='1.5' stroke-linecap='round'/%3E%3Crect x='44' y='14' width='4' height='14' rx='1' fill='%23ef4444'/%3E%3Cline x1='46' y1='11' x2='46' y2='31' stroke='%23ef4444' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E">
 <style>
 :root {
   --bg: #0a0a0a; --bg2: #111; --surface: #161616;
@@ -159,7 +160,7 @@ a { color: var(--gold); text-decoration: none; }
 <body>
 <div class="app">
   <div class="topbar">
-    <h1>股票戰情室</h1>
+    <h1><svg width="22" height="22" viewBox="0 0 64 64" style="vertical-align:-3px;margin-right:4px"><defs><linearGradient id="tg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#d4b483"/><stop offset="100%" stop-color="#a07840"/></linearGradient></defs><rect width="64" height="64" rx="14" fill="#0a0a0a"/><path d="M12 52 L12 12 Q12 8 16 8 L48 8 Q52 8 52 12 L52 38 Q52 42 48 42 L20 42 L12 52Z" fill="none" stroke="url(#tg)" stroke-width="2.5" stroke-linejoin="round"/><rect x="20" y="20" width="4" height="14" rx="1" fill="#22c55e"/><line x1="22" y1="17" x2="22" y2="37" stroke="#22c55e" stroke-width="1.5" stroke-linecap="round"/><rect x="28" y="16" width="4" height="12" rx="1" fill="#ef4444"/><line x1="30" y1="13" x2="30" y2="31" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round"/><rect x="36" y="18" width="4" height="10" rx="1" fill="#ef4444"/><line x1="38" y1="14" x2="38" y2="32" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round"/><rect x="44" y="14" width="4" height="14" rx="1" fill="#ef4444"/><line x1="46" y1="11" x2="46" y2="31" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round"/></svg>股票戰情室</h1>
     <div class="search-box" style="position:relative">
       <input type="text" id="search-input" placeholder="代號或公司名" oninput="onSearchInput()" onkeydown="if(event.key==='Enter'){searchStock();return;}">
       <button onclick="searchStock()">查詢</button>
