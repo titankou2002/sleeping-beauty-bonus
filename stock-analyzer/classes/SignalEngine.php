@@ -52,14 +52,14 @@ class SignalEngine
 
     private function assessValuation(array $peData, float $price): array
     {
-        if (empty($peData)) return ['zone' => 'unknown', 'label' => '無估值資料', 'per' => 0, 'pbr' => 0];
+        if (empty($peData)) return ['zone' => 'unknown', 'label' => '無估值資料', 'per' => 0, 'pbr' => 0, 'perP25' => 0, 'perP50' => 0, 'perP75' => 0, 'perMin' => 0, 'perMax' => 0, 'percentile' => 50];
 
         $latestPe = end($peData);
         $per = $latestPe['per'] ?? 0;
         $pbr = $latestPe['pbr'] ?? 0;
 
         $peValues = array_filter(array_column($peData, 'per'), function($v) { return $v > 0; });
-        if (empty($peValues)) return ['zone' => 'unknown', 'label' => '無 PER 資料', 'per' => $per, 'pbr' => $pbr];
+        if (empty($peValues)) return ['zone' => 'unknown', 'label' => '無 PER 資料', 'per' => $per, 'pbr' => $pbr, 'perP25' => 0, 'perP50' => 0, 'perP75' => 0, 'perMin' => 0, 'perMax' => 0, 'percentile' => 50];
 
         sort($peValues);
         $count = count($peValues);
@@ -89,7 +89,7 @@ class SignalEngine
 
     private function assessChipFlow(array $instData, array $marginData): array
     {
-        if (empty($instData)) return ['trend' => 'unknown', 'label' => '無籌碼資料'];
+        if (empty($instData)) return ['trend' => 'unknown', 'label' => '無籌碼資料', 'warning' => '', 'foreignNet' => 0, 'trustNet' => 0, 'dealerNet' => 0, 'totalNet' => 0, 'buyDays' => 0, 'sellDays' => 0, 'consecutiveSell' => 0, 'consecutiveBuy' => 0, 'marginChange' => 0, 'alerts' => [], 'days' => 0];
 
         $foreignNet = 0;
         $trustNet = 0;
