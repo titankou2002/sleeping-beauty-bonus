@@ -228,7 +228,7 @@ function showTab(tab) {
   currentTab = tab;
   ['dashboard','watchlist','alerts','detail'].forEach(function(t) {
     var el = document.getElementById('page-' + t);
-    if (el) el.style.display = t === tab ? '' : 'none';
+    if (el) el.style.display = t === tab ? 'block' : 'none';
   });
   document.querySelectorAll('.tab-item').forEach(function(el) {
     el.classList.toggle('active', el.id === 'tab-' + tab);
@@ -361,8 +361,8 @@ function showDetail(stockId, market) {
   apiGet('analyze', { stock: stockId, market: market }).then(function(res) {
     showLoading(false);
     if (!res.success) { alert(res.msg || '查詢失敗'); return; }
-    renderDetail(res.data);
     showTab('detail');
+    renderDetail(res.data);
   }).catch(function(err) { showLoading(false); alert('連線失敗'); });
 }
 
@@ -563,18 +563,20 @@ function renderDetail(d) {
 
   document.getElementById('detail-content').innerHTML = h;
 
-  // Draw charts after DOM is ready
-  setTimeout(function() {
-    if (d.quotes && d.quotes.length > 5) {
-      drawKlineChart(document.getElementById('kline-canvas'), d.quotes, tech.maSeries || {});
-    }
-    if (tech.kdSeries) {
-      drawKDChart(document.getElementById('kd-chart-canvas'), tech.kdSeries);
-    }
-    if (hasPeChart) {
-      drawPERiverChart(document.getElementById('pe-river-canvas'), d.quotes, d.peHistory, val);
-    }
-  }, 50);
+  // Draw charts after layout is complete (double rAF ensures reflow)
+  requestAnimationFrame(function() {
+    requestAnimationFrame(function() {
+      if (d.quotes && d.quotes.length > 5) {
+        drawKlineChart(document.getElementById('kline-canvas'), d.quotes, tech.maSeries || {});
+      }
+      if (tech.kdSeries) {
+        drawKDChart(document.getElementById('kd-chart-canvas'), tech.kdSeries);
+      }
+      if (hasPeChart) {
+        drawPERiverChart(document.getElementById('pe-river-canvas'), d.quotes, d.peHistory, val);
+      }
+    });
+  });
 }
 
 function renderChipBar(label, value, max) {
