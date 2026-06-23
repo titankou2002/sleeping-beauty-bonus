@@ -219,17 +219,54 @@ class TwseClient
         $cached = $this->getCache($cacheKey, 86400);
         if ($cached !== null) return $cached;
 
-        $url = 'https://www.twse.com.tw/exchangeReport/STOCK_DAY_ALL?response=json';
-        $data = $this->fetch($url);
-
-        if (!isset($data['data'])) return [];
-
         $stocks = [];
-        foreach ($data['data'] as $row) {
-            $code = trim($row[0] ?? '');
-            $name = trim($row[1] ?? '');
-            if ($code && $name) {
-                $stocks[] = ['code' => $code, 'name' => $name];
+
+        // Try OpenAPI endpoint first (flat JSON array with Code/Name keys)
+        $url = 'https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL';
+        $resp = $this->fetchRaw($url);
+        if ($resp) {
+            $arr = json_decode($resp, true);
+            if (is_array($arr) && !empty($arr) && isset($arr[0]['Code'])) {
+                foreach ($arr as $item) {
+                    $code = trim($item['Code'] ?? '');
+                    $name = trim($item['Name'] ?? '');
+                    if ($code && $name) {
+                        $stocks[] = ['code' => $code, 'name' => $name];
+                    }
+                }
+            }
+        }
+
+        // Fallback: old endpoint with nested data
+        if (empty($stocks)) {
+            $url2 = 'https://www.twse.com.tw/exchangeReport/STOCK_DAY_ALL?response=json';
+            $data = $this->fetch($url2);
+            if (isset($data['data'])) {
+                foreach ($data['data'] as $row) {
+                    $code = trim($row[0] ?? '');
+                    $name = trim($row[1] ?? '');
+                    if ($code && $name) {
+                        $stocks[] = ['code' => $code, 'name' => $name];
+                    }
+                }
+            }
+        }
+
+        // Fallback 2: OTC stocks from TPEx
+        $otcUrl = 'https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes';
+        $otcResp = $this->fetchRaw($otcUrl);
+        if ($otcResp) {
+            $otcArr = json_decode($otcResp, true);
+            if (is_array($otcArr) && !empty($otcArr)) {
+                $codeKey = isset($otcArr[0]['SecuritiesCompanyCode']) ? 'SecuritiesCompanyCode' : 'Code';
+                $nameKey = isset($otcArr[0]['CompanyName']) ? 'CompanyName' : 'Name';
+                foreach ($otcArr as $item) {
+                    $code = trim($item[$codeKey] ?? '');
+                    $name = trim($item[$nameKey] ?? '');
+                    if ($code && $name && !isset($seen[$code])) {
+                        $stocks[] = ['code' => $code, 'name' => $name];
+                    }
+                }
             }
         }
 
@@ -334,6 +371,13 @@ class TwseClient
 
     private function fetch(string $url): array
     {
+        $resp = $this->fetchRaw($url);
+        if (!$resp) return [];
+        return json_decode($resp, true) ?: [];
+    }
+
+    private function fetchRaw(string $url): string
+    {
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
@@ -348,8 +392,8 @@ class TwseClient
         $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
 
-        if ($code !== 200 || !$resp) return [];
-        return json_decode($resp, true) ?: [];
+        if ($code !== 200 || !$resp) return '';
+        return $resp;
     }
 
     private function getCache(string $key, int $ttl = 0): ?array
