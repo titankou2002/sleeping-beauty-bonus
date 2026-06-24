@@ -83,6 +83,7 @@ stock-analyzer/
 ├── icon-256.png           # 256px PNG
 ├── icon-192.png           # 192px PNG (Android PWA)
 ├── apple-touch-icon.png   # 180px PNG (iOS)
+├── manifest.json          # PWA 安裝描述檔
 ├── .htaccess              # Apache 設定
 ├── .gitignore
 ├── classes/
@@ -143,26 +144,20 @@ stock-analyzer/
 
 ## 待完成 / 下一步
 
-### 尚未提交的本地變更（需 commit + push + merge）
-1. **圖示檔案**：`icon.svg`, `icon-512.png`, `icon-256.png`, `icon-192.png`, `apple-touch-icon.png`, `favicon.ico`
-2. **index.php 修改**：將 favicon 從 data URI 改為引用外部檔案 + 新增 apple-touch-icon
-
-### 提交步驟
-```bash
-git checkout claude/code-analysis-lyzp7a
-git add stock-analyzer/icon.svg stock-analyzer/icon-512.png stock-analyzer/icon-256.png stock-analyzer/icon-192.png stock-analyzer/apple-touch-icon.png stock-analyzer/favicon.ico stock-analyzer/index.php
-git commit -m "feat: 獨立圖示檔案 + apple-touch-icon 支援"
-git push -u origin claude/code-analysis-lyzp7a
-```
-然後建立 PR 合併到 main，GitHub Actions 會自動部署。
-
 ### 未來可做的功能
-- [ ] PWA manifest.json（可安裝到手機桌面）
+- [x] PWA manifest.json（可安裝到手機桌面）— PR #10 完成
 - [ ] cron-scan.php 設定 cPanel cron job（建議每4小時跑一次）
 - [ ] Telegram/LINE 推播整合（偵測到特定型態時自動通知）
 - [ ] 美股型態掃描（目前只做台股）
 - [ ] 歷史型態回測（型態出現後的勝率統計）
 - [ ] 自訂監控條件（如：RSI < 30 且出現錘子線）
+
+### cron-scan.php 設定方式
+在 cPanel 的 Cron Jobs 中新增：
+```
+0 */4 * * * /usr/local/bin/php /home/你的帳號/public_html/stock-analyzer/cron-scan.php > /dev/null 2>&1
+```
+每4小時執行一次全市場掃描，結果快取在 `cache/market_scan.json`。
 
 ---
 
