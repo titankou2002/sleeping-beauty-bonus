@@ -5424,7 +5424,7 @@ class SleeperService
         return is_finite($n) ? $n : 0;
     }
 
-    private function parseDate($v)
+    public function parseDate($v)
     {
         if (!$v) return null;
         if ($v instanceof DateTime) return $v;
@@ -6150,6 +6150,71 @@ try {
             $sku = $_GET['sku'] ?? '';
             $res = $svc->getProductHistory($tab, $sku);
             echo json_encode($res);
+            break;
+
+        case 'debug-sales-compare':
+            try {
+                $year = (int)($_GET['year'] ?? date('Y'));
+                $month = (int)($_GET['month'] ?? date('n'));
+                $salesRows = $gs->readSheet(SALES_SHEET);
+                $h = $salesRows[0];
+                $idxDate = $svc->findHeader($h, ['單據日期', '銷貨日期', '日期']);
+                $idxAmt = $svc->findHeader($h, ['金額', '銷貨金額']);
+                $idxCode = $svc->findHeader($h, ['產品編號', '編號', '品號']);
+                $idxCust = $svc->findHeader($h, ['客戶名稱', '客戶']);
+                $idxCustCode = $svc->findHeader($h, ['客戶編號', '客戶代碼', '代碼']);
+                $idxNote = $svc->findHeader($h, ['產品備註', '備註', '說明']);
+                $idxProdName = $svc->findHeader($h, ['產品名稱', '品名']);
+                $rawTotal = 0; $rawCount = 0;
+                $filteredTotal = 0; $filteredCount = 0;
+                $sampleSkipped = 0; $sampleAmt = 0;
+                $noDateCount = 0; $noCodeCount = 0; $zeroCount = 0;
+                for ($i = 1; $i < count($salesRows); $i++) {
+                    $row = $salesRows[$i];
+                    $d = $svc->parseDate($row[$idxDate] ?? '');
+                    if (!$d) { $noDateCount++; continue; }
+                    $ry = (int)$d->format('Y'); $rm = (int)$d->format('n');
+                    if ($ry !== $year || $rm !== $month) continue;
+                    $amt = (float)str_replace(',', '', $row[$idxAmt] ?? '0');
+                    $code = trim($row[$idxCode] ?? '');
+                    $rawTotal += $amt; $rawCount++;
+                    if ($code === '') { $noCodeCount++; continue; }
+                    $qty = (float)str_replace(',', '', $row[$svc->findHeader($h, ['數量', '銷貨數量', '片數'])] ?? '0');
+                    if ($qty == 0 && $amt == 0) { $zeroCount++; continue; }
+                    $custName = trim($row[$idxCust] ?? '');
+                    $custCode = trim($row[$idxCustCode] ?? '');
+                    $prodName = trim($row[$idxProdName] ?? '');
+                    $note = trim($row[$idxNote] ?? '');
+                    if ($svc->isSampleRow($custCode, $custName, $prodName . ' ' . $note, $amt)) {
+                        $sampleSkipped++; $sampleAmt += $amt; continue;
+                    }
+                    $filteredTotal += $amt; $filteredCount++;
+                }
+                $cacheRows = $gs->readSheet(CACHE_SHEET);
+                $cH = $cacheRows[0];
+                $cYear = $svc->findHeader($cH, ['年度']);
+                $cMonth = $svc->findHeader($cH, ['月份']);
+                $cAmt = $svc->findHeader($cH, ['銷售金額']);
+                $cacheTotal = 0; $cacheCount = 0;
+                for ($ci = 1; $ci < count($cacheRows); $ci++) {
+                    $cr = $cacheRows[$ci];
+                    if ((int)($cr[$cYear]??0) === $year && (int)($cr[$cMonth]??0) === $month) {
+                        $cacheTotal += (float)str_replace(',', '', $cr[$cAmt] ?? '0');
+                        $cacheCount++;
+                    }
+                }
+                echo json_encode([
+                    'year' => $year, 'month' => $month,
+                    'rawSalesSheet' => ['total' => round($rawTotal), 'rows' => $rawCount],
+                    'afterFilters' => ['total' => round($filteredTotal), 'rows' => $filteredCount],
+                    'skipped' => ['noDate' => $noDateCount, 'noCode' => $noCodeCount, 'zero' => $zeroCount, 'sample' => $sampleSkipped, 'sampleAmt' => round($sampleAmt)],
+                    'cache' => ['total' => round($cacheTotal), 'rows' => $cacheCount],
+                    'diff' => round($filteredTotal - $cacheTotal),
+                    'totalSalesRows' => count($salesRows) - 1
+                ], JSON_UNESCAPED_UNICODE);
+            } catch (Exception $e) {
+                echo json_encode(['error' => $e->getMessage()]);
+            }
             break;
 
         case 'cache-info':
