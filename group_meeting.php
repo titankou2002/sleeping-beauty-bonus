@@ -341,22 +341,46 @@ function renderAll(d){
     html+=`</div>`;
   }
 
-  // === 10. 業務員業績比較 ===
-  html+=`<div class="section"><div class="section-title">👤 各公司業務員業績</div><div class="co3">`;
+  // === 10. 庫存比較 ===
+  html+=`<div class="section"><div class="section-title">📦 庫存比較</div>`;
+  // 集團庫存加總
+  const invTypes=[{key:'normal',label:'正常品',color:'var(--green)'},{key:'sleeper',label:'睡美人',color:'var(--orange)'},{key:'discontinued',label:'不續辦',color:'var(--red)'}];
+  let groupInv={normal:{cost:0,pings:0},sleeper:{cost:0,pings:0},discontinued:{cost:0,pings:0},total:{cost:0,pings:0}};
+  CO_KEYS.forEach(k=>{const inv=cos[k].inventory||{};
+    invTypes.forEach(t=>{groupInv[t.key].cost+=(inv[t.key]||{}).cost||0;groupInv[t.key].pings+=(inv[t.key]||{}).pings||0;});
+    groupInv.total.cost+=(inv.total||{}).cost||0;groupInv.total.pings+=(inv.total||{}).pings||0;
+  });
+
+  // 集團 KPI
+  html+=`<div class="kpi-grid" style="margin-bottom:16px">
+    <div class="kpi"><div class="lb">集團庫存總額</div><div class="vl">${fmtW(groupInv.total.cost)}</div><div class="sb">${fmtP(groupInv.total.pings)}</div></div>`;
+  invTypes.forEach(t=>{
+    const p=groupInv.total.cost>0?pct(groupInv[t.key].cost,groupInv.total.cost):'0';
+    html+=`<div class="kpi"><div class="lb" style="color:${t.color}">${t.label}</div><div class="vl">${fmtW(groupInv[t.key].cost)}</div><div class="sb">佔 ${p}% · ${fmtP(groupInv[t.key].pings)}</div></div>`;
+  });
+  html+=`</div>`;
+
+  // 各公司庫存明細
+  html+=`<div class="co3">`;
   CO_KEYS.forEach(k=>{
-    const c=cos[k]; const reps=c.reps||[];
-    html+=`<div class="cc"><div class="nm"><span class="dot" style="background:${c.color}"></span>${c.name}</div>`;
-    if(reps.length===0){html+=`<div style="color:var(--muted);font-size:13px">無業務資料</div>`;} else {
-      html+=`<table class="tbl"><tr><th>業務</th><th class="r">本月</th><th class="r">YOY</th><th class="r">客戶數</th></tr>`;
-      reps.slice(0,8).forEach(r=>{
-        const yoyStr=r.yoy!==null?fmtYoy(r.yoy):'—';
-        html+=`<tr><td>${r.name}</td><td class="r" style="font-weight:700">${fmtW(r.curMonth)}</td><td class="r">${yoyStr}</td><td class="r">${r.customerCount}</td></tr>`;
-      });
-      html+=`</table>`;
-    }
+    const c=cos[k]; const inv=c.inventory||{};
+    const total=(inv.total||{}).cost||0;
+    html+=`<div class="cc"><div class="nm"><span class="dot" style="background:${c.color}"></span>${c.name}</div>
+      <div style="font-size:13px;margin-bottom:8px">庫存總額 <b>${fmtW(total)}</b> · ${fmtP((inv.total||{}).pings||0)}</div>`;
+    invTypes.forEach(t=>{
+      const v=(inv[t.key]||{});
+      const p=total>0?pct(v.cost||0,total):'0';
+      const w=Math.min(Number(p),100);
+      html+=`<div class="bar-row"><span class="bar-label" style="color:${t.color}">${t.label}</span><div class="bar-track"><div style="width:${w}%;height:100%;background:${t.color};border-radius:3px"></div></div><span class="bar-val">${fmtW(v.cost||0)}</span></div>
+      <div style="font-size:11px;color:var(--muted);margin:0 0 4px 88px">${p}% · ${fmtP(v.pings||0)} · ${v.skuCount||0} 品項</div>`;
+    });
     html+=`</div>`;
   });
-  html+=`</div></div>`;
+  html+=`</div>`;
+
+  // 庫存佔比圖
+  html+=`<div class="chart-wrap" style="height:260px;margin-top:16px"><canvas id="invChart"></canvas></div>`;
+  html+=`</div>`;
 
   // === 11. 主管報告 ===
   html+=`<div class="section"><div class="section-title">📝 主管報告</div>
@@ -434,6 +458,17 @@ function renderCharts(d){
     const sumB=CO_KEYS.reduce((s,k)=>s+((cos[k].products.byBrand||{})[b]||{amount:0}).amount,0);
     return sumB-sumA;
   }).slice(0,10);
+  // Inventory chart
+  const invEl=document.getElementById('invChart');
+  if(invEl){
+    const ctx7=invEl.getContext('2d');
+    charts.push(new Chart(ctx7,{type:'bar',data:{labels:CO_KEYS.map(k=>CO_LABELS[k]),datasets:[
+      {label:'正常品',data:CO_KEYS.map(k=>Math.round(((cos[k].inventory||{}).normal||{}).cost||0)/10000),backgroundColor:'#22c55e'},
+      {label:'睡美人',data:CO_KEYS.map(k=>Math.round(((cos[k].inventory||{}).sleeper||{}).cost||0)/10000),backgroundColor:'#f59e0b'},
+      {label:'不續辦',data:CO_KEYS.map(k=>Math.round(((cos[k].inventory||{}).discontinued||{}).cost||0)/10000),backgroundColor:'#ef4444'}
+    ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#f6f1e6',font:{weight:'bold'}}}},scales:{x:{stacked:true,grid:{display:false},ticks:{color:'#a9a39a'}},y:{stacked:true,grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#a9a39a',callback:v=>v+'萬'}}}}}));
+  }
+
   const ctx6=document.getElementById('brandChart').getContext('2d');
   charts.push(new Chart(ctx6,{type:'bar',data:{labels:brandLabels,datasets:CO_KEYS.map(k=>({label:CO_LABELS[k],data:brandLabels.map(b=>Math.round(((cos[k].products.byBrand||{})[b]||{amount:0}).amount/10000)),backgroundColor:CO_COLORS[k]}))},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{labels:{color:'#f6f1e6',font:{weight:'bold'}}}},scales:{y:{grid:{display:false},ticks:{color:'#a9a39a',font:{size:11}}},x:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#a9a39a',callback:v=>v+'萬'}}}}}));
 }

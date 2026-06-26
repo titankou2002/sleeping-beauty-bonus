@@ -3588,6 +3588,102 @@ class SleeperService
         }
     }
 
+    private function getCompanyInventoryBreakdown($ssId)
+    {
+        try {
+            $gsClient = new GoogleSheetsClient($ssId);
+
+            $priceData = $gsClient->readSheet(PRICE_SHEET);
+            $metaMap = [];
+            $costMap = [];
+            if (count($priceData) >= 2) {
+                $pH = $priceData[0];
+                $pCode = $this->findHeader($pH, ['編號', '產品編號']);
+                $pSleeper = $this->findHeader($pH, ['睡美人']);
+                $pDisc = $this->findHeader($pH, ['不續辦']);
+                $pPerPing = $this->findHeader($pH, ['片/坪']);
+                $pCost = $this->findHeader($pH, ['成本', '單片成本', '成本價']);
+                for ($i = 1; $i < count($priceData); $i++) {
+                    $sku = $this->cleanSku($this->getVal($priceData[$i], $pCode));
+                    if (!$sku) continue;
+                    $isSleeper = $pSleeper !== -1 && trim($this->getVal($priceData[$i], $pSleeper)) !== '';
+                    $isDisc = $pDisc !== -1 && trim($this->getVal($priceData[$i], $pDisc)) !== '';
+                    $type = $isDisc ? 'discontinued' : ($isSleeper ? 'sleeper' : 'normal');
+                    $perPing = $pPerPing !== -1 ? ($this->optFloat($this->getVal($priceData[$i], $pPerPing)) ?: 36) : 36;
+                    $cost = $pCost !== -1 ? $this->optFloat($this->getVal($priceData[$i], $pCost)) : 0;
+                    $metaMap[$sku] = ['type' => $type, 'perPing' => $perPing];
+                    if ($cost > 0) $costMap[$sku] = $cost;
+                }
+            }
+
+            try {
+                $sleeperData = $gsClient->readSheet(SLEEPER_SHEET);
+                if (count($sleeperData) >= 2) {
+                    $sH = $sleeperData[0];
+                    $sSku = $this->findHeader($sH, ['編號', '產品編號', '品號']);
+                    $sCost = $this->findHeader($sH, ['成本', '單片成本', '成本價']);
+                    if ($sSku !== -1 && $sCost !== -1) {
+                        for ($i = 1; $i < count($sleeperData); $i++) {
+                            $sku = $this->cleanSku($this->getVal($sleeperData[$i], $sSku));
+                            if (!$sku) continue;
+                            $c = $this->optFloat($this->getVal($sleeperData[$i], $sCost));
+                            if ($c > 0) $costMap[$sku] = $c;
+                        }
+                    }
+                }
+            } catch (Exception $e) {}
+
+            $stockData = $gsClient->readSheet(STOCK_SHEET);
+            $result = [
+                'normal' => ['cost' => 0, 'pings' => 0, 'skuCount' => 0],
+                'sleeper' => ['cost' => 0, 'pings' => 0, 'skuCount' => 0],
+                'discontinued' => ['cost' => 0, 'pings' => 0, 'skuCount' => 0],
+                'total' => ['cost' => 0, 'pings' => 0, 'skuCount' => 0],
+            ];
+            if (count($stockData) < 2) return $result;
+
+            $sH = $stockData[0];
+            $sCode = $this->findHeader($sH, ['編號', '產品編號']);
+            $sPing = $this->findHeader($sH, ['庫存坪數', '坪數', '庫存']);
+            if ($sCode === -1) return $result;
+
+            $seen = [];
+            for ($i = 1; $i < count($stockData); $i++) {
+                $sku = $this->cleanSku($this->getVal($stockData[$i], $sCode));
+                if (!$sku) continue;
+                $ping = $sPing !== -1 ? $this->optFloat($this->getVal($stockData[$i], $sPing)) : 0;
+                if ($ping <= 0) continue;
+
+                $meta = $metaMap[$sku] ?? ['type' => 'normal', 'perPing' => 36];
+                $cost = $costMap[$sku] ?? 0;
+                $costPerPing = $cost * $meta['perPing'];
+                $totalCost = $ping * $costPerPing;
+                $type = $meta['type'];
+
+                $result[$type]['cost'] += $totalCost;
+                $result[$type]['pings'] += $ping;
+                if (!isset($seen[$type][$sku])) { $result[$type]['skuCount']++; $seen[$type][$sku] = true; }
+                $result['total']['cost'] += $totalCost;
+                $result['total']['pings'] += $ping;
+                if (!isset($seen['total'][$sku])) { $result['total']['skuCount']++; $seen['total'][$sku] = true; }
+            }
+
+            foreach (['normal', 'sleeper', 'discontinued', 'total'] as $t) {
+                $result[$t]['cost'] = round($result[$t]['cost']);
+                $result[$t]['pings'] = round($result[$t]['pings'], 1);
+            }
+            return $result;
+        } catch (Exception $e) {
+            return [
+                'normal' => ['cost' => 0, 'pings' => 0, 'skuCount' => 0],
+                'sleeper' => ['cost' => 0, 'pings' => 0, 'skuCount' => 0],
+                'discontinued' => ['cost' => 0, 'pings' => 0, 'skuCount' => 0],
+                'total' => ['cost' => 0, 'pings' => 0, 'skuCount' => 0],
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
     public function getGroupDetailedReport($year, $month)
     {
         $year = (int)$year;
@@ -3606,6 +3702,7 @@ class SleeperService
         $allContracts = [];
         $allQuarters = [];
         $allReps = [];
+        $allInventory = [];
 
         foreach ($companyIds as $key => $info) {
             $basicStats[$key] = $this->getCompanyReportStats($info['id'], $year, $month);
@@ -3614,6 +3711,7 @@ class SleeperService
             $allContracts[$key] = $this->getCompanyContractSummary($info['id'], $year, $month);
             $allQuarters[$key] = $this->getCompanyQuarterStats($info['id'], $year, $month);
             $allReps[$key] = $this->getCompanySalesRepStats($info['id'], $year, $month);
+            $allInventory[$key] = $this->getCompanyInventoryBreakdown($info['id']);
         }
 
         $groupKpis = ['sales' => 0, 'salesYoyBase' => 0, 'pings' => 0, 'ytdSales' => 0, 'ytdPrevSales' => 0];
@@ -3743,7 +3841,7 @@ class SleeperService
                     'prev' => ['label' => $prevQKey, 'amount' => round($allQuarters[$key][$prevQKey] ?? 0)],
                     'lastYear' => ['label' => $lastYearQKey, 'amount' => round($allQuarters[$key][$lastYearQKey] ?? 0)],
                 ],
-                'reps' => $allReps[$key],
+                'inventory' => $allInventory[$key],
             ];
         }
 
