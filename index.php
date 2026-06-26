@@ -1786,9 +1786,9 @@ function rebuildCache() {
 }
 
 function loadCacheInfo() {
-  apiGet('cache-info', function(res) {
+  apiGet('cache-info', {}, function(res) {
     if (!res.success) return;
-    var txt = '快取更新：' + res.lastUpdate + '（' + res.rows + ' 筆）';
+    var txt = '快取：' + res.lastUpdate + '（' + res.rows + ' 筆）';
     var els = document.querySelectorAll('[id^="cache-info"]');
     els.forEach(function(el) { el.textContent = txt; });
   });
