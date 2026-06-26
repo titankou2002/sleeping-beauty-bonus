@@ -120,7 +120,7 @@ stock-analyzer/
 ### PR #7：Favicon
 - 新增 SVG data URI favicon
 
-### PR #8：技術分析完整功能（最新合併）
+### PR #8：技術分析完整功能
 - **PatternEngine.php**：30 種 K 線型態偵測
   - 單根 K 棒（8種）：doji, long_upper_shadow, long_lower_shadow, hammer, hanging_man, large_bullish, large_bearish, spinning_top
   - 組合型態（14種）：bullish/bearish_engulfing, dark_cloud_cover, piercing_line, bullish/bearish_harami, gap_up/down, morning_star, evening_star, three_white_soldiers, three_black_crows, island_reversal_bullish/bearish
@@ -139,6 +139,16 @@ stock-analyzer/
   - 個股詳情頁「K線型態辨識」區塊
   - 總覽頁橫向篩選條（型態快篩）
   - 全新「選股」tab（型態 chips + 掃描 + 結果卡片）
+
+### PR #9：獨立圖示檔案
+- 匯出 SVG/PNG/ICO 多尺寸圖示（512/256/192/180/favicon）
+- index.php 改用外部檔案取代 data URI
+- 新增 apple-touch-icon 支援
+
+### PR #10：PWA 支援
+- 新增 `manifest.json`，可從手機/桌面「加到主畫面」安裝
+- 加入 theme-color、apple-mobile-web-app 標籤
+- 安裝後全螢幕顯示，像原生 App
 
 ---
 
