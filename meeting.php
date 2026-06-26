@@ -1099,6 +1099,8 @@
         <select id="year"></select>
         <select id="month"></select>
         <button onclick="loadMeeting()">載入會議報表</button>
+        <button onclick="rebuildCacheMeeting()" style="background:rgba(194,157,102,.15);border-color:rgba(194,157,102,.5);color:var(--accent-strong)">🔄 同步快取</button>
+        <span id="cache-info-meeting" style="font-size:11px;color:var(--muted)"></span>
         <a class="btn-link" style="color:var(--accent-strong);" href="group_meeting.php">集團比較表</a>
         <a class="btn-link" href="index.php">回戰情室</a>
       </div>
@@ -2183,6 +2185,25 @@
       currentMeetingTab = 'monthly';
       loadMeeting();
     }
+
+    function rebuildCacheMeeting() {
+      document.getElementById('cache-info-meeting').textContent = '同步中...';
+      fetch(API_BASE + '?action=rebuild-cache', {method:'POST'}).then(r=>r.json()).then(res=>{
+        if(res.success){
+          document.getElementById('cache-info-meeting').textContent = '同步完成！' + res.cacheRows + ' 筆';
+          loadCacheInfoMeeting();
+          loadMeeting();
+        } else {
+          document.getElementById('cache-info-meeting').textContent = '失敗: ' + (res.error||'');
+        }
+      }).catch(e=>{document.getElementById('cache-info-meeting').textContent='連線失敗';});
+    }
+    function loadCacheInfoMeeting() {
+      apiGet('cache-info').then(res=>{
+        if(res.success) document.getElementById('cache-info-meeting').textContent = '快取：' + res.lastUpdate;
+      }).catch(()=>{});
+    }
+    loadCacheInfoMeeting();
 
     function loadMeeting() {
       document.getElementById('app').innerHTML = '<div class="sheet"><div class="sheet-title">載入中…</div></div>';

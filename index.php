@@ -635,6 +635,8 @@ input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-colo
       </select>
       <select id="report-period"></select>
       <button class="btn btn-primary" onclick="loadStrategyReport()">載入報表</button>
+      <button class="btn btn-accent" onclick="rebuildCache()">🔄 同步快取</button>
+      <span id="cache-info-reports" style="font-size:11px;color:var(--text2);margin-left:4px"></span>
       <button class="btn btn-ghost" onclick="window.open('meeting.php', '_blank')">月會模式</button>
       <button class="btn btn-ghost" style="color:var(--gold);" onclick="window.open('group_meeting.php', '_blank')">集團比較</button>
     </div>
@@ -1054,6 +1056,7 @@ function switchTab(tab) {
     var el = document.getElementById('filter-grade');
     el.style.display = currentProdTab === 'sleeper' ? '' : 'none';
     if (!window._normalData) loadProducts();
+    loadCacheInfo();
     else renderProducts();
   } else if (tab === 'reports') {
     if (!window._strategyReport) loadStrategyReport();
@@ -1771,6 +1774,7 @@ function rebuildCache() {
     showLoading(false);
     if (res.success) {
       toast('同步快取成功！歷史年度：' + res.years.join(', ') + '，已快取 ' + res.cacheRows + ' 筆資料。');
+      loadCacheInfo();
       loadProducts();
     } else {
       toast('快取同步失敗: ' + res.error, true);
@@ -1778,6 +1782,15 @@ function rebuildCache() {
   }, function(err) {
     showLoading(false);
     toast('連線失敗: ' + err, true);
+  });
+}
+
+function loadCacheInfo() {
+  apiGet('cache-info', function(res) {
+    if (!res.success) return;
+    var txt = '快取更新：' + res.lastUpdate + '（' + res.rows + ' 筆）';
+    var els = document.querySelectorAll('[id^="cache-info"]');
+    els.forEach(function(el) { el.textContent = txt; });
   });
 }
 

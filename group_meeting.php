@@ -117,6 +117,8 @@ require_once __DIR__ . '/config.php';
       <select id="year"></select>
       <select id="month"></select>
       <button class="btn-primary" onclick="loadReport()">📊 載入報表</button>
+      <button style="background:rgba(194,157,102,.15);border-color:rgba(194,157,102,.5);color:var(--gold)" onclick="rebuildAllCaches()">🔄 同步全部快取</button>
+      <span id="cache-info-group" style="font-size:11px;color:var(--muted)"></span>
       <a class="btn-link" href="meeting.php">高雅瓷月報</a>
       <a class="btn-link" href="index.php">回首頁</a>
     </div>
@@ -558,7 +560,24 @@ function showProductDetail(companyKey, type){
   showModal(h);
 }
 
-window.onload=function(){loadReport()};
+function rebuildAllCaches(){
+  const el=document.getElementById('cache-info-group');
+  el.textContent='同步三家公司快取中...';
+  fetch(`api.php?action=cron-rebuild-all&token=<?= CRON_TOKEN ?>`).then(r=>r.json()).then(res=>{
+    if(res.success){
+      const msgs=Object.entries(res.results).map(([k,v])=>k+(v.success?'✓':'✗')).join(' · ');
+      el.textContent='同步完成：'+msgs+' ('+res.time+')';
+      loadReport();
+    } else { el.textContent='失敗'; }
+  }).catch(()=>{el.textContent='連線失敗';});
+}
+function loadCacheInfoGroup(){
+  fetch('api.php?action=cache-info').then(r=>r.json()).then(res=>{
+    if(res.success) document.getElementById('cache-info-group').textContent='快取：'+res.lastUpdate;
+  }).catch(()=>{});
+}
+
+window.onload=function(){loadCacheInfoGroup();loadReport();};
 </script>
 </body>
 </html>

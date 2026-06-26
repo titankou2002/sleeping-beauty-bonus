@@ -5459,7 +5459,7 @@ class SleeperService
             : sprintf('%03d/%02d', $rocYear, (int)$dt->format('m'));
     }
 
-    private function findHeader($headers, $candidates)
+    public function findHeader($headers, $candidates)
     {
         if (!$headers || count($headers) === 0) return -1;
         $clean = [];
@@ -6150,6 +6150,26 @@ try {
             $sku = $_GET['sku'] ?? '';
             $res = $svc->getProductHistory($tab, $sku);
             echo json_encode($res);
+            break;
+
+        case 'cache-info':
+            try {
+                $cacheRows = $gs->readSheet(CACHE_SHEET);
+                $lastUpdate = '未知';
+                if (count($cacheRows) > 1) {
+                    $h = $cacheRows[0];
+                    $updIdx = $svc->findHeader($h, ['更新時間']);
+                    if ($updIdx !== -1) {
+                        for ($ci = count($cacheRows) - 1; $ci >= 1; $ci--) {
+                            $val = trim($cacheRows[$ci][$updIdx] ?? '');
+                            if ($val !== '') { $lastUpdate = $val; break; }
+                        }
+                    }
+                }
+                echo json_encode(['success' => true, 'lastUpdate' => $lastUpdate, 'rows' => count($cacheRows) - 1]);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'msg' => $e->getMessage()]);
+            }
             break;
 
         case 'rebuild-cache':
