@@ -3457,18 +3457,25 @@ class SleeperService
         try {
             $gsClient = new GoogleSheetsClient($ssId);
             $rows = $gsClient->readSheet('合約');
-            if (count($rows) < 2) return ['customers' => [], 'healthCounts' => [], 'active' => 0, 'monthlyTarget' => 0];
+            if (count($rows) < 2) return ['customers' => [], 'healthCounts' => [], 'active' => 0, 'monthlyTarget' => 0, 'detail' => []];
 
             $h = $rows[0];
             $idxHealth = $this->findHeader($h, ['健康度']);
             $idxCustomer = $this->findHeader($h, ['客戶']);
             $idxContractAmt = $this->findHeader($h, ['合約內容']);
             $idxSales = $this->findHeader($h, ['業務']);
+            $idxLastDue = $this->findHeader($h, ['最後一張票期']);
+            $idxBalance = -1;
+            foreach ($h as $i => $col) {
+                if (mb_strpos((string)$col, '餘額') !== false) $idxBalance = $i;
+            }
 
             $healthCounts = [];
             $customers = [];
+            $detail = [];
             $active = 0;
             $monthlyTarget = 0;
+            $today = new DateTime('today');
 
             for ($i = 1; $i < count($rows); $i++) {
                 $row = $rows[$i];
@@ -3487,11 +3494,30 @@ class SleeperService
                     $monthlyTarget += $contractAmt;
                 }
                 $rep = $idxSales !== -1 ? trim($this->getVal($row, $idxSales)) : '';
+                $bal = $idxBalance !== -1 ? $this->optFloat($this->getVal($row, $idxBalance)) : 0;
+                $due = $this->parseDate($this->getVal($row, $idxLastDue));
+                $dueText = '';
+                if ($due) {
+                    $diff = (int)$today->diff($due)->format('%r%a');
+                    if ($diff < 0) $dueText = '逾期 ' . abs($diff) . ' 天';
+                    elseif ($diff > 0) $dueText = $diff . ' 天後到期';
+                    else $dueText = '今天到期';
+                }
+
                 $customers[$customer] = ['health' => $bucket, 'target' => $contractAmt, 'rep' => $rep];
+                $detail[] = [
+                    'name' => $customer,
+                    'health' => $bucket,
+                    'target' => round($contractAmt),
+                    'balance' => round($bal),
+                    'rep' => $rep,
+                    'dueText' => $dueText,
+                ];
             }
-            return ['customers' => $customers, 'healthCounts' => $healthCounts, 'active' => $active, 'monthlyTarget' => round($monthlyTarget)];
+            usort($detail, function ($a, $b) { return $b['balance'] - $a['balance']; });
+            return ['customers' => $customers, 'healthCounts' => $healthCounts, 'active' => $active, 'monthlyTarget' => round($monthlyTarget), 'detail' => $detail];
         } catch (Exception $e) {
-            return ['customers' => [], 'healthCounts' => [], 'active' => 0, 'monthlyTarget' => 0];
+            return ['customers' => [], 'healthCounts' => [], 'active' => 0, 'monthlyTarget' => 0, 'detail' => []];
         }
     }
 
@@ -3835,6 +3861,7 @@ class SleeperService
                     'active' => $ct['active'],
                     'monthlyTarget' => $ct['monthlyTarget'],
                     'healthCounts' => $ct['healthCounts'],
+                    'detail' => $ct['detail'],
                 ],
                 'quarter' => [
                     'current' => ['label' => $qKey, 'amount' => round($allQuarters[$key][$qKey] ?? 0)],

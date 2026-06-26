@@ -81,6 +81,20 @@ require_once __DIR__ . '/config.php';
     .charts-grid{display:grid;grid-template-columns:2fr 1fr;gap:24px}
     @media(max-width:1024px){.charts-grid{grid-template-columns:1fr}}
 
+    .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.75);z-index:1000;display:flex;align-items:center;justify-content:center;padding:24px}
+    .modal-box{background:var(--paper);border:1px solid var(--line);border-radius:12px;max-width:900px;width:100%;max-height:85vh;overflow-y:auto;padding:24px;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+    .modal-close{position:absolute;top:12px;right:16px;background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;padding:4px 8px;line-height:1}
+    .modal-close:hover{color:var(--text)}
+    .modal-title{font-size:17px;font-weight:800;color:var(--gold);margin:0 0 16px;display:flex;align-items:center;gap:8px}
+    .health-tag{display:inline-block;padding:3px 10px;border-radius:4px;font-size:12px;font-weight:700;margin-right:6px}
+    .ht-normal{background:rgba(34,197,94,.15);color:var(--green)}
+    .ht-overdue{background:rgba(245,158,11,.15);color:var(--orange)}
+    .ht-severe{background:rgba(239,68,68,.15);color:var(--red)}
+    .ht-pending{background:rgba(96,165,250,.15);color:var(--blue)}
+    .ht-renewed{background:rgba(167,139,250,.15);color:var(--purple)}
+    .detail-btn{background:none;border:1px solid rgba(194,157,102,.4);color:var(--gold);font-size:12px;font-weight:700;padding:4px 12px;border-radius:4px;cursor:pointer;transition:all .2s}
+    .detail-btn:hover{background:rgba(194,157,102,.15);border-color:var(--gold)}
+
     .mgr{background:rgba(255,255,255,.02);border:1px solid var(--line);border-radius:6px;padding:16px;margin-top:10px}
     .mgr .ml{font-size:13px;font-weight:700;color:var(--gold);margin-bottom:6px}
     .mgr .mc{font-size:14px;line-height:1.7;padding:10px 14px;background:rgba(255,255,255,.03);border-radius:4px;min-height:40px;color:var(--muted);font-style:italic}
@@ -110,6 +124,7 @@ require_once __DIR__ . '/config.php';
 
   <div id="content"></div>
 </div>
+<div id="modal-root"></div>
 
 <script>
 const URL_SB_REPORT = 'meeting.php';
@@ -159,6 +174,7 @@ function loadReport(){
 
 function renderAll(d){
   charts.forEach(c=>c.destroy()); charts=[];
+  _groupData=d;
   const y=d.year, m=d.month, g=d.group, cos=d.companies;
   let html='';
 
@@ -243,7 +259,11 @@ function renderAll(d){
       const p=total>0?(v.amount/total*100).toFixed(0):0;
       html+=`<div class="bar-row"><span class="bar-label">${cat||'未分類'}</span><div class="bar-track"><div style="width:${p}%;height:100%;background:${c.color};border-radius:3px"></div></div><span class="bar-val">${p}%</span></div>`;
     });
-    html+=`</div>`;
+    html+=`<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+      <button class="detail-btn" onclick="showProductDetail('${k}','category')">種類明細</button>
+      <button class="detail-btn" onclick="showProductDetail('${k}','brand')">品牌明細</button>
+      <button class="detail-btn" onclick="showProductDetail('${k}','size')">尺寸明細</button>
+    </div></div>`;
   });
   html+=`</div></div>`;
 
@@ -270,7 +290,7 @@ function renderAll(d){
         <div style="width:${(((hc['嚴重']||0))/total*100).toFixed(0)}%;background:var(--red)"></div>
       </div>
       <div style="font-size:11px;color:var(--muted);margin-top:4px;display:flex;gap:12px"><span style="color:var(--green)">■ 正常</span><span style="color:var(--orange)">■ 逾期</span><span style="color:var(--red)">■ 嚴重</span></div>
-      <div class="link-row"><a class="btn-report" href="${reportUrl(k,d.year,d.month)}" target="_blank">🔗 ${c.name}月報明細</a></div></div>`;
+      <div class="link-row" style="display:flex;gap:8px;flex-wrap:wrap"><button class="detail-btn" onclick="showContractDetail('${k}')">📋 合約客戶明細</button><a class="btn-report" href="${reportUrl(k,d.year,d.month)}" target="_blank">🔗 ${c.name}月報</a></div></div>`;
   });
   html+=`</div>`;
 
@@ -471,6 +491,71 @@ function renderCharts(d){
 
   const ctx6=document.getElementById('brandChart').getContext('2d');
   charts.push(new Chart(ctx6,{type:'bar',data:{labels:brandLabels,datasets:CO_KEYS.map(k=>({label:CO_LABELS[k],data:brandLabels.map(b=>Math.round(((cos[k].products.byBrand||{})[b]||{amount:0}).amount/10000)),backgroundColor:CO_COLORS[k]}))},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{labels:{color:'#f6f1e6',font:{weight:'bold'}}}},scales:{y:{grid:{display:false},ticks:{color:'#a9a39a',font:{size:11}}},x:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#a9a39a',callback:v=>v+'萬'}}}}}));
+}
+
+let _groupData=null;
+
+function showModal(html){
+  document.getElementById('modal-root').innerHTML=`<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal-box"><button class="modal-close" onclick="closeModal()">✕</button>${html}</div></div>`;
+}
+function closeModal(){document.getElementById('modal-root').innerHTML='';}
+
+function showContractDetail(companyKey){
+  if(!_groupData)return;
+  const c=_groupData.companies[companyKey];
+  const ct=c.contract; const detail=ct.detail||[];
+  const hc=ct.healthCounts||{};
+  const buckets=['正常','逾期','嚴重','待續','已續','其它未續約','未分類'];
+  const htClass={'正常':'ht-normal','逾期':'ht-overdue','嚴重':'ht-severe','待續':'ht-pending','已續':'ht-renewed'};
+
+  let h=`<div class="modal-title"><span class="dot" style="background:${c.color};width:12px;height:12px"></span>${c.name} — 合約客戶明細</div>`;
+  h+=`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">`;
+  buckets.forEach(b=>{
+    if(!hc[b])return;
+    const cls=htClass[b]||'';
+    h+=`<span class="health-tag ${cls}">${b} ${hc[b]}</span>`;
+  });
+  h+=`</div>`;
+
+  buckets.forEach(b=>{
+    const items=detail.filter(d=>d.health===b);
+    if(items.length===0)return;
+    const cls=htClass[b]||'';
+    h+=`<div style="margin-top:16px"><div style="font-size:14px;font-weight:700;margin-bottom:8px"><span class="health-tag ${cls}">${b}</span> ${items.length} 家</div>`;
+    h+=`<table class="tbl"><tr><th>客戶</th><th>業務</th><th class="r">合約金額</th><th class="r">餘額</th><th>票期狀態</th></tr>`;
+    items.forEach(d=>{
+      const balColor=d.balance>0?'color:var(--red)':'';
+      h+=`<tr><td>${d.name}</td><td>${d.rep||'—'}</td><td class="r">${fmtW(d.target)}</td><td class="r" style="${balColor};font-weight:700">${fmtW(d.balance)}</td><td>${d.dueText||'—'}</td></tr>`;
+    });
+    h+=`</table></div>`;
+  });
+
+  showModal(h);
+}
+
+function showProductDetail(companyKey, type){
+  if(!_groupData)return;
+  const c=_groupData.companies[companyKey];
+  const data=c.products||{};
+  const map=type==='category'?data.byCategory:type==='brand'?data.byBrand:data.bySize;
+  if(!map||Object.keys(map).length===0){showModal(`<div class="modal-title">${c.name} — 無資料</div>`);return;}
+
+  const title=type==='category'?'產品種類':type==='brand'?'品牌':'尺寸';
+  const entries=Object.entries(map).sort((a,b)=>b[1].amount-a[1].amount);
+  const totalAmt=entries.reduce((s,e)=>s+e[1].amount,0);
+  const totalPing=entries.reduce((s,e)=>s+e[1].pings,0);
+
+  let h=`<div class="modal-title"><span class="dot" style="background:${c.color};width:12px;height:12px"></span>${c.name} — ${title}銷售明細</div>`;
+  h+=`<div style="font-size:13px;color:var(--muted);margin-bottom:12px">本月合計 ${fmtW(totalAmt)} · ${fmtP(totalPing)}</div>`;
+  h+=`<table class="tbl"><tr><th>${title}</th><th class="r">金額</th><th class="r">佔比</th><th class="r">坪數</th><th>佔比條</th></tr>`;
+  entries.forEach(([name,v])=>{
+    const p=totalAmt>0?(v.amount/totalAmt*100).toFixed(1):'0';
+    const w=Math.min(Number(p),100);
+    h+=`<tr><td>${name||'未分類'}</td><td class="r" style="font-weight:700">${fmtW(v.amount)}</td><td class="r">${p}%</td><td class="r">${fmtP(v.pings)}</td>
+      <td><div style="width:120px;height:14px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden"><div style="width:${w}%;height:100%;background:${c.color};border-radius:3px"></div></div></td></tr>`;
+  });
+  h+=`</table>`;
+  showModal(h);
 }
 
 window.onload=function(){loadReport()};
