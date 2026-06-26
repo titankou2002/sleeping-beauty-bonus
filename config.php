@@ -11,6 +11,12 @@ define('CACHE_SHEET',     '產品年度銷售快取');
 define('SS_ID_LAYOUT',    '1zTTl3IjrwZvYdxvX3UZk6YLVaGF7m_DBhb_tWM2LjW0');
 define('LAYOUT_SHEET',    '版面上架清單');
 
+// 集團分公司試算表 ID 與月報網址
+define('SS_ID_ANDYGA', getenv('SS_ID_ANDYGA') ?: '16QNID9hLs2K1iy_ePo7MxYxhW4kpDrDlfEIZ2p83ixo');
+define('SS_ID_XIYENA', getenv('SS_ID_XIYENA') ?: '1uFKKWBfulg-GmCbJsSomimT5LW5r0N2w28rubrPveTA');
+define('URL_ANDYGA_REPORT', getenv('URL_ANDYGA_REPORT') ?: 'https://script.google.com/macros/s/AKfycbwodrFnR5aDcIfJhUIwyCeWeUsrG2m-2iUX4y0-SZaZ/exec?page=meeting');
+define('URL_XIYENA_REPORT', getenv('URL_XIYENA_REPORT') ?: 'https://script.google.com/macros/s/AKfycbxc6s-6sjq3517Bnim0E_jl6AwfeD3rlZv7JrvQg2c5h0mHSPZVURlFT5_q39s-lBD5/exec?page=meeting');
+
 define('SERVICE_ACCOUNT_FILE', __DIR__ . '/service-account.json');
 
 if (is_file(__DIR__ . '/config.local.php')) {

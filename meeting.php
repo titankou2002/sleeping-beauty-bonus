@@ -1099,6 +1099,7 @@
         <select id="year"></select>
         <select id="month"></select>
         <button onclick="loadMeeting()">載入會議報表</button>
+        <a class="btn-link" style="color:var(--accent-strong);" href="group_meeting.php">集團比較表</a>
         <a class="btn-link" href="index.php">回戰情室</a>
       </div>
     </div>

@@ -3135,6 +3135,586 @@ class SleeperService
         ];
     }
 
+    private function getCompanyReportStats($ssId, $year, $month)
+    {
+        try {
+            $gsClient = new GoogleSheetsClient($ssId);
+            $cacheRows = $gsClient->readSheet(CACHE_SHEET);
+            if (count($cacheRows) < 2) {
+                return ['success' => false, 'msg' => '快取工作表為空或格式錯誤'];
+            }
+            $h = $cacheRows[0];
+            $idx = [
+                'year' => $this->findHeader($h, ['年度']),
+                'month' => $this->findHeader($h, ['月份']),
+                'amount' => $this->findHeader($h, ['銷售金額']),
+                'pings' => $this->findHeader($h, ['銷售坪數']),
+                'count' => $this->findHeader($h, ['交易筆數'])
+            ];
+            
+            if ($idx['year'] === -1 || $idx['month'] === -1 || $idx['amount'] === -1) {
+                return ['success' => false, 'msg' => '找不到必要之快取標題欄位'];
+            }
+
+            $sales = 0;
+            $salesYoyBase = 0;
+            $pings = 0;
+            $txCount = 0;
+            $ytdSales = 0;
+            $ytdPrevSales = 0;
+            $monthlySales = array_fill(1, 12, 0);
+
+            for ($i = 1; $i < count($cacheRows); $i++) {
+                $row = $cacheRows[$i];
+                $rowYear = (int)$this->getVal($row, $idx['year']);
+                $rowMonth = (int)$this->getVal($row, $idx['month']);
+                $amount = $this->optFloat($this->getVal($row, $idx['amount']));
+                $rowPings = $idx['pings'] !== -1 ? $this->optFloat($this->getVal($row, $idx['pings'])) : 0;
+                $rowCount = $idx['count'] !== -1 ? (int)$this->getVal($row, $idx['count']) : 0;
+
+                if ($rowYear === $year) {
+                    $monthlySales[$rowMonth] += $amount;
+                }
+
+                if ($rowYear === $year && $rowMonth === $month) {
+                    $sales += $amount;
+                    $pings += $rowPings;
+                    $txCount += $rowCount;
+                }
+
+                if ($rowYear === ($year - 1) && $rowMonth === $month) {
+                    $salesYoyBase += $amount;
+                }
+
+                if ($rowYear === $year && $rowMonth <= $month) {
+                    $ytdSales += $amount;
+                }
+
+                if ($rowYear === ($year - 1) && $rowMonth <= $month) {
+                    $ytdPrevSales += $amount;
+                }
+            }
+
+            $salesYoyPct = $salesYoyBase > 0 ? (($sales - $salesYoyBase) / $salesYoyBase * 100) : 0;
+            $ytdYoyPct = $ytdPrevSales > 0 ? (($ytdSales - $ytdPrevSales) / $ytdPrevSales * 100) : 0;
+            $avgTicket = $txCount > 0 ? ($sales / $txCount) : 0;
+
+            return [
+                'success' => true,
+                'kpis' => [
+                    'sales' => round($sales),
+                    'salesYoyBase' => round($salesYoyBase),
+                    'salesYoyPct' => round($salesYoyPct, 1),
+                    'pings' => round($pings, 2),
+                    'txCount' => $txCount,
+                    'avgTicket' => round($avgTicket),
+                    'ytdSales' => round($ytdSales),
+                    'ytdPrevSales' => round($ytdPrevSales),
+                    'ytdYoyPct' => round($ytdYoyPct, 1)
+                ],
+                'monthlySales' => array_values($monthlySales)
+            ];
+
+        } catch (Exception $e) {
+            return ['success' => false, 'msg' => $e->getMessage()];
+        }
+    }
+
+    public function getGroupMeetingReport($year, $month)
+    {
+        $year = (int)$year;
+        $month = (int)$month;
+        if ($month < 1 || $month > 12) $month = (int)date('n');
+
+        $sbData = $this->getCompanyReportStats(SS_ID_MAIN, $year, $month);
+        $adData = $this->getCompanyReportStats(SS_ID_ANDYGA, $year, $month);
+        $xyData = $this->getCompanyReportStats(SS_ID_XIYENA, $year, $month);
+
+        $groupKpis = [
+            'sales' => 0,
+            'salesYoyBase' => 0,
+            'salesYoyPct' => 0,
+            'pings' => 0,
+            'txCount' => 0,
+            'avgTicket' => 0,
+            'ytdSales' => 0,
+            'ytdPrevSales' => 0,
+            'ytdYoyPct' => 0
+        ];
+        $groupMonthlySales = array_fill(0, 12, 0);
+
+        $companies = [
+            'sleepingBeauty' => $sbData,
+            'andyga' => $adData,
+            'xiyena' => $xyData
+        ];
+
+        foreach ($companies as $key => $data) {
+            if ($data['success']) {
+                $kpis = $data['kpis'];
+                $groupKpis['sales'] += $kpis['sales'];
+                $groupKpis['salesYoyBase'] += $kpis['salesYoyBase'];
+                $groupKpis['pings'] += $kpis['pings'];
+                $groupKpis['txCount'] += $kpis['txCount'];
+                $groupKpis['ytdSales'] += $kpis['ytdSales'];
+                $groupKpis['ytdPrevSales'] += $kpis['ytdPrevSales'];
+
+                for ($m = 0; $m < 12; $m++) {
+                    $groupMonthlySales[$m] += $data['monthlySales'][$m] ?? 0;
+                }
+            }
+        }
+
+        $groupKpis['salesYoyPct'] = $groupKpis['salesYoyBase'] > 0 
+            ? round((($groupKpis['sales'] - $groupKpis['salesYoyBase']) / $groupKpis['salesYoyBase'] * 100), 1) 
+            : 0;
+        
+        $groupKpis['ytdYoyPct'] = $groupKpis['ytdPrevSales'] > 0 
+            ? round((($groupKpis['ytdSales'] - $groupKpis['ytdPrevSales']) / $groupKpis['ytdPrevSales'] * 100), 1) 
+            : 0;
+
+        $groupKpis['avgTicket'] = $groupKpis['txCount'] > 0 
+            ? round($groupKpis['sales'] / $groupKpis['txCount']) 
+            : 0;
+
+        for ($m = 0; $m < 12; $m++) {
+            $groupMonthlySales[$m] = round($groupMonthlySales[$m]);
+        }
+
+        return [
+            'success' => true,
+            'data' => [
+                'year' => $year,
+                'month' => $month,
+                'companies' => [
+                    'sleepingBeauty' => [
+                        'name' => '高雅瓷 (睡美人)',
+                        'success' => $sbData['success'],
+                        'error' => $sbData['msg'] ?? '',
+                        'kpis' => $sbData['success'] ? $sbData['kpis'] : null,
+                        'monthlySales' => $sbData['success'] ? $sbData['monthlySales'] : null
+                    ],
+                    'andyga' => [
+                        'name' => '安帝嘉',
+                        'success' => $adData['success'],
+                        'error' => $adData['msg'] ?? '',
+                        'kpis' => $adData['success'] ? $adData['kpis'] : null,
+                        'monthlySales' => $adData['success'] ? $adData['monthlySales'] : null
+                    ],
+                    'xiyena' => [
+                        'name' => '喜悅納',
+                        'success' => $xyData['success'],
+                        'error' => $xyData['msg'] ?? '',
+                        'kpis' => $xyData['success'] ? $xyData['kpis'] : null,
+                        'monthlySales' => $xyData['success'] ? $xyData['monthlySales'] : null
+                    ]
+                ],
+                'group' => [
+                    'name' => '集團加總',
+                    'kpis' => $groupKpis,
+                    'monthlySales' => $groupMonthlySales
+                ]
+            ]
+        ];
+    }
+
+    private function getCompanyCacheCustomers($ssId, $year, $month)
+    {
+        try {
+            $gsClient = new GoogleSheetsClient($ssId);
+            $cacheRows = $gsClient->readSheet(CACHE_SHEET);
+            if (count($cacheRows) < 2) return [];
+
+            $h = $cacheRows[0];
+            $idx = [
+                'year' => $this->findHeader($h, ['年度']),
+                'month' => $this->findHeader($h, ['月份']),
+                'customer' => $this->findHeader($h, ['客戶名稱', '客戶']),
+                'sku' => $this->findHeader($h, ['產品編號', '編號']),
+                'amount' => $this->findHeader($h, ['銷售金額']),
+                'pings' => $this->findHeader($h, ['銷售坪數']),
+                'count' => $this->findHeader($h, ['交易筆數']),
+                'rep' => $this->findHeader($h, ['負責業務', '業務']),
+            ];
+            if ($idx['year'] === -1 || $idx['customer'] === -1 || $idx['amount'] === -1) return [];
+
+            $customers = [];
+            for ($i = 1; $i < count($cacheRows); $i++) {
+                $row = $cacheRows[$i];
+                $rowYear = (int)$this->getVal($row, $idx['year']);
+                $rowMonth = (int)$this->getVal($row, $idx['month']);
+                $cust = $this->displayCustomerName($this->getVal($row, $idx['customer']));
+                if ($cust === '未知客戶') continue;
+                $amount = $this->optFloat($this->getVal($row, $idx['amount']));
+                $pings = $idx['pings'] !== -1 ? $this->optFloat($this->getVal($row, $idx['pings'])) : 0;
+                $txCount = $idx['count'] !== -1 ? (int)$this->getVal($row, $idx['count']) : 0;
+                $sku = $idx['sku'] !== -1 ? $this->cleanSku($this->getVal($row, $idx['sku'])) : '';
+
+                if (!isset($customers[$cust])) {
+                    $customers[$cust] = ['curMonth' => 0, 'curMonthPings' => 0, 'curMonthTx' => 0, 'prevMonth' => 0, 'ytd' => 0, 'ytdPrev' => 0, 'skus' => []];
+                }
+                if ($rowYear === $year && $rowMonth === $month) {
+                    $customers[$cust]['curMonth'] += $amount;
+                    $customers[$cust]['curMonthPings'] += $pings;
+                    $customers[$cust]['curMonthTx'] += $txCount;
+                    if ($sku && !in_array($sku, $customers[$cust]['skus'])) $customers[$cust]['skus'][] = $sku;
+                }
+                if ($rowYear === ($year - 1) && $rowMonth === $month) {
+                    $customers[$cust]['prevMonth'] += $amount;
+                }
+                if ($rowYear === $year && $rowMonth <= $month) {
+                    $customers[$cust]['ytd'] += $amount;
+                }
+                if ($rowYear === ($year - 1) && $rowMonth <= $month) {
+                    $customers[$cust]['ytdPrev'] += $amount;
+                }
+            }
+            return $customers;
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    private function getCompanyProductStats($ssId, $year, $month)
+    {
+        try {
+            $gsClient = new GoogleSheetsClient($ssId);
+            $cacheRows = $gsClient->readSheet(CACHE_SHEET);
+            if (count($cacheRows) < 2) return ['bySize' => [], 'byBrand' => [], 'byCategory' => []];
+
+            $h = $cacheRows[0];
+            $idx = [
+                'year' => $this->findHeader($h, ['年度']),
+                'month' => $this->findHeader($h, ['月份']),
+                'sku' => $this->findHeader($h, ['產品編號', '編號']),
+                'amount' => $this->findHeader($h, ['銷售金額']),
+                'pings' => $this->findHeader($h, ['銷售坪數']),
+            ];
+            if ($idx['year'] === -1 || $idx['amount'] === -1) return ['bySize' => [], 'byBrand' => [], 'byCategory' => []];
+
+            $priceData = $gsClient->readSheet(PRICE_SHEET);
+            $metaMap = [];
+            if (count($priceData) >= 2) {
+                $pH = $priceData[0];
+                $pCode = $this->findHeader($pH, ['編號', '產品編號']);
+                $pSize = $this->findHeader($pH, ['尺寸(cm)', '尺寸']);
+                $pBrand = $this->findHeader($pH, ['廠牌', '品牌']);
+                $pCat = $this->findHeader($pH, ['產品大類', '大類']);
+                for ($i = 1; $i < count($priceData); $i++) {
+                    $sku = $this->cleanSku($this->getVal($priceData[$i], $pCode));
+                    if (!$sku) continue;
+                    $metaMap[$sku] = [
+                        'size' => $pSize !== -1 ? $this->normalizeSizeLabel($this->getVal($priceData[$i], $pSize)) : '未標尺寸',
+                        'brand' => $pBrand !== -1 ? trim($this->getVal($priceData[$i], $pBrand)) : '未知',
+                        'category' => $pCat !== -1 ? trim($this->getVal($priceData[$i], $pCat)) : '未分類',
+                    ];
+                }
+            }
+
+            $bySize = [];
+            $byBrand = [];
+            $byCategory = [];
+            for ($i = 1; $i < count($cacheRows); $i++) {
+                $row = $cacheRows[$i];
+                $rowYear = (int)$this->getVal($row, $idx['year']);
+                $rowMonth = (int)$this->getVal($row, $idx['month']);
+                if ($rowYear !== $year || $rowMonth !== $month) continue;
+
+                $amount = $this->optFloat($this->getVal($row, $idx['amount']));
+                $pings = $idx['pings'] !== -1 ? $this->optFloat($this->getVal($row, $idx['pings'])) : 0;
+                $sku = $idx['sku'] !== -1 ? $this->cleanSku($this->getVal($row, $idx['sku'])) : '';
+                $meta = $metaMap[$sku] ?? ['size' => '未標尺寸', 'brand' => '未知', 'category' => '未分類'];
+
+                $size = $meta['size'] ?: '未標尺寸';
+                $brand = $meta['brand'] ?: '未知';
+                $cat = $meta['category'] ?: '未分類';
+
+                if (!isset($bySize[$size])) $bySize[$size] = ['amount' => 0, 'pings' => 0];
+                $bySize[$size]['amount'] += $amount;
+                $bySize[$size]['pings'] += $pings;
+
+                if (!isset($byBrand[$brand])) $byBrand[$brand] = ['amount' => 0, 'pings' => 0];
+                $byBrand[$brand]['amount'] += $amount;
+                $byBrand[$brand]['pings'] += $pings;
+
+                if (!isset($byCategory[$cat])) $byCategory[$cat] = ['amount' => 0, 'pings' => 0];
+                $byCategory[$cat]['amount'] += $amount;
+                $byCategory[$cat]['pings'] += $pings;
+            }
+
+            arsort($bySize);
+            arsort($byBrand);
+            arsort($byCategory);
+
+            return ['bySize' => $bySize, 'byBrand' => $byBrand, 'byCategory' => $byCategory];
+        } catch (Exception $e) {
+            return ['bySize' => [], 'byBrand' => [], 'byCategory' => []];
+        }
+    }
+
+    private function getCompanyContractSummary($ssId, $year, $month)
+    {
+        try {
+            $gsClient = new GoogleSheetsClient($ssId);
+            $rows = $gsClient->readSheet('合約');
+            if (count($rows) < 2) return ['customers' => [], 'healthCounts' => [], 'active' => 0, 'monthlyTarget' => 0];
+
+            $h = $rows[0];
+            $idxHealth = $this->findHeader($h, ['健康度']);
+            $idxCustomer = $this->findHeader($h, ['客戶']);
+            $idxContractAmt = $this->findHeader($h, ['合約內容']);
+            $idxSales = $this->findHeader($h, ['業務']);
+
+            $healthCounts = [];
+            $customers = [];
+            $active = 0;
+            $monthlyTarget = 0;
+
+            for ($i = 1; $i < count($rows); $i++) {
+                $row = $rows[$i];
+                $health = trim($this->getVal($row, $idxHealth));
+                $customer = $this->displayCustomerName($this->getVal($row, $idxCustomer));
+                if ($customer === '未知客戶') continue;
+
+                $healthMeta = $this->normalizeContractHealthLabel($health);
+                $bucket = $healthMeta['bucket'];
+                if (!isset($healthCounts[$bucket])) $healthCounts[$bucket] = 0;
+                $healthCounts[$bucket]++;
+                $active++;
+
+                $contractAmt = $idxContractAmt !== -1 ? $this->optFloat($this->getVal($row, $idxContractAmt)) : 0;
+                if (in_array($bucket, ['正常', '逾期', '嚴重', '待續', '已續'], true)) {
+                    $monthlyTarget += $contractAmt;
+                }
+                $rep = $idxSales !== -1 ? trim($this->getVal($row, $idxSales)) : '';
+                $customers[$customer] = ['health' => $bucket, 'target' => $contractAmt, 'rep' => $rep];
+            }
+            return ['customers' => $customers, 'healthCounts' => $healthCounts, 'active' => $active, 'monthlyTarget' => round($monthlyTarget)];
+        } catch (Exception $e) {
+            return ['customers' => [], 'healthCounts' => [], 'active' => 0, 'monthlyTarget' => 0];
+        }
+    }
+
+    private function getCompanyQuarterStats($ssId, $year, $month)
+    {
+        try {
+            $gsClient = new GoogleSheetsClient($ssId);
+            $cacheRows = $gsClient->readSheet(CACHE_SHEET);
+            if (count($cacheRows) < 2) return [];
+
+            $h = $cacheRows[0];
+            $idxYear = $this->findHeader($h, ['年度']);
+            $idxMonth = $this->findHeader($h, ['月份']);
+            $idxAmount = $this->findHeader($h, ['銷售金額']);
+            if ($idxYear === -1 || $idxMonth === -1 || $idxAmount === -1) return [];
+
+            $quarters = [];
+            for ($i = 1; $i < count($cacheRows); $i++) {
+                $row = $cacheRows[$i];
+                $ry = (int)$this->getVal($row, $idxYear);
+                $rm = (int)$this->getVal($row, $idxMonth);
+                $amt = $this->optFloat($this->getVal($row, $idxAmount));
+                $q = ceil($rm / 3);
+                $key = $ry . 'Q' . $q;
+                if (!isset($quarters[$key])) $quarters[$key] = 0;
+                $quarters[$key] += $amt;
+            }
+            return $quarters;
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    public function getGroupDetailedReport($year, $month)
+    {
+        $year = (int)$year;
+        $month = (int)$month;
+        if ($month < 1 || $month > 12) $month = (int)date('n');
+
+        $companyIds = [
+            'sleepingBeauty' => ['id' => SS_ID_MAIN, 'name' => '高雅瓷', 'color' => '#f59e0b'],
+            'andyga' => ['id' => SS_ID_ANDYGA, 'name' => '安帝嘉', 'color' => '#60a5fa'],
+            'xiyena' => ['id' => SS_ID_XIYENA, 'name' => '喜悅納', 'color' => '#a78bfa'],
+        ];
+
+        $basicStats = [];
+        $allCustomers = [];
+        $allProducts = [];
+        $allContracts = [];
+        $allQuarters = [];
+
+        foreach ($companyIds as $key => $info) {
+            $basicStats[$key] = $this->getCompanyReportStats($info['id'], $year, $month);
+            $allCustomers[$key] = $this->getCompanyCacheCustomers($info['id'], $year, $month);
+            $allProducts[$key] = $this->getCompanyProductStats($info['id'], $year, $month);
+            $allContracts[$key] = $this->getCompanyContractSummary($info['id'], $year, $month);
+            $allQuarters[$key] = $this->getCompanyQuarterStats($info['id'], $year, $month);
+        }
+
+        $groupKpis = ['sales' => 0, 'salesYoyBase' => 0, 'pings' => 0, 'ytdSales' => 0, 'ytdPrevSales' => 0];
+        $groupMonthlySales = array_fill(1, 12, 0);
+        foreach ($companyIds as $key => $info) {
+            $bs = $basicStats[$key];
+            if ($bs['success']) {
+                $groupKpis['sales'] += $bs['kpis']['sales'];
+                $groupKpis['salesYoyBase'] += $bs['kpis']['salesYoyBase'];
+                $groupKpis['pings'] += $bs['kpis']['pings'];
+                $groupKpis['ytdSales'] += $bs['kpis']['ytdSales'];
+                $groupKpis['ytdPrevSales'] += $bs['kpis']['ytdPrevSales'];
+                foreach ($bs['monthlySales'] as $mi => $mv) {
+                    $groupMonthlySales[$mi + 1] = ($groupMonthlySales[$mi + 1] ?? 0) + $mv;
+                }
+            }
+        }
+        $groupKpis['salesYoyPct'] = $groupKpis['salesYoyBase'] > 0 ? round(($groupKpis['sales'] - $groupKpis['salesYoyBase']) / $groupKpis['salesYoyBase'] * 100, 1) : 0;
+        $groupKpis['ytdYoyPct'] = $groupKpis['ytdPrevSales'] > 0 ? round(($groupKpis['ytdSales'] - $groupKpis['ytdPrevSales']) / $groupKpis['ytdPrevSales'] * 100, 1) : 0;
+
+        $mergedCustomers = [];
+        foreach ($companyIds as $key => $info) {
+            foreach ($allCustomers[$key] as $cust => $data) {
+                if (!isset($mergedCustomers[$cust])) {
+                    $mergedCustomers[$cust] = ['companies' => [], 'totalMonth' => 0, 'totalPrevMonth' => 0, 'totalYtd' => 0, 'totalYtdPrev' => 0, 'totalTx' => 0];
+                }
+                if ($data['curMonth'] > 0 || $data['ytd'] > 0 || $data['prevMonth'] > 0 || $data['ytdPrev'] > 0) {
+                    $mergedCustomers[$cust]['companies'][$key] = [
+                        'name' => $info['name'],
+                        'curMonth' => round($data['curMonth']),
+                        'prevMonth' => round($data['prevMonth']),
+                        'ytd' => round($data['ytd']),
+                    ];
+                    $mergedCustomers[$cust]['totalMonth'] += $data['curMonth'];
+                    $mergedCustomers[$cust]['totalPrevMonth'] += $data['prevMonth'];
+                    $mergedCustomers[$cust]['totalYtd'] += $data['ytd'];
+                    $mergedCustomers[$cust]['totalYtdPrev'] += $data['ytdPrev'];
+                    $mergedCustomers[$cust]['totalTx'] += $data['curMonthTx'];
+                }
+            }
+        }
+
+        uasort($mergedCustomers, function ($a, $b) { return $b['totalMonth'] - $a['totalMonth']; });
+        $top20 = [];
+        $i = 0;
+        foreach ($mergedCustomers as $name => $data) {
+            if ($i >= 20) break;
+            $yoy = $data['totalPrevMonth'] > 0 ? round(($data['totalMonth'] - $data['totalPrevMonth']) / $data['totalPrevMonth'] * 100, 1) : ($data['totalMonth'] > 0 ? 999 : 0);
+            $alerts = [];
+            if ($yoy <= -30) $alerts[] = '衰退警告';
+            if ($yoy >= 50 && $yoy < 999) $alerts[] = '急升';
+            if ($yoy === 999) $alerts[] = '新客';
+            if ($data['totalPrevMonth'] > 300000 && $data['totalMonth'] === 0) $alerts[] = '流失';
+            $top20[] = [
+                'name' => $name,
+                'companies' => $data['companies'],
+                'totalMonth' => round($data['totalMonth']),
+                'totalPrevMonth' => round($data['totalPrevMonth']),
+                'yoy' => $yoy === 999 ? null : $yoy,
+                'isNew' => $yoy === 999,
+                'alerts' => $alerts,
+            ];
+            $i++;
+        }
+
+        $crossCompanyCustomers = [];
+        foreach ($mergedCustomers as $name => $data) {
+            if (count($data['companies']) >= 2 && $data['totalMonth'] > 0) {
+                $crossCompanyCustomers[] = [
+                    'name' => $name,
+                    'companies' => $data['companies'],
+                    'totalMonth' => round($data['totalMonth']),
+                    'totalTx' => $data['totalTx'],
+                ];
+            }
+        }
+        usort($crossCompanyCustomers, function ($a, $b) { return $b['totalMonth'] - $a['totalMonth']; });
+        $crossCompanyCustomers = array_slice($crossCompanyCustomers, 0, 10);
+
+        $contractTotal = ['active' => 0, 'monthlyTarget' => 0, 'healthCounts' => []];
+        $contractOverlap = [];
+        foreach ($companyIds as $key => $info) {
+            $c = $allContracts[$key];
+            $contractTotal['active'] += $c['active'];
+            $contractTotal['monthlyTarget'] += $c['monthlyTarget'];
+            foreach ($c['healthCounts'] as $bucket => $cnt) {
+                $contractTotal['healthCounts'][$bucket] = ($contractTotal['healthCounts'][$bucket] ?? 0) + $cnt;
+            }
+            foreach ($c['customers'] as $custName => $custData) {
+                if (!isset($contractOverlap[$custName])) $contractOverlap[$custName] = [];
+                $contractOverlap[$custName][$key] = ['name' => $info['name'], 'health' => $custData['health'], 'target' => $custData['target']];
+            }
+        }
+        $overlapContracts = [];
+        foreach ($contractOverlap as $custName => $coMap) {
+            if (count($coMap) >= 2) {
+                $totalTarget = 0;
+                foreach ($coMap as $co) $totalTarget += $co['target'];
+                $actualMonth = isset($mergedCustomers[$custName]) ? round($mergedCustomers[$custName]['totalMonth']) : 0;
+                $overlapContracts[] = ['name' => $custName, 'companies' => $coMap, 'totalTarget' => round($totalTarget), 'actual' => $actualMonth];
+            }
+        }
+
+        $companyData = [];
+        foreach ($companyIds as $key => $info) {
+            $bs = $basicStats[$key];
+            $ct = $allContracts[$key];
+            $curQ = ceil($month / 3);
+            $qKey = $year . 'Q' . $curQ;
+            $prevQKey = $curQ > 1 ? ($year . 'Q' . ($curQ - 1)) : (($year - 1) . 'Q4');
+            $lastYearQKey = ($year - 1) . 'Q' . $curQ;
+            $companyData[$key] = [
+                'name' => $info['name'],
+                'color' => $info['color'],
+                'success' => $bs['success'],
+                'kpis' => $bs['success'] ? $bs['kpis'] : null,
+                'monthlySales' => $bs['success'] ? $bs['monthlySales'] : null,
+                'products' => $allProducts[$key],
+                'contract' => [
+                    'active' => $ct['active'],
+                    'monthlyTarget' => $ct['monthlyTarget'],
+                    'healthCounts' => $ct['healthCounts'],
+                ],
+                'quarter' => [
+                    'current' => ['label' => $qKey, 'amount' => round($allQuarters[$key][$qKey] ?? 0)],
+                    'prev' => ['label' => $prevQKey, 'amount' => round($allQuarters[$key][$prevQKey] ?? 0)],
+                    'lastYear' => ['label' => $lastYearQKey, 'amount' => round($allQuarters[$key][$lastYearQKey] ?? 0)],
+                ],
+            ];
+        }
+
+        $groupAlerts = [];
+        foreach ($companyIds as $key => $info) {
+            $bs = $basicStats[$key];
+            if ($bs['success'] && $bs['kpis']['salesYoyPct'] < -5) {
+                $groupAlerts[] = $info['name'] . ' 本月 YOY ' . $bs['kpis']['salesYoyPct'] . '%，需留意';
+            }
+        }
+        foreach ($top20 as $c) {
+            if (in_array('衰退警告', $c['alerts'])) {
+                $groupAlerts[] = $c['name'] . ' 集團合計 YOY ' . $c['yoy'] . '%（去年同期 ' . round($c['totalPrevMonth'] / 10000) . ' 萬 → ' . round($c['totalMonth'] / 10000) . ' 萬）';
+            }
+            if (in_array('流失', $c['alerts'])) {
+                $groupAlerts[] = $c['name'] . ' 去年同期 ' . round($c['totalPrevMonth'] / 10000) . ' 萬，今年歸零，疑似流失';
+            }
+        }
+
+        return [
+            'success' => true,
+            'data' => [
+                'year' => $year,
+                'month' => $month,
+                'group' => [
+                    'kpis' => $groupKpis,
+                    'monthlySales' => array_values($groupMonthlySales),
+                    'contractTotal' => $contractTotal,
+                ],
+                'companies' => $companyData,
+                'top20' => $top20,
+                'crossCompany' => $crossCompanyCustomers,
+                'overlapContracts' => $overlapContracts,
+                'alerts' => $groupAlerts,
+            ]
+        ];
+    }
+
     public function getAiAdvisor($year, $month, $forceRefresh = false)
     {
         $year = (int)$year;
@@ -5247,6 +5827,28 @@ try {
                 echo json_encode($res);
             } catch (Exception $e) {
                 echo json_encode(['success' => false, 'msg' => 'meeting-report 錯誤: ' . $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
+            }
+            break;
+
+        case 'group-meeting-report':
+            try {
+                $year = (int)($_GET['year'] ?? date('Y'));
+                $month = (int)($_GET['month'] ?? date('n'));
+                $res = $svc->getGroupMeetingReport($year, $month);
+                echo json_encode($res);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'msg' => 'group-meeting-report 錯誤: ' . $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
+            }
+            break;
+
+        case 'group-detailed-report':
+            try {
+                $year = (int)($_GET['year'] ?? date('Y'));
+                $month = (int)($_GET['month'] ?? date('n'));
+                $res = $svc->getGroupDetailedReport($year, $month);
+                echo json_encode($res, JSON_UNESCAPED_UNICODE);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'msg' => 'group-detailed-report 錯誤: ' . $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
             }
             break;
 
