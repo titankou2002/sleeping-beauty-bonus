@@ -1055,8 +1055,8 @@ function switchTab(tab) {
   if (tab === 'products') {
     var el = document.getElementById('filter-grade');
     el.style.display = currentProdTab === 'sleeper' ? '' : 'none';
-    if (!window._normalData) loadProducts();
     loadCacheInfo();
+    if (!window._normalData) loadProducts();
     else renderProducts();
   } else if (tab === 'reports') {
     if (!window._strategyReport) loadStrategyReport();
