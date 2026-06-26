@@ -6161,6 +6161,32 @@ try {
             echo json_encode($res);
             break;
 
+        case 'cron-rebuild-all':
+            $token = $_GET['token'] ?? '';
+            if ($token !== CRON_TOKEN) {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'msg' => 'invalid token']);
+                break;
+            }
+            $results = [];
+            $companySheets = [
+                '高雅瓷' => SS_ID_MAIN,
+                '安帝嘉' => SS_ID_ANDYGA,
+                '喜悅納' => SS_ID_XIYENA,
+            ];
+            foreach ($companySheets as $name => $ssId) {
+                try {
+                    $gsClient = new GoogleSheetsClient($ssId);
+                    $companySvc = new SleeperService($gsClient);
+                    $res = $companySvc->rebuildSalesYearCache();
+                    $results[$name] = ['success' => true, 'msg' => $res['msg'] ?? 'OK'];
+                } catch (Exception $e) {
+                    $results[$name] = ['success' => false, 'msg' => $e->getMessage()];
+                }
+            }
+            echo json_encode(['success' => true, 'results' => $results, 'time' => date('Y-m-d H:i:s')], JSON_UNESCAPED_UNICODE);
+            break;
+
         case 'active-displays':
             $res = ['success' => true, 'data' => $svc->getActiveDisplaysMap()];
             echo json_encode($res);

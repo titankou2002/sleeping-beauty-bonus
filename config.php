@@ -18,6 +18,7 @@ define('URL_ANDYGA_REPORT', getenv('URL_ANDYGA_REPORT') ?: 'https://script.googl
 define('URL_XIYENA_REPORT', getenv('URL_XIYENA_REPORT') ?: 'https://script.google.com/macros/s/AKfycbxc6s-6sjq3517Bnim0E_jl6AwfeD3rlZv7JrvQg2c5h0mHSPZVURlFT5_q39s-lBD5/exec?page=meeting');
 
 define('SERVICE_ACCOUNT_FILE', __DIR__ . '/service-account.json');
+define('CRON_TOKEN', getenv('CRON_TOKEN') ?: 'sb-cron-2026-rebuild');
 
 if (is_file(__DIR__ . '/config.local.php')) {
     require_once __DIR__ . '/config.local.php';
