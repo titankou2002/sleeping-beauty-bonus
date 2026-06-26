@@ -3664,6 +3664,7 @@ class SleeperService
                 'name' => $info['name'],
                 'color' => $info['color'],
                 'success' => $bs['success'],
+                'error' => $bs['msg'] ?? '',
                 'kpis' => $bs['success'] ? $bs['kpis'] : null,
                 'monthlySales' => $bs['success'] ? $bs['monthlySales'] : null,
                 'products' => $allProducts[$key],

@@ -178,6 +178,12 @@ function renderAll(d){
   html+=`<div id="cmp-month" class="tab-pane"><div class="co3">`;
   CO_KEYS.forEach(k=>{
     const c=cos[k]; const kp=c.kpis||{};
+    if(!c.success){
+      html+=`<div class="cc"><div class="nm"><span class="dot" style="background:${c.color}"></span>${c.name}</div>
+        <div style="color:var(--red);font-size:13px;margin:8px 0">⚠ 讀取失敗：${c.error||'快取工作表不存在或無權限'}</div>
+        <div class="link-row"><a class="btn-report" href="${reportUrl(k,y,m)}" target="_blank">🔗 開啟${c.name}月報</a></div></div>`;
+      return;
+    }
     const shareP = g.kpis.sales>0 ? pct(kp.sales||0,g.kpis.sales)+'%' : '-';
     html+=`<div class="cc"><div class="nm"><span class="dot" style="background:${c.color}"></span>${c.name}</div>
       <div class="v1">${fmtW(kp.sales)}</div><div class="s1">${fmtYoy(kp.salesYoyPct)}</div>
