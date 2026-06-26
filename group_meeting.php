@@ -253,13 +253,23 @@ function renderAll(d){
     const c=cos[k]; const ct=c.contract; const kp=c.kpis||{};
     const actual=kp.sales||0; const achievePct=ct.monthlyTarget>0?pct(actual,ct.monthlyTarget):'—';
     const hc=ct.healthCounts||{};
+    const total=ct.active||1;
+    const normalPct=((hc['正常']||0)/total*100).toFixed(0);
+    const overduePct=(((hc['逾期']||0)+(hc['嚴重']||0))/total*100).toFixed(0);
     html+=`<div class="cc"><div class="nm"><span class="dot" style="background:${c.color}"></span>${c.name}</div>
       <div style="font-size:13px;display:flex;flex-direction:column;gap:4px">
         <span>合約客戶 <b>${ct.active}</b> 家</span>
-        <span>正常 ${hc['正常']||0} · 逾期 ${hc['逾期']||0} · 嚴重 ${hc['嚴重']||0} · 待續 ${hc['待續']||0}</span>
+        <span>正常 ${hc['正常']||0}（${normalPct}%）· 逾期 ${hc['逾期']||0} · 嚴重 ${hc['嚴重']||0}（逾期率 ${overduePct}%）</span>
+        <span>待續 ${hc['待續']||0} · 已續 ${hc['已續']||0}</span>
         <span>合約月目標 <b>${fmtW(ct.monthlyTarget)}</b></span>
-        <span>本月達成率 <b class="${Number(achievePct)>=100?'up':'dn'}">${achievePct}%</b></span>
+        <span>本月達成率 <b style="font-size:16px" class="${Number(achievePct)>=100?'up':'dn'}">${achievePct}%</b></span>
       </div>
+      <div style="margin-top:8px;height:8px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden;display:flex">
+        <div style="width:${normalPct}%;background:var(--green)"></div>
+        <div style="width:${(((hc['逾期']||0))/total*100).toFixed(0)}%;background:var(--orange)"></div>
+        <div style="width:${(((hc['嚴重']||0))/total*100).toFixed(0)}%;background:var(--red)"></div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;display:flex;gap:12px"><span style="color:var(--green)">■ 正常</span><span style="color:var(--orange)">■ 逾期</span><span style="color:var(--red)">■ 嚴重</span></div>
       <div class="link-row"><a class="btn-report" href="${reportUrl(k,d.year,d.month)}" target="_blank">🔗 ${c.name}月報明細</a></div></div>`;
   });
   html+=`</div>`;
@@ -269,12 +279,14 @@ function renderAll(d){
 
   // 重覆合約客戶
   if(d.overlapContracts && d.overlapContracts.length>0){
+    const sortedOC=[...d.overlapContracts].sort((a,b)=>b.actual-a.actual);
     html+=`<div style="font-size:14px;font-weight:700;color:var(--muted);margin:20px 0 8px">跨公司合約客戶</div>
-    <div class="tbl-wrap"><table class="tbl"><tr><th>客戶</th><th>簽約公司</th><th class="r">合計月目標</th><th class="r">本月實際</th><th>狀態</th></tr>`;
-    d.overlapContracts.forEach(oc=>{
+    <div class="tbl-wrap"><table class="tbl"><tr><th>客戶</th><th>簽約公司</th><th class="r">合計月目標</th><th class="r">本月實際</th><th class="r">達成率</th><th>狀態</th></tr>`;
+    sortedOC.forEach(oc=>{
       const pills=Object.keys(oc.companies).map(k=>`<span class="pill ${CO_PILL[k]}">${CO_LABELS[k]}</span>`).join('');
+      const ap=oc.totalTarget>0?pct(oc.actual,oc.totalTarget):'—';
       const status=oc.actual>=oc.totalTarget?'<span class="up">達標</span>':'<span class="dn">未達</span>';
-      html+=`<tr><td>${oc.name}</td><td>${pills}</td><td class="r">${fmtW(oc.totalTarget)}</td><td class="r" style="font-weight:700">${fmtW(oc.actual)}</td><td>${status}</td></tr>`;
+      html+=`<tr><td>${oc.name}</td><td>${pills}</td><td class="r">${fmtW(oc.totalTarget)}</td><td class="r" style="font-weight:700">${fmtW(oc.actual)}</td><td class="r">${ap}%</td><td>${status}</td></tr>`;
     });
     html+=`</table></div>`;
   }
@@ -329,7 +341,24 @@ function renderAll(d){
     html+=`</div>`;
   }
 
-  // === 10. 主管報告 ===
+  // === 10. 業務員業績比較 ===
+  html+=`<div class="section"><div class="section-title">👤 各公司業務員業績</div><div class="co3">`;
+  CO_KEYS.forEach(k=>{
+    const c=cos[k]; const reps=c.reps||[];
+    html+=`<div class="cc"><div class="nm"><span class="dot" style="background:${c.color}"></span>${c.name}</div>`;
+    if(reps.length===0){html+=`<div style="color:var(--muted);font-size:13px">無業務資料</div>`;} else {
+      html+=`<table class="tbl"><tr><th>業務</th><th class="r">本月</th><th class="r">YOY</th><th class="r">客戶數</th></tr>`;
+      reps.slice(0,8).forEach(r=>{
+        const yoyStr=r.yoy!==null?fmtYoy(r.yoy):'—';
+        html+=`<tr><td>${r.name}</td><td class="r" style="font-weight:700">${fmtW(r.curMonth)}</td><td class="r">${yoyStr}</td><td class="r">${r.customerCount}</td></tr>`;
+      });
+      html+=`</table>`;
+    }
+    html+=`</div>`;
+  });
+  html+=`</div></div>`;
+
+  // === 11. 主管報告 ===
   html+=`<div class="section"><div class="section-title">📝 主管報告</div>
     <div class="mgr"><div class="ml">📢 行銷計畫</div><div class="mc">（經理人填寫區域）</div></div>
     <div class="mgr"><div class="ml">💬 集團內部溝通</div><div class="mc">（經理人填寫區域）</div></div>
@@ -365,8 +394,7 @@ function renderCharts(d){
   charts.push(new Chart(ctx1,{type:'line',data:{labels,datasets:[
     {label:'高雅瓷',data:sbS,borderColor:'#f59e0b',backgroundColor:'transparent',borderWidth:2,tension:.2,pointRadius:2},
     {label:'安帝嘉',data:adS,borderColor:'#60a5fa',backgroundColor:'transparent',borderWidth:2,tension:.2,pointRadius:2},
-    {label:'喜悅納',data:xyS,borderColor:'#a78bfa',backgroundColor:'transparent',borderWidth:2,tension:.2,pointRadius:2},
-    {label:'集團總和',data:gpS,borderColor:'#c29d66',borderDash:[5,5],backgroundColor:'transparent',borderWidth:2,tension:.2,pointRadius:0}
+    {label:'喜悅納',data:xyS,borderColor:'#a78bfa',backgroundColor:'transparent',borderWidth:2,tension:.2,pointRadius:2}
   ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#f6f1e6',font:{weight:'bold'}}}},scales:{x:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#a9a39a'}},y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#a9a39a',callback:v=>v+' 萬'}}}}}));
 
   // Share chart

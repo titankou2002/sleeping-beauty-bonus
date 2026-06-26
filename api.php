@@ -3525,6 +3525,69 @@ class SleeperService
         }
     }
 
+    private function getCompanySalesRepStats($ssId, $year, $month)
+    {
+        try {
+            $gsClient = new GoogleSheetsClient($ssId);
+            $cacheRows = $gsClient->readSheet(CACHE_SHEET);
+            if (count($cacheRows) < 2) return [];
+
+            $h = $cacheRows[0];
+            $idxYear = $this->findHeader($h, ['年度']);
+            $idxMonth = $this->findHeader($h, ['月份']);
+            $idxRep = $this->findHeader($h, ['負責業務', '業務']);
+            $idxAmount = $this->findHeader($h, ['銷售金額']);
+            $idxPings = $this->findHeader($h, ['銷售坪數']);
+            $idxTx = $this->findHeader($h, ['交易筆數']);
+            $idxCust = $this->findHeader($h, ['客戶名稱', '客戶']);
+            if ($idxYear === -1 || $idxRep === -1 || $idxAmount === -1) return [];
+
+            $reps = [];
+            for ($i = 1; $i < count($cacheRows); $i++) {
+                $row = $cacheRows[$i];
+                $ry = (int)$this->getVal($row, $idxYear);
+                $rm = (int)$this->getVal($row, $idxMonth);
+                $rep = trim($this->getVal($row, $idxRep));
+                $rep = self::$salesMerge[$rep] ?? $rep;
+                if ($rep === '') continue;
+                $amt = $this->optFloat($this->getVal($row, $idxAmount));
+                $pings = $idxPings !== -1 ? $this->optFloat($this->getVal($row, $idxPings)) : 0;
+                $tx = $idxTx !== -1 ? (int)$this->getVal($row, $idxTx) : 0;
+                $cust = $idxCust !== -1 ? $this->displayCustomerName($this->getVal($row, $idxCust)) : '';
+
+                if (!isset($reps[$rep])) $reps[$rep] = ['curMonth' => 0, 'prevMonth' => 0, 'ytd' => 0, 'pings' => 0, 'tx' => 0, 'customers' => []];
+                if ($ry === $year && $rm === $month) {
+                    $reps[$rep]['curMonth'] += $amt;
+                    $reps[$rep]['pings'] += $pings;
+                    $reps[$rep]['tx'] += $tx;
+                    if ($cust && $cust !== '未知客戶') $reps[$rep]['customers'][$cust] = true;
+                }
+                if ($ry === ($year - 1) && $rm === $month) $reps[$rep]['prevMonth'] += $amt;
+                if ($ry === $year && $rm <= $month) $reps[$rep]['ytd'] += $amt;
+            }
+
+            $result = [];
+            foreach ($reps as $name => $data) {
+                if ($data['curMonth'] <= 0 && $data['ytd'] <= 0) continue;
+                $yoy = $data['prevMonth'] > 0 ? round(($data['curMonth'] - $data['prevMonth']) / $data['prevMonth'] * 100, 1) : null;
+                $result[] = [
+                    'name' => $name,
+                    'curMonth' => round($data['curMonth']),
+                    'prevMonth' => round($data['prevMonth']),
+                    'ytd' => round($data['ytd']),
+                    'pings' => round($data['pings'], 1),
+                    'tx' => $data['tx'],
+                    'customerCount' => count($data['customers']),
+                    'yoy' => $yoy,
+                ];
+            }
+            usort($result, function ($a, $b) { return $b['curMonth'] - $a['curMonth']; });
+            return $result;
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
     public function getGroupDetailedReport($year, $month)
     {
         $year = (int)$year;
@@ -3542,6 +3605,7 @@ class SleeperService
         $allProducts = [];
         $allContracts = [];
         $allQuarters = [];
+        $allReps = [];
 
         foreach ($companyIds as $key => $info) {
             $basicStats[$key] = $this->getCompanyReportStats($info['id'], $year, $month);
@@ -3549,6 +3613,7 @@ class SleeperService
             $allProducts[$key] = $this->getCompanyProductStats($info['id'], $year, $month);
             $allContracts[$key] = $this->getCompanyContractSummary($info['id'], $year, $month);
             $allQuarters[$key] = $this->getCompanyQuarterStats($info['id'], $year, $month);
+            $allReps[$key] = $this->getCompanySalesRepStats($info['id'], $year, $month);
         }
 
         $groupKpis = ['sales' => 0, 'salesYoyBase' => 0, 'pings' => 0, 'ytdSales' => 0, 'ytdPrevSales' => 0];
@@ -3678,6 +3743,7 @@ class SleeperService
                     'prev' => ['label' => $prevQKey, 'amount' => round($allQuarters[$key][$prevQKey] ?? 0)],
                     'lastYear' => ['label' => $lastYearQKey, 'amount' => round($allQuarters[$key][$lastYearQKey] ?? 0)],
                 ],
+                'reps' => $allReps[$key],
             ];
         }
 
