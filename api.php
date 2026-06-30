@@ -3350,14 +3350,20 @@ class SleeperService
                 $txCount = $idx['count'] !== -1 ? (int)$this->getVal($row, $idx['count']) : 0;
                 $sku = $idx['sku'] !== -1 ? $this->cleanSku($this->getVal($row, $idx['sku'])) : '';
 
+                $prevYear = $month === 1 ? $year - 1 : $year;
+                $prevMonth = $month === 1 ? 12 : $month - 1;
+
                 if (!isset($customers[$cust])) {
-                    $customers[$cust] = ['curMonth' => 0, 'curMonthPings' => 0, 'curMonthTx' => 0, 'prevMonth' => 0, 'ytd' => 0, 'ytdPrev' => 0, 'skus' => []];
+                    $customers[$cust] = ['curMonth' => 0, 'curMonthPings' => 0, 'curMonthTx' => 0, 'prevMonth' => 0, 'lastMonth' => 0, 'ytd' => 0, 'ytdPrev' => 0, 'skus' => []];
                 }
                 if ($rowYear === $year && $rowMonth === $month) {
                     $customers[$cust]['curMonth'] += $amount;
                     $customers[$cust]['curMonthPings'] += $pings;
                     $customers[$cust]['curMonthTx'] += $txCount;
                     if ($sku && !in_array($sku, $customers[$cust]['skus'])) $customers[$cust]['skus'][] = $sku;
+                }
+                if ($rowYear === $prevYear && $rowMonth === $prevMonth) {
+                    $customers[$cust]['lastMonth'] += $amount;
                 }
                 if ($rowYear === ($year - 1) && $rowMonth === $month) {
                     $customers[$cust]['prevMonth'] += $amount;
@@ -3847,21 +3853,34 @@ class SleeperService
         $groupKpis['salesYoyPct'] = $groupKpis['salesYoyBase'] > 0 ? round(($groupKpis['sales'] - $groupKpis['salesYoyBase']) / $groupKpis['salesYoyBase'] * 100, 1) : 0;
         $groupKpis['ytdYoyPct'] = $groupKpis['ytdPrevSales'] > 0 ? round(($groupKpis['ytdSales'] - $groupKpis['ytdPrevSales']) / $groupKpis['ytdPrevSales'] * 100, 1) : 0;
 
+        $groupLastMonthSales = 0;
+        foreach ($companyIds as $key => $info) {
+            if (isset($allCustomers[$key])) {
+                foreach ($allCustomers[$key] as $cust => $data) {
+                    $groupLastMonthSales += $data['lastMonth'] ?? 0;
+                }
+            }
+        }
+        $groupKpis['lastMonthSales'] = round($groupLastMonthSales);
+
         $mergedCustomers = [];
         foreach ($companyIds as $key => $info) {
             foreach ($allCustomers[$key] as $cust => $data) {
                 if (!isset($mergedCustomers[$cust])) {
-                    $mergedCustomers[$cust] = ['companies' => [], 'totalMonth' => 0, 'totalPrevMonth' => 0, 'totalYtd' => 0, 'totalYtdPrev' => 0, 'totalTx' => 0];
+                    $mergedCustomers[$cust] = ['companies' => [], 'totalMonth' => 0, 'totalPrevMonth' => 0, 'totalLastMonth' => 0, 'totalYtd' => 0, 'totalYtdPrev' => 0, 'totalTx' => 0];
                 }
-                if ($data['curMonth'] > 0 || $data['ytd'] > 0 || $data['prevMonth'] > 0 || $data['ytdPrev'] > 0) {
+                $lastMonthAmt = $data['lastMonth'] ?? 0;
+                if ($data['curMonth'] > 0 || $data['ytd'] > 0 || $data['prevMonth'] > 0 || $data['ytdPrev'] > 0 || $lastMonthAmt > 0) {
                     $mergedCustomers[$cust]['companies'][$key] = [
                         'name' => $info['name'],
                         'curMonth' => round($data['curMonth']),
                         'prevMonth' => round($data['prevMonth']),
+                        'lastMonth' => round($lastMonthAmt),
                         'ytd' => round($data['ytd']),
                     ];
                     $mergedCustomers[$cust]['totalMonth'] += $data['curMonth'];
                     $mergedCustomers[$cust]['totalPrevMonth'] += $data['prevMonth'];
+                    $mergedCustomers[$cust]['totalLastMonth'] += $lastMonthAmt;
                     $mergedCustomers[$cust]['totalYtd'] += $data['ytd'];
                     $mergedCustomers[$cust]['totalYtdPrev'] += $data['ytdPrev'];
                     $mergedCustomers[$cust]['totalTx'] += $data['curMonthTx'];
@@ -3926,7 +3945,8 @@ class SleeperService
                 $totalTarget = 0;
                 foreach ($coMap as $co) $totalTarget += $co['target'];
                 $actualMonth = isset($mergedCustomers[$custName]) ? round($mergedCustomers[$custName]['totalMonth']) : 0;
-                $overlapContracts[] = ['name' => $custName, 'companies' => $coMap, 'totalTarget' => round($totalTarget), 'actual' => $actualMonth];
+                $actualLastMonth = isset($mergedCustomers[$custName]) ? round($mergedCustomers[$custName]['totalLastMonth']) : 0;
+                $overlapContracts[] = ['name' => $custName, 'companies' => $coMap, 'totalTarget' => round($totalTarget), 'actual' => $actualMonth, 'actualLastMonth' => $actualLastMonth];
             }
         }
 

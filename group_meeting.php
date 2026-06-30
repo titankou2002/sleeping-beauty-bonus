@@ -140,6 +140,14 @@ function driveUrlToDirect(url) {
 function escapeHtml(s) {
   return String(s || '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
+function toggleOverlapRows() {
+  const rows = document.querySelectorAll('.overlap-row-more');
+  const btn = document.getElementById('toggle-overlap-btn');
+  if (rows.length === 0) return;
+  const isHidden = rows[0].style.display === 'none';
+  rows.forEach(r => r.style.display = isHidden ? '' : 'none');
+  btn.textContent = isHidden ? '收折其餘合約客戶' : '展開其餘 ' + rows.length + ' 筆合約客戶';
+}
 
 const URL_SB_REPORT = 'meeting.php';
 const URL_AD_REPORT = '<?= URL_ANDYGA_REPORT ?>';
@@ -351,14 +359,30 @@ function renderAll(d){
   if(d.overlapContracts && d.overlapContracts.length>0){
     const sortedOC=[...d.overlapContracts].sort((a,b)=>b.actual-a.actual);
     html+=`<div style="font-size:14px;font-weight:700;color:var(--muted);margin:20px 0 8px">跨公司合約客戶</div>
-    <div class="tbl-wrap"><table class="tbl"><tr><th>客戶</th><th>簽約公司</th><th class="r">合計月目標</th><th class="r">本月實際</th><th class="r">達成率</th><th>狀態</th></tr>`;
-    sortedOC.forEach(oc=>{
+    <div class="tbl-wrap"><table class="tbl"><tr><th>客戶</th><th>簽約公司</th><th class="r">合計月目標</th><th class="r">本月實際</th><th class="r">集團當月佔比</th><th class="r">上月佔比</th></tr>`;
+    sortedOC.forEach((oc, idx)=>{
       const pills=Object.keys(oc.companies).map(k=>`<span class="pill ${CO_PILL[k]}">${CO_LABELS[k]}</span>`).join('');
-      const ap=oc.totalTarget>0?pct(oc.actual,oc.totalTarget):'—';
-      const status=oc.actual>=oc.totalTarget?'<span class="up">達標</span>':'<span class="dn">未達</span>';
-      html+=`<tr><td>${oc.name}</td><td>${pills}</td><td class="r">${fmtW(oc.totalTarget)}</td><td class="r" style="font-weight:700">${fmtW(oc.actual)}</td><td class="r">${ap}%</td><td>${status}</td></tr>`;
+      
+      const curPct = g.kpis.sales > 0 ? (oc.actual / g.kpis.sales * 100) : 0;
+      const lastPct = (g.kpis.lastMonthSales && g.kpis.lastMonthSales > 0) ? ((oc.actualLastMonth || 0) / g.kpis.lastMonthSales * 100) : 0;
+      const diff = curPct - lastPct;
+      
+      let statusHtml = '';
+      if (diff > 0) {
+        statusHtml = `<span class="up">${lastPct.toFixed(2)}% ▲</span>`;
+      } else if (diff < 0) {
+        statusHtml = `<span class="dn">${lastPct.toFixed(2)}% ▼</span>`;
+      } else {
+        statusHtml = `<span style="color:var(--muted)">${lastPct.toFixed(2)}%</span>`;
+      }
+
+      const rowClass = idx >= 10 ? 'class="overlap-row-more" style="display:none"' : '';
+      html+=`<tr ${rowClass}><td>${oc.name}</td><td>${pills}</td><td class="r">${fmtW(oc.totalTarget)}</td><td class="r" style="font-weight:700">${fmtW(oc.actual)}</td><td class="r">${curPct.toFixed(2)}%</td><td class="r">${statusHtml}</td></tr>`;
     });
     html+=`</table></div>`;
+    if (sortedOC.length > 10) {
+      html+=`<div style="margin-top:10px;text-align:center;"><button class="detail-btn" id="toggle-overlap-btn" onclick="toggleOverlapRows()">展開其餘 ${sortedOC.length - 10} 筆合約客戶</button></div>`;
+    }
   }
   html+=`</div>`;
 
@@ -389,10 +413,16 @@ function renderAll(d){
   // === 7. 跨公司客戶 ===
   if(d.crossCompany && d.crossCompany.length>0){
     html+=`<div class="section"><div class="section-title">🔗 跨公司客戶（在 2 家以上消費）</div><div class="tbl-wrap"><table class="tbl">
-      <tr><th>客戶</th><th>涵蓋公司</th><th class="r">合計營收</th></tr>`;
+      <tr><th>客戶</th><th>涵蓋公司</th><th class="r">集團佔比</th><th class="r">合計營收</th></tr>`;
     d.crossCompany.forEach(c=>{
-      const pills=Object.keys(c.companies).map(k=>`<span class="pill ${CO_PILL[k]}">${CO_LABELS[k]}</span>`).join('');
-      html+=`<tr><td>${c.name}</td><td>${pills}</td><td class="r" style="font-weight:700">${fmtW(c.totalMonth)}</td></tr>`;
+      const pills = Object.keys(c.companies).map(k => {
+        const coSales = cos[k].kpis ? cos[k].kpis.sales : 0;
+        const custCoSales = c.companies[k].curMonth || 0;
+        const share = coSales > 0 ? (custCoSales / coSales * 100).toFixed(1) : '0.0';
+        return `<span class="pill ${CO_PILL[k]}" title="${CO_LABELS[k]}實銷: ${fmtW(custCoSales)}">${CO_LABELS[k]} ${fmtW(custCoSales).replace(/\s/g, '')} (${share}%)</span>`;
+      }).join('');
+      const groupShare = g.kpis.sales > 0 ? (c.totalMonth / g.kpis.sales * 100).toFixed(2) : '0.00';
+      html+=`<tr><td>${c.name}</td><td>${pills}</td><td class="r">${groupShare}%</td><td class="r" style="font-weight:700">${fmtW(c.totalMonth)}</td></tr>`;
     });
     html+=`</table></div></div>`;
   }
