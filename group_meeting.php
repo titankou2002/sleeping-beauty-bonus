@@ -292,20 +292,21 @@ function renderAll(d){
       if(row) {
         html+=`<div class="hot-prod-card" style="background:rgba(255,255,255,.02);border:1px solid var(--line);border-radius:6px;padding:10px;margin-bottom:10px;display:flex;flex-direction:column;align-items:center;text-align:center;">`;
         if (row.imageUrl) {
-          html+=`<div class="hot-prod-img-wrap" style="width:100%;aspect-ratio:16/10;overflow:hidden;border-radius:4px;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;">
+          html+=`<div class="hot-prod-img-wrap" style="width:100%;height:110px;overflow:hidden;border-radius:4px;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;">
             <img class="hot-prod-img" src="${escapeHtml(driveUrlToDirect(row.imageUrl))}" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.remove(); this.parentNode.classList.add('is-empty'); this.parentNode.textContent='無圖片';">
           </div>`;
         } else {
-          html+=`<div class="hot-prod-img-wrap is-empty" style="width:100%;aspect-ratio:16/10;overflow:hidden;border-radius:4px;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px;">無圖片</div>`;
+          html+=`<div class="hot-prod-img-wrap is-empty" style="width:100%;height:110px;overflow:hidden;border-radius:4px;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px;">無圖片</div>`;
         }
         const roundedPings = Math.round(row.pings);
         const cleanAmt = fmtW(row.amount).replace(/\s/g, '');
-        html+=`<div class="hot-prod-txt-main" style="font-size:13px;font-weight:700;margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;" title="${escapeHtml(row.sku)} ${escapeHtml(row.series || '未分類')}">${escapeHtml(row.sku)} ${escapeHtml(row.series || '未分類')}</div>
+        const sizeStr = row.size ? ` (${row.size})` : '';
+        html+=`<div class="hot-prod-txt-main" style="font-size:13px;font-weight:700;margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;" title="${escapeHtml(row.sku)} ${escapeHtml(row.series || '未分類')}${escapeHtml(sizeStr)}">${escapeHtml(row.sku)} ${escapeHtml(row.series || '未分類')}${escapeHtml(sizeStr)}</div>
           <div class="hot-prod-txt-sub" style="font-size:12px;color:var(--muted);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;">${roundedPings}坪/${cleanAmt}</div>
         </div>`;
       } else {
         html+=`<div class="hot-prod-card" style="background:rgba(255,255,255,.01);border:1px dashed var(--line);border-radius:6px;padding:10px;margin-bottom:10px;display:flex;flex-direction:column;align-items:center;text-align:center;">
-          <div class="hot-prod-img-wrap is-empty" style="width:100%;aspect-ratio:16/10;overflow:hidden;border-radius:4px;background:rgba(255,255,255,.02);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px;border:1px dashed var(--line);">無產品</div>
+          <div class="hot-prod-img-wrap is-empty" style="width:100%;height:110px;overflow:hidden;border-radius:4px;background:rgba(255,255,255,.02);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px;border:1px dashed var(--line);">無產品</div>
           <div class="hot-prod-txt-main" style="font-size:13px;font-weight:700;margin-top:8px;color:var(--muted);">—</div>
           <div class="hot-prod-txt-sub" style="font-size:12px;color:var(--muted);margin-top:4px;">—</div>
         </div>`;
