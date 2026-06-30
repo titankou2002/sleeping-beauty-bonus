@@ -4063,7 +4063,11 @@ class SleeperService
             }
 
             $gsClient = new GoogleSheetsClient(SS_ID_MAIN);
-            $rows = $gsClient->readSheet('主管報告');
+            try {
+                $rows = $gsClient->readSheet('主管報告');
+            } catch (Exception $e) {
+                $rows = [];
+            }
             if (count($rows) < 2) {
                 $default = [
                     'sleepingBeauty' => ['marketingPlan' => '', 'communication' => '', 'otherReport' => ''],
