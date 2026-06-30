@@ -62,7 +62,7 @@ require_once __DIR__ . '/config.php';
     .tbl-wrap{overflow-x:auto}
 
     .pill{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;font-weight:700;margin:1px 2px}
-    .pill-sb{background:rgba(245,158,11,.15);color:var(--orange)}.pill-ad{background:rgba(96,165,250,.15);color:var(--blue)}.pill-xy{background:rgba(167,139,250,.15);color:var(--purple)}
+    .pill-sb{background:rgba(255,42,133,.15);color:var(--co-sb)}.pill-ad{background:rgba(16,185,129,.15);color:var(--co-ad)}.pill-xy{background:rgba(56,189,248,.15);color:var(--co-xy)}
 
     .alert-box{border-radius:6px;padding:10px 14px;font-size:13px;margin-top:8px;display:flex;align-items:flex-start;gap:8px}
     .alert-warn{background:rgba(245,158,11,.1);color:var(--orange)}
@@ -570,7 +570,7 @@ function renderCharts(d){
   }
 
   const ctx6=document.getElementById('brandChart').getContext('2d');
-  charts.push(new Chart(ctx6,{type:'bar',data:{labels:brandLabels,datasets:CO_KEYS.map(k=>({label:CO_LABELS[k],data:brandLabels.map(b=>Math.round(((cos[k].products.byBrand||{})[b]||{amount:0}).amount/10000)),backgroundColor:CO_COLORS[k]}))},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{labels:{color:'#f6f1e6',font:{weight:'bold'}}}},scales:{y:{grid:{display:false},ticks:{color:'#a9a39a',font:{size:11}}},x:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#a9a39a',callback:v=>v+'萬'}}}}}));
+  charts.push(new Chart(ctx6,{type:'bar',data:{labels:brandLabels,datasets:CO_KEYS.map(k=>({label:CO_LABELS[k],data:brandLabels.map(b=>Math.round(((cos[k].products.byBrand||{})[b]||{amount:0}).amount/10000)),backgroundColor:CO_COLORS[k]}))},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{labels:{color:'#f6f1e6',font:{weight:'bold'}}}},scales:{y:{stacked:true,grid:{display:false},ticks:{color:'#a9a39a',font:{size:11}}},x:{stacked:true,grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#a9a39a',callback:v=>v+'萬'}}}}}));
 }
 
 let _groupData=null;
