@@ -3812,9 +3812,9 @@ class SleeperService
         if ($month < 1 || $month > 12) $month = (int)date('n');
 
         $companyIds = [
-            'sleepingBeauty' => ['id' => SS_ID_MAIN, 'name' => '高雅瓷', 'color' => '#f59e0b'],
-            'andyga' => ['id' => SS_ID_ANDYGA, 'name' => '安帝嘉', 'color' => '#60a5fa'],
-            'xiyena' => ['id' => SS_ID_XIYENA, 'name' => '喜悅納', 'color' => '#a78bfa'],
+            'sleepingBeauty' => ['id' => SS_ID_MAIN, 'name' => '高雅瓷', 'color' => '#ff2a85'],
+            'andyga' => ['id' => SS_ID_ANDYGA, 'name' => '安帝嘉', 'color' => '#10b981'],
+            'xiyena' => ['id' => SS_ID_XIYENA, 'name' => '喜悅納', 'color' => '#38bdf8'],
         ];
 
         $basicStats = [];

@@ -10,7 +10,7 @@ require_once __DIR__ . '/config.php';
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23c29d66'/%3E%3Ctext x='32' y='46' font-family='Arial,sans-serif' font-size='40' font-weight='900' fill='%230a0a0a' text-anchor='middle'%3EG%3C/text%3E%3C/svg%3E">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    :root{--bg:#0a0a0a;--paper:#111;--grid:rgba(194,157,102,.28);--line:rgba(255,255,255,.10);--text:#f6f1e6;--muted:#a9a39a;--accent:#c29d66;--gold:#f0cb84;--blue:#60a5fa;--green:#22c55e;--orange:#f59e0b;--red:#ef4444;--purple:#a78bfa;--co-sb:#f59e0b;--co-ad:#60a5fa;--co-xy:#a78bfa}
+    :root{--bg:#0a0a0a;--paper:#111;--grid:rgba(194,157,102,.28);--line:rgba(255,255,255,.10);--text:#f6f1e6;--muted:#a9a39a;--accent:#c29d66;--gold:#f0cb84;--blue:#60a5fa;--green:#22c55e;--orange:#f59e0b;--red:#ef4444;--purple:#a78bfa;--co-sb:#ff2a85;--co-ad:#10b981;--co-xy:#38bdf8}
     *{box-sizing:border-box}
     body{margin:0;font-family:"Noto Sans TC","PingFang TC",sans-serif;background:radial-gradient(circle at top,rgba(194,157,102,.12),transparent 35%) var(--bg);color:var(--text)}
     .page{max-width:1480px;margin:0 auto;padding:24px}
@@ -154,7 +154,7 @@ const URL_AD_REPORT = '<?= URL_ANDYGA_REPORT ?>';
 const URL_XY_REPORT = '<?= URL_XIYENA_REPORT ?>';
 const CO_KEYS = ['sleepingBeauty','andyga','xiyena'];
 const CO_LABELS = {sleepingBeauty:'高雅瓷',andyga:'安帝嘉',xiyena:'喜悅納'};
-const CO_COLORS = {sleepingBeauty:'#f59e0b',andyga:'#60a5fa',xiyena:'#a78bfa'};
+const CO_COLORS = {sleepingBeauty:'#ff2a85',andyga:'#10b981',xiyena:'#38bdf8'};
 const CO_PILL = {sleepingBeauty:'pill-sb',andyga:'pill-ad',xiyena:'pill-xy'};
 
 const now = new Date();
@@ -301,7 +301,7 @@ function renderAll(d){
         html+=`<div class="hot-prod-card" style="background:rgba(255,255,255,.02);border:1px solid var(--line);border-radius:6px;padding:10px;margin-bottom:10px;display:flex;flex-direction:column;align-items:center;text-align:center;">`;
         if (row.imageUrl) {
           html+=`<div class="hot-prod-img-wrap" style="width:100%;height:110px;overflow:hidden;border-radius:4px;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;">
-            <img class="hot-prod-img" src="${escapeHtml(driveUrlToDirect(row.imageUrl))}" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.remove(); this.parentNode.classList.add('is-empty'); this.parentNode.textContent='無圖片';">
+            <img class="hot-prod-img" src="${escapeHtml(driveUrlToDirect(row.imageUrl))}" alt="" style="width:100%;height:100%;object-fit:contain;" onerror="this.remove(); this.parentNode.classList.add('is-empty'); this.parentNode.textContent='無圖片';">
           </div>`;
         } else {
           html+=`<div class="hot-prod-img-wrap is-empty" style="width:100%;height:110px;overflow:hidden;border-radius:4px;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px;">無圖片</div>`;
@@ -516,9 +516,9 @@ function renderCharts(d){
   const gpS=g.monthlySales.map(n=>Math.round(n/10000));
   const ctx1=document.getElementById('trendChart').getContext('2d');
   charts.push(new Chart(ctx1,{type:'line',data:{labels,datasets:[
-    {label:'高雅瓷',data:sbS,borderColor:'#f59e0b',backgroundColor:'transparent',borderWidth:2,tension:.2,pointRadius:2},
-    {label:'安帝嘉',data:adS,borderColor:'#60a5fa',backgroundColor:'transparent',borderWidth:2,tension:.2,pointRadius:2},
-    {label:'喜悅納',data:xyS,borderColor:'#a78bfa',backgroundColor:'transparent',borderWidth:2,tension:.2,pointRadius:2}
+    {label:'高雅瓷',data:sbS,borderColor:'#ff2a85',backgroundColor:'transparent',borderWidth:2,tension:.2,pointRadius:2},
+    {label:'安帝嘉',data:adS,borderColor:'#10b981',backgroundColor:'transparent',borderWidth:2,tension:.2,pointRadius:2},
+    {label:'喜悅納',data:xyS,borderColor:'#38bdf8',backgroundColor:'transparent',borderWidth:2,tension:.2,pointRadius:2}
   ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#f6f1e6',font:{weight:'bold'}}}},scales:{x:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#a9a39a'}},y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#a9a39a',callback:v=>v+' 萬'}}}}}));
 
   // Share chart
