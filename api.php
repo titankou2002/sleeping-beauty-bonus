@@ -359,6 +359,16 @@ class SleeperService
         $this->gs = $gs;
     }
 
+    private $clientsCache = [];
+
+    private function getClient($ssId)
+    {
+        if (!isset($this->clientsCache[$ssId])) {
+            $this->clientsCache[$ssId] = new GoogleSheetsClient($ssId);
+        }
+        return $this->clientsCache[$ssId];
+    }
+
     private function getSalesRepAreaMap()
     {
         if ($this->areaMap !== null) return $this->areaMap;
@@ -3138,7 +3148,7 @@ class SleeperService
     private function getCompanyReportStats($ssId, $year, $month)
     {
         try {
-            $gsClient = new GoogleSheetsClient($ssId);
+            $gsClient = $this->getClient($ssId);
             $cacheRows = $gsClient->readSheet(CACHE_SHEET);
             if (count($cacheRows) < 2) {
                 return ['success' => false, 'msg' => '快取工作表為空或格式錯誤'];
@@ -3321,7 +3331,7 @@ class SleeperService
     private function getCompanyCacheCustomers($ssId, $year, $month)
     {
         try {
-            $gsClient = new GoogleSheetsClient($ssId);
+            $gsClient = $this->getClient($ssId);
             $cacheRows = $gsClient->readSheet(CACHE_SHEET);
             if (count($cacheRows) < 2) return [];
 
@@ -3384,7 +3394,7 @@ class SleeperService
     private function getCompanyProductStats($ssId, $year, $month)
     {
         try {
-            $gsClient = new GoogleSheetsClient($ssId);
+            $gsClient = $this->getClient($ssId);
             $cacheRows = $gsClient->readSheet(CACHE_SHEET);
             if (count($cacheRows) < 2) return ['bySize' => [], 'byBrand' => [], 'byCategory' => []];
 
@@ -3461,7 +3471,7 @@ class SleeperService
     private function getCompanyContractSummary($ssId, $year, $month)
     {
         try {
-            $gsClient = new GoogleSheetsClient($ssId);
+            $gsClient = $this->getClient($ssId);
             $rows = $gsClient->readSheet('合約');
             if (count($rows) < 2) return ['customers' => [], 'healthCounts' => [], 'active' => 0, 'monthlyTarget' => 0, 'detail' => []];
 
@@ -3530,7 +3540,7 @@ class SleeperService
     private function getCompanyTopProducts($ssId, $year, $month, $limit = 10)
     {
         try {
-            $gsClient = new GoogleSheetsClient($ssId);
+            $gsClient = $this->getClient($ssId);
             $cacheRows = $gsClient->readSheet(CACHE_SHEET);
             if (count($cacheRows) < 2) return [];
 
@@ -3619,7 +3629,7 @@ class SleeperService
     private function getCompanyQuarterStats($ssId, $year, $month)
     {
         try {
-            $gsClient = new GoogleSheetsClient($ssId);
+            $gsClient = $this->getClient($ssId);
             $cacheRows = $gsClient->readSheet(CACHE_SHEET);
             if (count($cacheRows) < 2) return [];
 
@@ -3649,7 +3659,7 @@ class SleeperService
     private function getCompanySalesRepStats($ssId, $year, $month)
     {
         try {
-            $gsClient = new GoogleSheetsClient($ssId);
+            $gsClient = $this->getClient($ssId);
             $cacheRows = $gsClient->readSheet(CACHE_SHEET);
             if (count($cacheRows) < 2) return [];
 
@@ -3712,7 +3722,7 @@ class SleeperService
     private function getCompanyInventoryBreakdown($ssId)
     {
         try {
-            $gsClient = new GoogleSheetsClient($ssId);
+            $gsClient = $this->getClient($ssId);
 
             $priceData = $gsClient->readSheet(PRICE_SHEET);
             $metaMap = [];
