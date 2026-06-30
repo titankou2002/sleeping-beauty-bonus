@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/config.php';
 ?>
 <!DOCTYPE html>
@@ -95,9 +96,15 @@ require_once __DIR__ . '/config.php';
     .detail-btn{background:none;border:1px solid rgba(194,157,102,.4);color:var(--gold);font-size:12px;font-weight:700;padding:4px 12px;border-radius:4px;cursor:pointer;transition:all .2s}
     .detail-btn:hover{background:rgba(194,157,102,.15);border-color:var(--gold)}
 
-    .mgr{background:rgba(255,255,255,.02);border:1px solid var(--line);border-radius:6px;padding:16px;margin-top:10px}
-    .mgr .ml{font-size:13px;font-weight:700;color:var(--gold);margin-bottom:6px}
-    .mgr .mc{font-size:14px;line-height:1.7;padding:10px 14px;background:rgba(255,255,255,.03);border-radius:4px;min-height:40px;color:var(--muted);font-style:italic}
+    .mgr-tab-content { margin-top: 14px; }
+    .mgr-form-group { margin-bottom: 16px; }
+    .mgr-form-group label { display: block; font-size: 13px; font-weight: 700; color: var(--gold); margin-bottom: 6px; }
+    .mgr-textarea { width: 100%; height: 110px; background: rgba(255,255,255,0.03); border: 1px solid var(--line); border-radius: 6px; color: var(--text); padding: 10px 14px; font-size: 13px; line-height: 1.6; resize: vertical; transition: all 0.2s; }
+    .mgr-textarea:focus { border-color: var(--gold); background: rgba(194,157,102,0.06); outline: none; }
+    .mgr-textarea:disabled { color: var(--muted); opacity: 0.6; cursor: not-allowed; }
+    .btn-save-report { height: 36px; padding: 0 16px; border: 1px solid var(--gold); border-radius: 4px; background: linear-gradient(180deg, rgba(194,157,102,0.3), rgba(194,157,102,0.1)); color: var(--gold); font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+    .btn-save-report:hover:not(:disabled) { background: var(--accent); color: var(--bg); transform: translateY(-1px); }
+    .btn-save-report:disabled { border-color: var(--line); color: var(--muted); background: rgba(255,255,255,0.03); cursor: not-allowed; }
   </style>
 </head>
 <body>
@@ -187,6 +194,7 @@ function loadReport(){
       document.getElementById('loading').classList.add('hidden');
       if(!res.success){alert('載入失敗: '+(res.msg||''));return}
       renderAll(res.data);
+      loadManagerReports(y, m);
     })
     .catch(err=>{
       document.getElementById('loading').classList.add('hidden');
@@ -483,10 +491,63 @@ function renderAll(d){
   html+=`</div>`;
 
   // === 11. 主管報告 ===
-  html+=`<div class="section"><div class="section-title">📝 主管報告</div>
-    <div class="mgr"><div class="ml">📢 行銷計畫</div><div class="mc">（經理人填寫區域）</div></div>
-    <div class="mgr"><div class="ml">💬 集團內部溝通</div><div class="mc">（經理人填寫區域）</div></div>
-    <div class="mgr"><div class="ml">📄 其它報告</div><div class="mc">（經理人填寫區域）</div></div>
+  html+=`<div class="section" id="mgr-report-section"><div class="section-title">📝 主管報告</div>
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab(this,'mgr-sb')">高雅瓷</button>
+      <button class="tab" onclick="switchTab(this,'mgr-ad')">安帝嘉</button>
+      <button class="tab" onclick="switchTab(this,'mgr-xy')">喜悅納</button>
+    </div>
+    
+    <!-- 高雅瓷 -->
+    <div id="mgr-sb" class="tab-pane mgr-tab-content">
+      <div class="mgr-form-group">
+        <label>📢 行銷計畫</label>
+        <textarea id="sb-mkt" class="mgr-textarea" placeholder="主管報告載入中..." disabled></textarea>
+      </div>
+      <div class="mgr-form-group">
+        <label>💬 集團內部溝通</label>
+        <textarea id="sb-comm" class="mgr-textarea" placeholder="主管報告載入中..." disabled></textarea>
+      </div>
+      <div class="mgr-form-group">
+        <label>📄 其它報告</label>
+        <textarea id="sb-other" class="mgr-textarea" placeholder="主管報告載入中..." disabled></textarea>
+      </div>
+      <button id="sb-save-btn" class="btn-save-report" onclick="saveReport('sleepingBeauty')" disabled>💾 儲存高雅瓷報告</button>
+    </div>
+    
+    <!-- 安帝嘉 -->
+    <div id="mgr-ad" class="tab-pane mgr-tab-content" style="display:none">
+      <div class="mgr-form-group">
+        <label>📢 行銷計畫</label>
+        <textarea id="ad-mkt" class="mgr-textarea" placeholder="主管報告載入中..." disabled></textarea>
+      </div>
+      <div class="mgr-form-group">
+        <label>💬 集團內部溝通</label>
+        <textarea id="ad-comm" class="mgr-textarea" placeholder="主管報告載入中..." disabled></textarea>
+      </div>
+      <div class="mgr-form-group">
+        <label>📄 其它報告</label>
+        <textarea id="ad-other" class="mgr-textarea" placeholder="主管報告載入中..." disabled></textarea>
+      </div>
+      <button id="ad-save-btn" class="btn-save-report" onclick="saveReport('andyga')" disabled>💾 儲存安帝嘉報告</button>
+    </div>
+    
+    <!-- 喜悅納 -->
+    <div id="mgr-xy" class="tab-pane mgr-tab-content" style="display:none">
+      <div class="mgr-form-group">
+        <label>📢 行銷計畫</label>
+        <textarea id="xy-mkt" class="mgr-textarea" placeholder="主管報告載入中..." disabled></textarea>
+      </div>
+      <div class="mgr-form-group">
+        <label>💬 集團內部溝通</label>
+        <textarea id="xy-comm" class="mgr-textarea" placeholder="主管報告載入中..." disabled></textarea>
+      </div>
+      <div class="mgr-form-group">
+        <label>📄 其它報告</label>
+        <textarea id="xy-other" class="mgr-textarea" placeholder="主管報告載入中..." disabled></textarea>
+      </div>
+      <button id="xy-save-btn" class="btn-save-report" onclick="saveReport('xiyena')" disabled>💾 儲存喜悅納報告</button>
+    </div>
   </div>`;
 
   document.getElementById('content').innerHTML=html;
@@ -653,6 +714,115 @@ function loadCacheInfoGroup(){
   fetch('api.php?action=cache-info').then(r=>r.json()).then(res=>{
     if(res.success) document.getElementById('cache-info-group').textContent='快取：'+res.lastUpdate;
   }).catch(()=>{});
+}
+
+function loadManagerReports(y, m) {
+  const fields = ['sb-mkt', 'sb-comm', 'sb-other', 'ad-mkt', 'ad-comm', 'ad-other', 'xy-mkt', 'xy-comm', 'xy-other'];
+  fields.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.value = '';
+      el.disabled = true;
+      el.placeholder = '主管報告載入中...';
+    }
+  });
+  
+  const buttons = ['sb-save-btn', 'ad-save-btn', 'xy-save-btn'];
+  buttons.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = true;
+  });
+
+  fetch(`api.php?action=get-mgr-report&year=${y}&month=${m}`)
+    .then(r => r.json())
+    .then(res => {
+      if (res.success && res.data) {
+        const d = res.data;
+        const mapping = {
+          'sb-mkt': d.sleepingBeauty.marketingPlan,
+          'sb-comm': d.sleepingBeauty.communication,
+          'sb-other': d.sleepingBeauty.otherReport,
+          'ad-mkt': d.andyga.marketingPlan,
+          'ad-comm': d.andyga.communication,
+          'ad-other': d.andyga.otherReport,
+          'xy-mkt': d.xiyena.marketingPlan,
+          'xy-comm': d.xiyena.communication,
+          'xy-other': d.xiyena.otherReport
+        };
+        
+        Object.entries(mapping).forEach(([id, val]) => {
+          const el = document.getElementById(id);
+          if (el) {
+            el.value = val || '';
+            el.placeholder = '請輸入內容...';
+            el.disabled = false;
+          }
+        });
+        
+        buttons.forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.disabled = false;
+        });
+      } else {
+        fields.forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.placeholder = '載入主管報告失敗: ' + (res.msg || '未知錯誤');
+        });
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      fields.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.placeholder = '連線伺服器失敗，無法讀取報告';
+      });
+    });
+}
+
+function saveReport(coKey) {
+  const y = yearSel.value, m = monthSel.value;
+  let prefix = 'sb';
+  if (coKey === 'andyga') prefix = 'ad';
+  if (coKey === 'xiyena') prefix = 'xy';
+  
+  const mktVal = document.getElementById(prefix + '-mkt').value;
+  const commVal = document.getElementById(prefix + '-comm').value;
+  const otherVal = document.getElementById(prefix + '-other').value;
+  
+  const btn = document.getElementById(prefix + '-save-btn');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '💾 儲存中...';
+  
+  const formData = new FormData();
+  formData.append('year', y);
+  formData.append('month', m);
+  formData.append('coKey', coKey);
+  formData.append('marketingPlan', mktVal);
+  formData.append('communication', commVal);
+  formData.append('otherReport', otherVal);
+  
+  fetch('api.php?action=save-mgr-report', {
+    method: 'POST',
+    body: formData
+  })
+    .then(r => r.json())
+    .then(res => {
+      btn.disabled = false;
+      if (res.success) {
+        btn.textContent = '✓ 儲存成功';
+        setTimeout(() => { btn.textContent = originalText; }, 2000);
+      } else {
+        alert('儲存失敗: ' + (res.msg || ''));
+        btn.textContent = originalText;
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      alert('連線伺服器失敗，請稍後再試');
+      btn.disabled = false;
+      btn.textContent = originalText;
+    });
 }
 
 window.onload=function(){loadCacheInfoGroup();loadReport();};

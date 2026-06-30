@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/auth.php';
 error_reporting(E_ALL);
 ini_set('display_errors', '1');
 header('Content-Type: application/json; charset=utf-8');
@@ -4047,6 +4048,163 @@ class SleeperService
         ];
     }
 
+    public function getManagerReports($year, $month)
+    {
+        try {
+            if (!is_dir(AI_ADVISOR_CACHE_DIR)) {
+                @mkdir(AI_ADVISOR_CACHE_DIR, 0775, true);
+            }
+            $cacheFile = AI_ADVISOR_CACHE_DIR . "/mgr_reports_{$year}_{$month}.json";
+            if (is_file($cacheFile)) {
+                $cached = json_decode(file_get_contents($cacheFile), true);
+                if ($cached) {
+                    return ['success' => true, 'data' => $cached];
+                }
+            }
+
+            $gsClient = new GoogleSheetsClient(SS_ID_MAIN);
+            $rows = $gsClient->readSheet('主管報告');
+            if (count($rows) < 2) {
+                $default = [
+                    'sleepingBeauty' => ['marketingPlan' => '', 'communication' => '', 'otherReport' => ''],
+                    'andyga' => ['marketingPlan' => '', 'communication' => '', 'otherReport' => ''],
+                    'xiyena' => ['marketingPlan' => '', 'communication' => '', 'otherReport' => ''],
+                ];
+                @file_put_contents($cacheFile, json_encode($default, JSON_UNESCAPED_UNICODE));
+                return ['success' => true, 'data' => $default];
+            }
+
+            $h = $rows[0];
+            $idx = [
+                'year' => $this->findHeader($h, ['年度']),
+                'month' => $this->findHeader($h, ['月份']),
+                'co' => $this->findHeader($h, ['公司別']),
+                'mkt' => $this->findHeader($h, ['行銷計畫']),
+                'comm' => $this->findHeader($h, ['集團內部溝通']),
+                'other' => $this->findHeader($h, ['其它報告']),
+            ];
+
+            $result = [
+                'sleepingBeauty' => ['marketingPlan' => '', 'communication' => '', 'otherReport' => ''],
+                'andyga' => ['marketingPlan' => '', 'communication' => '', 'otherReport' => ''],
+                'xiyena' => ['marketingPlan' => '', 'communication' => '', 'otherReport' => ''],
+            ];
+
+            for ($i = 1; $i < count($rows); $i++) {
+                $row = $rows[$i];
+                $rY = (int)$this->getVal($row, $idx['year']);
+                $rM = (int)$this->getVal($row, $idx['month']);
+                if ($rY !== (int)$year || $rM !== (int)$month) continue;
+
+                $coKey = trim($this->getVal($row, $idx['co']));
+                if (isset($result[$coKey])) {
+                    $result[$coKey] = [
+                        'marketingPlan' => $this->getVal($row, $idx['mkt']),
+                        'communication' => $this->getVal($row, $idx['comm']),
+                        'otherReport' => $this->getVal($row, $idx['other']),
+                    ];
+                }
+            }
+
+            @file_put_contents($cacheFile, json_encode($result, JSON_UNESCAPED_UNICODE));
+            return ['success' => true, 'data' => $result];
+        } catch (Exception $e) {
+            return ['success' => false, 'msg' => $e->getMessage()];
+        }
+    }
+
+    public function saveManagerReport($year, $month, $coKey, $mkt, $comm, $other)
+    {
+        try {
+            $gsClient = new GoogleSheetsClient(SS_ID_MAIN);
+            
+            try {
+                $rows = $gsClient->readSheet('主管報告');
+            } catch (Exception $e) {
+                $gsClient->createSheet('主管報告');
+                $rows = [];
+            }
+
+            $headers = ['年度', '月份', '公司別', '行銷計畫', '集團內部溝通', '其它報告', '更新時間'];
+            if (empty($rows)) {
+                $gsClient->appendRows('主管報告', [$headers]);
+                $rows = [$headers];
+            }
+
+            $h = $rows[0];
+            $idx = [
+                'year' => $this->findHeader($h, ['年度']),
+                'month' => $this->findHeader($h, ['月份']),
+                'co' => $this->findHeader($h, ['公司別']),
+                'mkt' => $this->findHeader($h, ['行銷計畫']),
+                'comm' => $this->findHeader($h, ['集團內部溝通']),
+                'other' => $this->findHeader($h, ['其它報告']),
+                'time' => $this->findHeader($h, ['更新時間']),
+            ];
+
+            $foundRowIdx = -1;
+            for ($i = 1; $i < count($rows); $i++) {
+                $row = $rows[$i];
+                $rY = (int)$this->getVal($row, $idx['year']);
+                $rM = (int)$this->getVal($row, $idx['month']);
+                $rCo = trim($this->getVal($row, $idx['co']));
+                if ($rY === (int)$year && $rM === (int)$month && $rCo === $coKey) {
+                    $foundRowIdx = $i + 1;
+                    break;
+                }
+            }
+
+            $newRow = [];
+            $newRow[$idx['year']] = (int)$year;
+            $newRow[$idx['month']] = (int)$month;
+            $newRow[$idx['co']] = $coKey;
+            $newRow[$idx['mkt']] = $mkt;
+            $newRow[$idx['comm']] = $comm;
+            $newRow[$idx['other']] = $other;
+            $newRow[$idx['time']] = date('Y-m-d H:i:s');
+
+            $maxCol = count($headers);
+            $normalizedRow = [];
+            for ($c = 0; $c < $maxCol; $c++) {
+                $normalizedRow[] = $newRow[$c] ?? '';
+            }
+
+            if ($foundRowIdx !== -1) {
+                $gsClient->writeRows('主管報告', $foundRowIdx, [$normalizedRow]);
+            } else {
+                $gsClient->appendRows('主管報告', [$normalizedRow]);
+            }
+
+            if (!is_dir(AI_ADVISOR_CACHE_DIR)) {
+                @mkdir(AI_ADVISOR_CACHE_DIR, 0775, true);
+            }
+            $cacheFile = AI_ADVISOR_CACHE_DIR . "/mgr_reports_{$year}_{$month}.json";
+            
+            $cached = [];
+            if (is_file($cacheFile)) {
+                $cached = json_decode(file_get_contents($cacheFile), true);
+            }
+            if (!$cached) {
+                $cached = [
+                    'sleepingBeauty' => ['marketingPlan' => '', 'communication' => '', 'otherReport' => ''],
+                    'andyga' => ['marketingPlan' => '', 'communication' => '', 'otherReport' => ''],
+                    'xiyena' => ['marketingPlan' => '', 'communication' => '', 'otherReport' => ''],
+                ];
+            }
+            $cached[$coKey] = [
+                'marketingPlan' => $mkt,
+                'communication' => $comm,
+                'otherReport' => $other,
+            ];
+            @file_put_contents($cacheFile, json_encode($cached, JSON_UNESCAPED_UNICODE));
+
+            return ['success' => true, 'msg' => '儲存成功'];
+        } catch (Exception $e) {
+            return ['success' => false, 'msg' => $e->getMessage()];
+        }
+    }
+
+
     public function getAiAdvisor($year, $month, $forceRefresh = false)
     {
         $year = (int)$year;
@@ -6358,10 +6516,61 @@ try {
             try {
                 $year = (int)($_GET['year'] ?? date('Y'));
                 $month = (int)($_GET['month'] ?? date('n'));
+                $refresh = isset($_GET['refresh']) && $_GET['refresh'] == 1;
+
+                if (!is_dir(AI_ADVISOR_CACHE_DIR)) {
+                    @mkdir(AI_ADVISOR_CACHE_DIR, 0775, true);
+                }
+                $cacheFile = AI_ADVISOR_CACHE_DIR . "/group_report_{$year}_{$month}.json";
+
+                if (!$refresh && is_file($cacheFile)) {
+                    $cachedData = file_get_contents($cacheFile);
+                    if ($cachedData) {
+                        echo $cachedData;
+                        break;
+                    }
+                }
+
                 $res = $svc->getGroupDetailedReport($year, $month);
-                echo json_encode($res, JSON_UNESCAPED_UNICODE);
+                $jsonData = json_encode($res, JSON_UNESCAPED_UNICODE);
+                @file_put_contents($cacheFile, $jsonData);
+                echo $jsonData;
             } catch (Exception $e) {
                 echo json_encode(['success' => false, 'msg' => 'group-detailed-report 錯誤: ' . $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
+            }
+            break;
+
+        case 'get-mgr-report':
+            try {
+                $year = (int)($_GET['year'] ?? date('Y'));
+                $month = (int)($_GET['month'] ?? date('n'));
+                $res = $svc->getManagerReports($year, $month);
+                echo json_encode($res, JSON_UNESCAPED_UNICODE);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'msg' => 'get-mgr-report 錯誤: ' . $e->getMessage()]);
+            }
+            break;
+
+        case 'save-mgr-report':
+            try {
+                if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                    throw new Exception('僅接受 POST 請求');
+                }
+                $year = (int)($_POST['year'] ?? date('Y'));
+                $month = (int)($_POST['month'] ?? date('n'));
+                $coKey = $_POST['coKey'] ?? '';
+                $mkt = $_POST['marketingPlan'] ?? '';
+                $comm = $_POST['communication'] ?? '';
+                $other = $_POST['otherReport'] ?? '';
+
+                if ($coKey === '') {
+                    throw new Exception('公司別不能為空');
+                }
+
+                $res = $svc->saveManagerReport($year, $month, $coKey, $mkt, $comm, $other);
+                echo json_encode($res, JSON_UNESCAPED_UNICODE);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'msg' => 'save-mgr-report 錯誤: ' . $e->getMessage()]);
             }
             break;
 
@@ -6590,6 +6799,17 @@ try {
                     $results[$name] = ['success' => false, 'msg' => $e->getMessage()];
                 }
             }
+            
+            // Clear monthly report local JSON caches
+            if (is_dir(AI_ADVISOR_CACHE_DIR)) {
+                $cacheFiles = glob(AI_ADVISOR_CACHE_DIR . '/group_report_*.json');
+                if ($cacheFiles) {
+                    foreach ($cacheFiles as $f) {
+                        @unlink($f);
+                    }
+                }
+            }
+            
             echo json_encode(['success' => true, 'results' => $results, 'time' => date('Y-m-d H:i:s')], JSON_UNESCAPED_UNICODE);
             break;
 

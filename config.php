@@ -31,3 +31,6 @@ define('AI_ADVISOR_CACHE_DIR', __DIR__ . '/cache');
 define('DAILY_EMAIL_TO', getenv('DAILY_EMAIL_TO') ?: 'titankou2002@gmail.com,sb780910@gmail.com,ghosts0125@gmail.com,panus081231@gmail.com,lynnloveshumi@gmail.com');
 define('DAILY_EMAIL_FROM', getenv('DAILY_EMAIL_FROM') ?: '高雅瓷戰情室 <noreply@gaoyaci.local>');
 
+// 戰情室存取密碼
+define('ACCESS_PASSWORD', '9593');
+
