@@ -129,6 +129,18 @@ require_once __DIR__ . '/config.php';
 <div id="modal-root"></div>
 
 <script>
+function driveUrlToDirect(url) {
+  const s = String(url || '');
+  let m = s.match(/\/file\/d\/([^\/]+)/);
+  if (m) return 'https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w1200';
+  m = s.match(/[?&]id=([^&]+)/);
+  if (m) return 'https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w1200';
+  return s;
+}
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
 const URL_SB_REPORT = 'meeting.php';
 const URL_AD_REPORT = '<?= URL_ANDYGA_REPORT ?>';
 const URL_XY_REPORT = '<?= URL_XIYENA_REPORT ?>';
@@ -269,22 +281,57 @@ function renderAll(d){
   });
   html+=`</div></div>`;
 
+  // === 4.5. 熱銷產品比較 ===
+  html+=`<div class="section"><div class="section-title">🏆 熱銷產品比較（前十大）</div><div class="co3">`;
+  CO_KEYS.forEach(k=>{
+    const c=cos[k]; const topProds=c.topProducts||[];
+    html+=`<div class="hot-prod-col">
+      <div class="hot-prod-header" style="background:${c.color}15;color:${c.color};font-weight:800;text-align:center;padding:8px;border-radius:4px;margin-bottom:12px;font-size:14px;border:1px solid ${c.color}30">${c.name}</div>`;
+    for(let i=0; i<10; i++) {
+      const row = topProds[i];
+      if(row) {
+        html+=`<div class="hot-prod-card" style="background:rgba(255,255,255,.02);border:1px solid var(--line);border-radius:6px;padding:10px;margin-bottom:10px;display:flex;flex-direction:column;align-items:center;text-align:center;">`;
+        if (row.imageUrl) {
+          html+=`<div class="hot-prod-img-wrap" style="width:100%;aspect-ratio:16/10;overflow:hidden;border-radius:4px;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;">
+            <img class="hot-prod-img" src="${escapeHtml(driveUrlToDirect(row.imageUrl))}" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.remove(); this.parentNode.classList.add('is-empty'); this.parentNode.textContent='無圖片';">
+          </div>`;
+        } else {
+          html+=`<div class="hot-prod-img-wrap is-empty" style="width:100%;aspect-ratio:16/10;overflow:hidden;border-radius:4px;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px;">無圖片</div>`;
+        }
+        const roundedPings = Math.round(row.pings);
+        const cleanAmt = fmtW(row.amount).replace(/\s/g, '');
+        html+=`<div class="hot-prod-txt-main" style="font-size:13px;font-weight:700;margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;" title="${escapeHtml(row.sku)} ${escapeHtml(row.series || '未分類')}">${escapeHtml(row.sku)} ${escapeHtml(row.series || '未分類')}</div>
+          <div class="hot-prod-txt-sub" style="font-size:12px;color:var(--muted);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;">${roundedPings}坪/${cleanAmt}</div>
+        </div>`;
+      } else {
+        html+=`<div class="hot-prod-card" style="background:rgba(255,255,255,.01);border:1px dashed var(--line);border-radius:6px;padding:10px;margin-bottom:10px;display:flex;flex-direction:column;align-items:center;text-align:center;">
+          <div class="hot-prod-img-wrap is-empty" style="width:100%;aspect-ratio:16/10;overflow:hidden;border-radius:4px;background:rgba(255,255,255,.02);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px;border:1px dashed var(--line);">無產品</div>
+          <div class="hot-prod-txt-main" style="font-size:13px;font-weight:700;margin-top:8px;color:var(--muted);">—</div>
+          <div class="hot-prod-txt-sub" style="font-size:12px;color:var(--muted);margin-top:4px;">—</div>
+        </div>`;
+      }
+    }
+    html+=`</div>`;
+  });
+  html+=`</div></div>`;
+
   // === 5. 合約客戶狀況 ===
   html+=`<div class="section"><div class="section-title">📋 合約客戶狀況</div><div class="co3">`;
   CO_KEYS.forEach(k=>{
-    const c=cos[k]; const ct=c.contract; const kp=c.kpis||{};
-    const actual=kp.sales||0; const achievePct=ct.monthlyTarget>0?pct(actual,ct.monthlyTarget):'—';
+    const c=cos[k]; const ct=c.contract;
     const hc=ct.healthCounts||{};
     const total=ct.active||1;
     const normalPct=((hc['正常']||0)/total*100).toFixed(0);
     const overduePct=(((hc['逾期']||0)+(hc['嚴重']||0))/total*100).toFixed(0);
+    const healthPct = ct.healthPct != null ? ct.healthPct : 0;
     html+=`<div class="cc"><div class="nm"><span class="dot" style="background:${c.color}"></span>${c.name}</div>
       <div style="font-size:13px;display:flex;flex-direction:column;gap:4px">
         <span>合約客戶 <b>${ct.active}</b> 家</span>
         <span>正常 ${hc['正常']||0}（${normalPct}%）· 逾期 ${hc['逾期']||0} · 嚴重 ${hc['嚴重']||0}（逾期率 ${overduePct}%）</span>
         <span>待續 ${hc['待續']||0} · 已續 ${hc['已續']||0}</span>
         <span>合約月目標 <b>${fmtW(ct.monthlyTarget)}</b></span>
-        <span>本月達成率 <b style="font-size:16px" class="${Number(achievePct)>=100?'up':'dn'}">${achievePct}%</b></span>
+        <span>簽約店實銷 <b>${fmtW(ct.signedStoreSales)}</b></span>
+        <span>健康度 <b style="font-size:16px" class="${Number(healthPct)>=75?'up':'dn'}">${healthPct}%</b></span>
       </div>
       <div style="margin-top:8px;height:8px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden;display:flex">
         <div style="width:${normalPct}%;background:var(--green)"></div>
@@ -469,7 +516,7 @@ function renderCharts(d){
   const ctx5=document.getElementById('contractChart').getContext('2d');
   charts.push(new Chart(ctx5,{type:'bar',data:{labels:CO_KEYS.map(k=>CO_LABELS[k]),datasets:[
     {label:'合約目標',data:CO_KEYS.map(k=>Math.round(cos[k].contract.monthlyTarget/10000)),backgroundColor:'rgba(255,255,255,.06)',borderColor:'rgba(255,255,255,.2)',borderWidth:1},
-    {label:'實際業績',data:CO_KEYS.map(k=>cos[k].kpis?Math.round((cos[k].kpis.sales||0)/10000):0),backgroundColor:CO_KEYS.map(k=>CO_COLORS[k])}
+    {label:'簽約店實銷',data:CO_KEYS.map(k=>cos[k].contract?Math.round((cos[k].contract.signedStoreSales||0)/10000):0),backgroundColor:CO_KEYS.map(k=>CO_COLORS[k])}
   ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#f6f1e6',font:{weight:'bold'}}}},scales:{x:{grid:{display:false},ticks:{color:'#a9a39a'}},y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#a9a39a',callback:v=>v+'萬'}}}}}));
 
   // Brand chart

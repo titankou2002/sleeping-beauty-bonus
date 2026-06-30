@@ -3521,6 +3521,95 @@ class SleeperService
         }
     }
 
+    private function getCompanyTopProducts($ssId, $year, $month, $limit = 10)
+    {
+        try {
+            $gsClient = new GoogleSheetsClient($ssId);
+            $cacheRows = $gsClient->readSheet(CACHE_SHEET);
+            if (count($cacheRows) < 2) return [];
+
+            $h = $cacheRows[0];
+            $idx = [
+                'year' => $this->findHeader($h, ['年度']),
+                'month' => $this->findHeader($h, ['月份']),
+                'sku' => $this->findHeader($h, ['產品編號', '編號']),
+                'amount' => $this->findHeader($h, ['銷售金額']),
+                'pings' => $this->findHeader($h, ['銷售坪數']),
+                'count' => $this->findHeader($h, ['交易筆數'])
+            ];
+            if ($idx['year'] === -1 || $idx['amount'] === -1) return [];
+
+            $priceData = $gsClient->readSheet(PRICE_SHEET);
+            $profiles = [];
+            if (count($priceData) >= 2) {
+                $pH = $priceData[0];
+                $idxCode = $this->findHeader($pH, ['編號','產品編號']);
+                $idxSeries = $this->findHeader($pH, ['系列','英文系列']);
+                $idxSeriesCn = $this->findHeader($pH, ['中文系列','系列中文','中文名稱']);
+                $idxProduct = $this->findHeader($pH, ['原廠品名','產品名稱','品名']);
+                $idxSize = $this->findHeader($pH, ['尺寸(cm)','尺寸']);
+                $idxCategory = $this->findHeader($pH, ['產品大類','大類']);
+                $idxImage = $this->findHeader($pH, ['單片連結網址','單片圖','圖片網址','單片網址','圖片連結']);
+                
+                for ($i = 1; $i < count($priceData); $i++) {
+                    $row = $priceData[$i];
+                    $sku = $this->cleanSku($this->getVal($row, $idxCode));
+                    if (!$sku) continue;
+                    $profiles[$sku] = [
+                        'series' => $idxSeries !== -1 ? trim($this->getVal($row, $idxSeries)) : '',
+                        'seriesCn' => $idxSeriesCn !== -1 ? trim($this->getVal($row, $idxSeriesCn)) : '',
+                        'productName' => $idxProduct !== -1 ? trim($this->getVal($row, $idxProduct)) : '',
+                        'size' => $idxSize !== -1 ? $this->normalizeSizeLabel($this->getVal($row, $idxSize)) : '',
+                        'category' => $idxCategory !== -1 ? trim($this->getVal($row, $idxCategory)) : '',
+                        'imageUrl' => $idxImage !== -1 ? trim($this->getVal($row, $idxImage)) : '',
+                    ];
+                }
+            }
+
+            $topProducts = [];
+            for ($i = 1; $i < count($cacheRows); $i++) {
+                $row = $cacheRows[$i];
+                $rowYear = (int)$this->getVal($row, $idx['year']);
+                $rowMonth = (int)$this->getVal($row, $idx['month']);
+                if ($rowYear !== $year || $rowMonth !== $month) continue;
+
+                $sku = $idx['sku'] !== -1 ? $this->cleanSku($this->getVal($row, $idx['sku'])) : '';
+                if ($sku === '') continue;
+
+                $amount = $this->optFloat($this->getVal($row, $idx['amount']));
+                $pings = $idx['pings'] !== -1 ? $this->optFloat($this->getVal($row, $idx['pings'])) : 0;
+                $txCount = $idx['count'] !== -1 ? (int)$this->getVal($row, $idx['count']) : 0;
+                
+                $profile = $profiles[$sku] ?? null;
+
+                if (!isset($topProducts[$sku])) {
+                    $topProducts[$sku] = [
+                        'sku' => $sku,
+                        'name' => trim($profile['productName'] ?? ''),
+                        'series' => trim(($profile['seriesCn'] ?? '') ?: ($profile['series'] ?? '')),
+                        'category' => trim($profile['category'] ?? ''),
+                        'size' => trim($profile['size'] ?? ''),
+                        'imageUrl' => trim($profile['imageUrl'] ?? ''),
+                        'amount' => 0,
+                        'pings' => 0,
+                        'count' => 0
+                    ];
+                }
+                $topProducts[$sku]['amount'] += $amount;
+                $topProducts[$sku]['pings'] += $pings;
+                $topProducts[$sku]['count'] += $txCount;
+            }
+
+            usort($topProducts, function ($a, $b) {
+                return $b['amount'] <=> $a['amount'];
+            });
+
+            return array_slice($topProducts, 0, $limit);
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
     private function getCompanyQuarterStats($ssId, $year, $month)
     {
         try {
@@ -3845,6 +3934,24 @@ class SleeperService
         foreach ($companyIds as $key => $info) {
             $bs = $basicStats[$key];
             $ct = $allContracts[$key];
+            
+            // Calculate signed store sales and health percentage
+            $signedStoreSales = 0;
+            if (isset($ct['customers']) && isset($allCustomers[$key])) {
+                foreach ($allCustomers[$key] as $cust => $cData) {
+                    if (isset($ct['customers'][$cust])) {
+                        $healthBucket = $ct['customers'][$cust]['health'] ?? '';
+                        if (in_array($healthBucket, ['正常', '逾期', '嚴重', '待續', '已續'], true)) {
+                            $signedStoreSales += $cData['curMonth'] ?? 0;
+                        }
+                    }
+                }
+            }
+            $healthPct = $ct['monthlyTarget'] > 0 ? round($signedStoreSales / $ct['monthlyTarget'] * 100, 1) : 0;
+            
+            // Get top 10 products
+            $topProds = $this->getCompanyTopProducts($info['id'], $year, $month, 10);
+            
             $curQ = ceil($month / 3);
             $qKey = $year . 'Q' . $curQ;
             $prevQKey = $curQ > 1 ? ($year . 'Q' . ($curQ - 1)) : (($year - 1) . 'Q4');
@@ -3857,11 +3964,14 @@ class SleeperService
                 'kpis' => $bs['success'] ? $bs['kpis'] : null,
                 'monthlySales' => $bs['success'] ? $bs['monthlySales'] : null,
                 'products' => $allProducts[$key],
+                'topProducts' => $topProds,
                 'contract' => [
                     'active' => $ct['active'],
                     'monthlyTarget' => $ct['monthlyTarget'],
                     'healthCounts' => $ct['healthCounts'],
                     'detail' => $ct['detail'],
+                    'signedStoreSales' => round($signedStoreSales),
+                    'healthPct' => $healthPct,
                 ],
                 'quarter' => [
                     'current' => ['label' => $qKey, 'amount' => round($allQuarters[$key][$qKey] ?? 0)],
@@ -4185,6 +4295,7 @@ class SleeperService
 
     public function getCustomerAnalysis()
     {
+        set_time_limit(120);
         $now = new DateTime();
         $thisYear = (int)$now->format('Y');
         $lastYear = $thisYear - 1;
@@ -5593,6 +5704,188 @@ class SleeperService
         return array_slice($data, 1); // skip header row
     }
 
+    private function fmtW($v)
+    {
+        $v = (float)$v;
+        if ($v >= 10000) return number_format($v / 10000, 1) . '萬';
+        if ($v >= 1000) return number_format($v / 1000, 1) . '千';
+        return round($v) . '元';
+    }
+
+    public function sendDailyPerformanceReport($recipients, $fromEmail = '')
+    {
+        $today = new DateTime('today');
+        $todayStr = $today->format('Y/m/d');
+        $monthStart = new DateTime($today->format('Y-m-01'));
+
+        $salesRows = $this->gs->readSheet(SALES_SHEET);
+        $todayItems = [];
+        $monthItems = [];
+
+        if (count($salesRows) > 1) {
+            $h = $salesRows[0];
+            $idx = [
+                'date' => $this->findHeader($h, ['單據日期','銷貨日期','日期']),
+                'cust' => $this->findHeader($h, ['客戶名稱','客戶']),
+                'custCode' => $this->findHeader($h, ['客戶編號','客戶代碼','代碼']),
+                'sales' => $this->findHeader($h, ['負責業務','業務','業務員','負責人']),
+                'amt' => $this->findHeader($h, ['金額','銷額','銷售金額','成交金額','小計','總計']),
+                'code' => $this->findHeader($h, ['產品編號','編號','品號','品碼','序號']),
+                'qty' => $this->findHeader($h, ['數量','片數']),
+                'note' => $this->findHeader($h, ['備註','說明'])
+            ];
+
+            $profileMap = $this->getProductProfileMap();
+
+            for ($i = 1; $i < count($salesRows); $i++) {
+                $row = $salesRows[$i];
+                $d = $this->parseDate($this->getVal($row, $idx['date']));
+                if (!$d) continue;
+
+                $amt = $this->optFloat($this->getVal($row, $idx['amt']));
+                if ($amt <= 0) continue;
+
+                $custName = trim($this->getVal($row, $idx['cust']));
+                $custCode = trim($this->getVal($row, $idx['custCode']));
+                $note = trim($this->getVal($row, $idx['note']));
+                if ($this->isSampleRow($custCode, $custName, $note, $amt)) continue;
+
+                $code = $this->cleanSku($this->getVal($row, $idx['code']));
+                if ($code === '') continue;
+
+                $salesName = $this->normalizeSalesRep($this->getVal($row, $idx['sales']));
+                $profile = $profileMap[$code] ?? null;
+                $seriesCn = $profile ? (trim($profile['seriesCn'] ?: $profile['series']) ?: '') : '';
+                $qty = $this->optFloat($this->getVal($row, $idx['qty']));
+
+                $item = [
+                    'cust' => $custName,
+                    'salesName' => $salesName,
+                    'amt' => $amt,
+                    'code' => $code,
+                    'seriesCn' => $seriesCn,
+                    'qty' => $qty,
+                    'd' => $d
+                ];
+
+                if ($d >= $today) $todayItems[] = $item;
+                if ($d >= $monthStart) $monthItems[] = $item;
+            }
+        }
+
+        $todayTotal = array_sum(array_column($todayItems, 'amt'));
+        $monthTotal = array_sum(array_column($monthItems, 'amt'));
+
+        $lastTxDate = null;
+        foreach ($monthItems as $item) {
+            if (!$lastTxDate || $item['d'] > $lastTxDate) $lastTxDate = $item['d'];
+        }
+
+        $displayItems = count($todayItems) > 0 ? $todayItems : [];
+        $displayLabel = '當日';
+        if (count($todayItems) === 0 && $lastTxDate) {
+            $displayItems = array_values(array_filter($monthItems, function ($item) use ($lastTxDate) {
+                return $item['d'] == $lastTxDate;
+            }));
+            $displayLabel = $lastTxDate->format('m/d') . ' 交易';
+        }
+
+        // 客戶排行
+        $custMap = [];
+        $custItems = [];
+        foreach ($displayItems as $item) {
+            $shortName = $this->displayCustomerName($item['cust']);
+            $custMap[$shortName] = ($custMap[$shortName] ?? 0) + $item['amt'];
+            if (!isset($custItems[$shortName])) $custItems[$shortName] = [];
+            $custItems[$shortName][] = $item;
+        }
+        arsort($custMap);
+        $sortedCust = array_slice($custMap, 0, 10);
+        $custTotal = max(1, array_sum($custMap));
+
+        // 業務統計
+        $salesTodayMap = [];
+        $salesMonthMap = [];
+        foreach ($todayItems as $item) {
+            $salesTodayMap[$item['salesName']] = ($salesTodayMap[$item['salesName']] ?? 0) + $item['amt'];
+        }
+        foreach ($monthItems as $item) {
+            $salesMonthMap[$item['salesName']] = ($salesMonthMap[$item['salesName']] ?? 0) + $item['amt'];
+        }
+        $allSales = array_unique(array_merge(array_keys($salesTodayMap), array_keys($salesMonthMap)));
+        $sortedSales = [];
+        foreach ($allSales as $name) {
+            $sortedSales[] = ['name' => $name, 'today' => $salesTodayMap[$name] ?? 0, 'month' => $salesMonthMap[$name] ?? 0];
+        }
+        usort($sortedSales, function ($a, $b) { return $b['today'] - $a['today']; });
+        $salesTodayTotal = max(1, array_sum($salesTodayMap));
+
+        // 系列銷售 Top 5
+        $seriesMap = [];
+        foreach ($displayItems as $item) {
+            $s = $item['seriesCn'] ?: '其他';
+            $seriesMap[$s] = ($seriesMap[$s] ?? 0) + $item['amt'];
+        }
+        arsort($seriesMap);
+        $sortedSeries = array_slice($seriesMap, 0, 5);
+
+        // 組 HTML
+        $todayColor = $todayTotal === 0 ? '#94a3b8' : '#059669';
+        $lastTxNote = ($todayTotal === 0 && $lastTxDate) ? '（最後交易日：' . $lastTxDate->format('Y/m/d') . '）' : '';
+
+        $html = '<div style="font-family:-apple-system,\'PingFang TC\',sans-serif;max-width:700px;margin:0 auto;color:#333;">';
+        $html .= '<h2 style="color:#c29d66;border-bottom:3px solid #c29d66;padding-bottom:8px;">高雅瓷每日戰報 ' . $todayStr . '</h2>';
+        $html .= '<h3 style="color:' . $todayColor . ';">今日銷貨：' . $this->fmtW($todayTotal) . $lastTxNote . '</h3>';
+        $html .= '<h3 style="color:#2563eb;">當月累計：' . $this->fmtW($monthTotal) . '</h3>';
+
+        if (count($sortedCust) > 0) {
+            $html .= '<h3>客戶排行（' . $displayLabel . '）</h3>';
+            $html .= '<table style="width:100%;border-collapse:collapse;font-size:13px;"><tr style="background:#1e293b;color:white;"><th>客戶</th><th style="text-align:right;">金額</th><th style="text-align:right;">佔比</th><th>明細</th></tr>';
+            foreach ($sortedCust as $name => $amt) {
+                $items = $custItems[$name] ?? [];
+                $detailParts = [];
+                foreach ($items as $item) {
+                    $detailParts[] = ($item['seriesCn'] ?: '') . ' ' . $item['code'] . ' ' . round($item['qty']) . '片';
+                }
+                $detail = implode('<br>', $detailParts);
+                $html .= '<tr style="border-bottom:1px solid #e2e8f0;"><td>' . $name . '</td><td style="text-align:right;">' . $this->fmtW($amt) . '</td><td style="text-align:right;">' . round($amt / $custTotal * 100) . '%</td><td style="font-size:11px;color:#64748b;">' . $detail . '</td></tr>';
+            }
+            $html .= '</table>';
+        }
+
+        if (count($sortedSales) > 0) {
+            $html .= '<h3>業務統計</h3>';
+            $html .= '<table style="width:100%;border-collapse:collapse;font-size:13px;"><tr style="background:#1e293b;color:white;"><th>業務</th><th style="text-align:right;">當日</th><th style="text-align:right;">佔比</th><th style="text-align:right;">當月</th><th style="text-align:right;">佔比</th></tr>';
+            foreach ($sortedSales as $r) {
+                $html .= '<tr style="border-bottom:1px solid #e2e8f0;"><td>' . $r['name'] . '</td><td style="text-align:right;">' . $this->fmtW($r['today']) . '</td><td style="text-align:right;">' . round($r['today'] / $salesTodayTotal * 100) . '%</td><td style="text-align:right;">' . $this->fmtW($r['month']) . '</td><td style="text-align:right;">' . round($monthTotal > 0 ? $r['month'] / $monthTotal * 100 : 0) . '%</td></tr>';
+            }
+            $html .= '</table>';
+        }
+
+        if (count($sortedSeries) > 0) {
+            $html .= '<h3>系列銷售 Top 5（' . $displayLabel . '）</h3>';
+            $html .= '<table style="width:100%;border-collapse:collapse;font-size:13px;"><tr style="background:#1e293b;color:white;"><th>系列</th><th style="text-align:right;">金額</th></tr>';
+            foreach ($sortedSeries as $name => $amt) {
+                $html .= '<tr style="border-bottom:1px solid #e2e8f0;"><td>' . $name . '</td><td style="text-align:right;">' . $this->fmtW($amt) . '</td></tr>';
+            }
+            $html .= '</table>';
+        }
+
+        $html .= '<p style="font-size:12px;color:#94a3b8;margin-top:20px;">高雅瓷戰情室 AI 系統自動發送</p></div>';
+
+        $subject = '高雅瓷每日戰報 ' . $todayStr . ' | 銷貨' . $this->fmtW($todayTotal) . ' 月累' . $this->fmtW($monthTotal);
+
+        $headers = [
+            'MIME-Version: 1.0',
+            'Content-type: text/html; charset=utf-8',
+            'From: ' . ($fromEmail ?: DAILY_EMAIL_FROM),
+            'To: ' . $recipients
+        ];
+
+        $ok = mail($recipients, $subject, $html, implode("\r\n", $headers));
+        return ['success' => $ok, 'todayTotal' => $todayTotal, 'monthTotal' => $monthTotal, 'subject' => $subject];
+    }
+
     public function rebuildSalesYearCache($years = null)
     {
         $lockFp = null;
@@ -6293,6 +6586,19 @@ try {
             $note      = $_POST['note'] ?? '';
             $res = $svc->updateTrialRow($rowIdx, $qty, $unitPrice, $multiplier, $clearance, $note);
             echo json_encode($res);
+            break;
+
+        case 'send-daily-email':
+            $token = $_GET['token'] ?? '';
+            if ($token !== CRON_TOKEN) {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'msg' => 'invalid token']);
+                break;
+            }
+            $to = $_GET['to'] ?: DAILY_EMAIL_TO;
+            $from = $_GET['from'] ?: DAILY_EMAIL_FROM;
+            $res = $svc->sendDailyPerformanceReport($to, $from);
+            echo json_encode($res, JSON_UNESCAPED_UNICODE);
             break;
 
         default:

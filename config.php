@@ -27,3 +27,7 @@ if (!defined('GEMINI_API_KEY')) define('GEMINI_API_KEY', getenv('GEMINI_API_KEY'
 define('GEMINI_MODEL', getenv('GEMINI_MODEL') ?: 'gemini-2.5-flash');
 define('AI_ADVISOR_CACHE_DIR', __DIR__ . '/cache');
 
+// 每日業績郵件設定
+define('DAILY_EMAIL_TO', getenv('DAILY_EMAIL_TO') ?: 'titankou2002@gmail.com,sb780910@gmail.com,ghosts0125@gmail.com,panus081231@gmail.com,lynnloveshumi@gmail.com');
+define('DAILY_EMAIL_FROM', getenv('DAILY_EMAIL_FROM') ?: '高雅瓷戰情室 <noreply@gaoyaci.local>');
+
