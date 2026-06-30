@@ -76,6 +76,24 @@ class GoogleSheetsClient
         unset($this->sheetValueCache[$sheetName]);
     }
 
+    public function createSheet($sheetName)
+    {
+        $body = [
+            'requests' => [
+                [
+                    'addSheet' => [
+                        'properties' => [
+                            'title' => $sheetName
+                        ]
+                    ]
+                ]
+            ]
+        ];
+        $this->batchUpdate($body);
+        unset($this->sheetIdCache[$sheetName]);
+        unset($this->sheetPropsCache[$sheetName]);
+    }
+
     public function formatSalesYearCacheSheet($sheetName)
     {
         $sheetId = $this->getSheetIdByName($sheetName);
