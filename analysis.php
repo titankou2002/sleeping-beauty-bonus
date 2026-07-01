@@ -292,7 +292,7 @@ tr:hover td { background: var(--surface2); }
               <th data-key="series">系列</th>
               <th data-key="firstInDate">首次進貨</th>
               <th data-key="ttfs">TTFS</th>
-              <th data-key="salesReps">負責業務</th>
+              <th data-key="customers">銷售客戶</th>
               <th data-key="totalAmount">總銷售額</th>
               <th data-key="totalCount">交易次數</th>
               <th data-key="customerCount">銷售家數</th>
@@ -553,7 +553,7 @@ function renderTable(products) {
   var sorted = products.slice();
   sorted.sort(function(a, b) {
     var va = a[sortKey], vb = b[sortKey];
-    if (sortKey === 'salesReps') {
+    if (sortKey === 'customers') {
       va = (va || []).join(',');
       vb = (vb || []).join(',');
       return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
@@ -566,7 +566,8 @@ function renderTable(products) {
 
   body.innerHTML = '';
   sorted.forEach(function(p) {
-    var reps = (p.salesReps || []).map(function(r) { return '<span class="rep-tag">' + r + '</span>'; }).join('');
+    var custs = (p.customers || []).slice(0, 5).map(function(c) { return '<span class="rep-tag">' + c + '</span>'; }).join('');
+    if ((p.customers || []).length > 5) custs += ' <span style="font-size:10px;color:var(--text2)">+ ' + (p.customers.length - 5) + '</span>';
     var img = p.imageUrl ? '<img src="' + p.imageUrl + '" style="width:24px;height:24px;border-radius:4px;object-fit:cover;vertical-align:middle;margin-right:6px">' : '';
     body.innerHTML += '<tr>'
       + '<td><span class="grade-pill ' + p.grade + '">' + p.grade + '</span></td>'
@@ -574,7 +575,7 @@ function renderTable(products) {
       + '<td>' + (p.series || '-') + '</td>'
       + '<td class="mono">' + fmtDate(p.firstInDate) + '</td>'
       + '<td class="mono ' + ttfsClass(p.ttfs) + '" title="' + (p.ttfsDesc || '') + '">' + ttfsLabel(p.ttfs) + '</td>'
-      + '<td>' + reps + '</td>'
+      + '<td>' + custs + '</td>'
       + '<td class="mono">' + fmtNum(p.totalAmount) + '</td>'
       + '<td class="mono">' + p.totalCount + '</td>'
       + '<td class="mono">' + p.customerCount + '</td>'
@@ -601,7 +602,7 @@ function openDetail(sku) {
   var p = allData.products.find(function(x) { return x.sku === sku; });
   if (!p) return;
   var content = document.getElementById('detail-content');
-  var reps = (p.salesReps || []).map(function(r) { return '<span class="rep-tag">' + r + '</span>'; }).join('');
+  var custHtml = (p.customers || []).map(function(c) { return '<span class="rep-tag">' + c + '</span>'; }).join('');
   var areaTable = (p.areaSales || []).map(function(a) {
     return '<tr><td>' + a.area + '</td><td class="mono" style="text-align:right">' + fmtNum(a.amount) + '</td><td style="text-align:right"><div style="background:var(--surface2);border-radius:4px;overflow:hidden"><div style="background:var(--gold);height:6px;width:' + Math.min(100, a.amount / Math.max.apply(null, p.areaSales.map(function(x){return x.amount})) * 100) + '%"></div></div></td></tr>';
   }).join('');
@@ -621,7 +622,7 @@ function openDetail(sku) {
     + '<div class="detail-field"><div class="dl">交易次數</div><div class="dd">' + p.totalCount + '</div></div>'
     + '<div class="detail-field"><div class="dl">銷售家數</div><div class="dd">' + p.customerCount + '</div></div>'
     + '<div class="detail-field"><div class="dl">上架家數</div><div class="dd">' + p.displayCount + '</div></div>'
-    + '<div class="detail-field"><div class="dl">負責業務</div><div class="dd">' + reps + '</div></div>'
+    + '<div class="detail-field"><div class="dl">銷售客戶 (' + (p.customers || []).length + ' 家)</div><div class="dd" style="font-size:12px">' + custHtml + '</div></div>'
     + '<div class="detail-field"><div class="dl">首次進貨日</div><div class="dd mono">' + fmtDate(p.firstInDate) + '</div></div>'
     + '</div>'
 

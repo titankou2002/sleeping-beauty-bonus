@@ -5874,7 +5874,7 @@ class SleeperService
                 'totalPings' => round($totalPings, 2),
                 'customerCount' => $customerCount,
                 'displayCount' => $displayCount,
-                'salesReps' => $reps,
+                'customers' => array_keys($customerSet),
                 'areaSales' => $areaSales,
                 'monthlySales' => array_map('round', $monthlySales),
                 'monthlyCount' => $monthlyCount,
