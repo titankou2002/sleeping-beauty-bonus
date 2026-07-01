@@ -20,7 +20,6 @@
   --text2: rgba(255,255,255,0.45);
   --gold: #c29d66;
   --gold-soft: rgba(194,157,102,0.1);
-  --gold-glow: rgba(194,157,102,0.2);
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
@@ -31,8 +30,7 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: "Inter", -apple-system, "Noto Sans TC", sans-serif;
-  min-height: 100vh;
-  -webkit-font-smoothing: antialiased;
+  min-height: 100vh; -webkit-font-smoothing: antialiased;
 }
 .app { display: flex; flex-direction: column; min-height: 100dvh; }
 .topbar {
@@ -43,20 +41,15 @@ body {
 }
 .topbar-inner {
   max-width: 1400px; margin: 0 auto;
-  padding: 0 20px;
-  height: 56px;
+  padding: 0 20px; height: 56px;
   display: flex; align-items: center; gap: 16px;
 }
 .logo {
   font-size: 16px; font-weight: 900; letter-spacing: 2px;
-  color: var(--gold);
-  text-shadow: 0 0 20px rgba(194,157,102,0.3);
+  color: var(--gold); text-shadow: 0 0 20px rgba(194,157,102,0.3);
   white-space: nowrap;
 }
-.main {
-  max-width: 1400px; margin: 0 auto; padding: 20px;
-  width: 100%;
-}
+.main { max-width: 1400px; margin: 0 auto; padding: 20px; width: 100%; }
 .ctrl-bar {
   display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
   margin-bottom: 20px;
@@ -69,9 +62,7 @@ select, button {
   border: 1px solid var(--border); cursor: pointer;
   transition: all 0.2s;
 }
-select:hover, button:hover {
-  border-color: var(--gold); background: var(--gold-soft);
-}
+select:hover, button:hover { border-color: var(--gold); background: var(--gold-soft); }
 .btn-primary {
   background: linear-gradient(135deg, #c29d66, #d4b483);
   color: #000; border: none; font-weight: 800;
@@ -79,36 +70,65 @@ select:hover, button:hover {
 .btn-primary:hover { background: linear-gradient(135deg, #d4b483, #e6cba0); }
 .grid-4 {
   display: grid; gap: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   margin-bottom: 20px;
 }
 .stat-card {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius-lg); padding: 16px 18px;
+  border-radius: var(--radius-lg); padding: 14px 16px;
 }
-.stat-card .label { font-size: 11px; color: var(--text2); font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px; }
-.stat-card .value { font-size: 28px; font-weight: 800; letter-spacing: -0.5px; }
-.stat-card .sub { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.stat-card .label { font-size: 11px; color: var(--text2); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
+.stat-card .value { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; line-height: 1.1; }
+.stat-card .sub { font-size: 11px; color: var(--text2); margin-top: 2px; }
 .chart-card {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--radius-lg); padding: 20px;
   margin-bottom: 20px;
-  position: relative;
 }
-.chart-card .title {
-  font-size: 15px; font-weight: 700; margin-bottom: 14px;
-  display: flex; align-items: center; gap: 12px;
-}
+.chart-card .title { font-size: 15px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 12px; }
 .chart-wrap { position: relative; height: 380px; }
-.product-table-wrap {
+
+.section-card {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius-lg); overflow: hidden;
+  border-radius: var(--radius-lg); margin-bottom: 20px; overflow: hidden;
 }
-.product-table-wrap .header {
+.section-card .section-title {
+  padding: 14px 20px; font-size: 15px; font-weight: 700;
+  border-bottom: 1px solid var(--border);
   display: flex; justify-content: space-between; align-items: center;
-  padding: 16px 20px; border-bottom: 1px solid var(--border);
+  cursor: pointer; user-select: none;
 }
-.product-table-wrap .header .title { font-size: 15px; font-weight: 700; }
+.section-card .section-title:hover { background: var(--surface2); }
+.section-card .section-body { padding: 16px 20px; }
+
+.grade-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+.grade-pill {
+  padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 800;
+}
+.grade-pill.A { background: rgba(34,197,94,0.15); color: #22c55e; }
+.grade-pill.B { background: rgba(59,130,246,0.15); color: #60a5fa; }
+.grade-pill.C { background: rgba(245,158,11,0.15); color: #f59e0b; }
+.grade-pill.D { background: rgba(239,68,68,0.15); color: #ef4444; }
+.grade-A, .text-A { color: #22c55e; }
+.grade-B, .text-B { color: #60a5fa; }
+.grade-C, .text-C { color: #f59e0b; }
+.grade-D, .text-D { color: #ef4444; }
+
+.series-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 4px;
+  font-size: 11px; font-weight: 700; margin-right: 4px;
+}
+.series-badge.A { background: rgba(34,197,94,0.12); color: #22c55e; }
+.series-badge.B { background: rgba(59,130,246,0.12); color: #60a5fa; }
+.series-badge.C { background: rgba(245,158,11,0.12); color: #f59e0b; }
+.series-badge.D { background: rgba(239,68,68,0.12); color: #ef4444; }
+
+.table-card { border-radius: var(--radius-lg); overflow: hidden; background: var(--surface); border: 1px solid var(--border); margin-bottom: 20px; }
+.table-card .header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 14px 20px; border-bottom: 1px solid var(--border);
+}
+.table-card .header .title { font-size: 15px; font-weight: 700; }
 .table-scroll { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 th {
@@ -120,57 +140,66 @@ th {
 }
 th:hover { color: var(--gold); }
 th.sorted { color: var(--gold); }
-td { padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+td { padding: 9px 12px; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
 tr:hover td { background: var(--surface2); }
-.grade-A { color: #22c55e; }
-.grade-B { color: #f59e0b; }
-.grade-C { color: #ef4444; }
-.grade-badge {
-  display: inline-block; padding: 2px 10px; border-radius: 20px;
-  font-size: 11px; font-weight: 800;
-}
-.grade-badge.A { background: rgba(34,197,94,0.15); color: #22c55e; }
-.grade-badge.B { background: rgba(245,158,11,0.15); color: #f59e0b; }
-.grade-badge.C { background: rgba(239,68,68,0.15); color: #ef4444; }
 .mono { font-feature-settings: "tnum" 1; }
-.ttfs-good { color: #22c55e; }
-.ttfs-ok { color: #f59e0b; }
-.ttfs-bad { color: #ef4444; }
+.ttfs-0 { color: #22c55e; }
+.ttfs-1 { color: #22c55e; }
+.ttfs-2 { color: #60a5fa; }
+.ttfs-3 { color: #60a5fa; }
+.ttfs-4 { color: #f59e0b; }
 .ttfs-na { color: var(--text2); }
+.rep-tag {
+  display: inline-block; padding: 1px 6px; border-radius: 3px;
+  font-size: 10px; font-weight: 600; margin: 1px 2px 1px 0;
+  background: rgba(255,255,255,0.06); color: var(--text2);
+}
+
 .loading {
   position: fixed; inset: 0; z-index: 999;
   display: flex; align-items: center; justify-content: center;
-  background: rgba(10,10,10,0.7);
-  backdrop-filter: blur(4px);
+  background: rgba(10,10,10,0.7); backdrop-filter: blur(4px);
 }
 .loading.hidden { display: none; }
-.spinner {
-  width: 40px; height: 40px; border-radius: 50%;
-  border: 3px solid var(--border); border-top-color: var(--gold);
-  animation: spin 0.8s linear infinite;
-}
+.spinner { width: 40px; height: 40px; border-radius: 50%; border: 3px solid var(--border); border-top-color: var(--gold); animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.tooltip {
+
+.detail-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,0.6); backdrop-filter: blur(6px);
+  display: none; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.detail-overlay.open { display: flex; }
+.detail-panel {
+  background: #111; border: 1px solid var(--border);
+  border-radius: var(--radius-xl); padding: 24px;
+  max-width: 700px; width: 100%; max-height: 90vh; overflow-y: auto;
   position: relative;
 }
-.tooltip:hover::after {
-  content: attr(data-tip);
-  position: absolute; bottom: calc(100% + 6px); left: 50%;
-  transform: translateX(-50%);
-  background: #111; border: 1px solid var(--border);
-  padding: 6px 10px; border-radius: var(--radius-sm);
-  font-size: 11px; white-space: nowrap; z-index: 10;
-  color: var(--text2);
+.detail-close {
+  position: absolute; top: 12px; right: 16px;
+  background: none; border: none; color: var(--text2);
+  font-size: 24px; cursor: pointer;
 }
-.empty-state {
-  text-align: center; padding: 60px 20px; color: var(--text2);
-}
+.detail-close:hover { color: var(--text); }
+.detail-title { font-size: 18px; font-weight: 800; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+.detail-field {}
+.detail-field .dl { font-size: 11px; color: var(--text2); font-weight: 600; margin-bottom: 2px; }
+.detail-field .dd { font-size: 15px; font-weight: 700; }
+.detail-section-title { font-size: 14px; font-weight: 700; margin: 14px 0 10px; padding-top: 12px; border-top: 1px solid var(--border); }
+.pie-wrap { height: 260px; position: relative; }
+
+.empty-state { text-align: center; padding: 60px 20px; color: var(--text2); }
 .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
 .empty-state .msg { font-size: 15px; font-weight: 600; }
+
 @media (max-width: 600px) {
   .grid-4 { grid-template-columns: repeat(2, 1fr); }
-  .stat-card .value { font-size: 22px; }
+  .stat-card .value { font-size: 20px; }
   .chart-wrap { height: 260px; }
+  .detail-grid { grid-template-columns: 1fr; }
 }
   </style>
 </head>
@@ -186,6 +215,13 @@ tr:hover td { background: var(--surface2); }
     <div class="spinner"></div>
   </div>
 
+  <div id="detail-overlay" class="detail-overlay" onclick="if(event.target===this)closeDetail()">
+    <div class="detail-panel">
+      <button class="detail-close" onclick="closeDetail()">&times;</button>
+      <div id="detail-content"></div>
+    </div>
+  </div>
+
   <div class="main">
     <div class="ctrl-bar">
       <span class="ctrl-label">分析期間：</span>
@@ -193,6 +229,16 @@ tr:hover td { background: var(--surface2); }
         <option value="12">12 個月</option>
         <option value="24" selected>24 個月</option>
         <option value="36">36 個月</option>
+      </select>
+      <select id="sel-series-filter" onchange="applySeriesFilter()">
+        <option value="">全部系列</option>
+      </select>
+      <select id="sel-grade-filter" onchange="applySeriesFilter()">
+        <option value="">全部分級</option>
+        <option value="A">A 明星</option>
+        <option value="B">B 潛力</option>
+        <option value="C">C 觀察</option>
+        <option value="D">D 弱勢</option>
       </select>
       <button class="btn-primary" onclick="loadData()">載入分析</button>
       <button onclick="toggleProducts()" id="btn-toggle-individual" style="display:none">顯示個別產品線</button>
@@ -205,9 +251,7 @@ tr:hover td { background: var(--surface2); }
         <span>新品群組滲透曲線</span>
         <span style="font-size:11px;color:var(--text2);font-weight:400">中位數銷售額 (P25 / P75)</span>
       </div>
-      <div class="chart-wrap">
-        <canvas id="cohort-chart"></canvas>
-      </div>
+      <div class="chart-wrap"><canvas id="cohort-chart"></canvas></div>
     </div>
 
     <div class="chart-card" id="individual-panel" style="display:none">
@@ -215,15 +259,29 @@ tr:hover td { background: var(--surface2); }
         <span>個別產品月銷售</span>
         <span style="font-size:11px;color:var(--text2);font-weight:400">前 20 支（按總額排序）</span>
       </div>
-      <div class="chart-wrap">
-        <canvas id="individual-chart"></canvas>
-      </div>
+      <div class="chart-wrap"><canvas id="individual-chart"></canvas></div>
     </div>
 
-    <div class="product-table-wrap" id="table-wrap">
+    <div id="grade-groups-section" class="section-card" style="display:none">
+      <div class="section-title" onclick="toggleSection(this)">
+        <span>分級下探分析</span>
+        <span style="font-size:11px;color:var(--text2)" id="grade-toggle-label">展開</span>
+      </div>
+      <div class="section-body" id="grade-groups-body" style="display:none"></div>
+    </div>
+
+    <div id="series-section" class="section-card" style="display:none">
+      <div class="section-title" onclick="toggleSection(this)">
+        <span>系列分類總覽</span>
+        <span style="font-size:11px;color:var(--text2)" id="series-toggle-label">展開</span>
+      </div>
+      <div class="section-body" id="series-body" style="display:none"></div>
+    </div>
+
+    <div class="table-card" id="table-wrap">
       <div class="header">
         <div class="title">新品打分卡 <span id="product-count" style="font-size:12px;color:var(--text2);font-weight:400"></span></div>
-        <span style="font-size:11px;color:var(--text2)">點擊欄位排序</span>
+        <span style="font-size:11px;color:var(--text2)">點擊欄位排序 · 點選 SKU 開啟詳細</span>
       </div>
       <div class="table-scroll">
         <table id="product-table">
@@ -234,6 +292,7 @@ tr:hover td { background: var(--surface2); }
               <th data-key="series">系列</th>
               <th data-key="firstInDate">首次進貨</th>
               <th data-key="ttfs">TTFS</th>
+              <th data-key="salesReps">負責業務</th>
               <th data-key="totalAmount">總銷售額</th>
               <th data-key="totalCount">交易次數</th>
               <th data-key="customerCount">銷售家數</th>
@@ -250,14 +309,15 @@ tr:hover td { background: var(--surface2); }
 
 <script>
 var API_BASE = 'api.php';
-var chartData = null;
+var allData = null;
 var cohortChart = null;
 var individualChart = null;
 var showIndividual = false;
+var sortKey = 'score';
+var sortAsc = false;
+var pieChart = null;
 
-function showLoading(v) {
-  document.getElementById('loading').classList.toggle('hidden', !v);
-}
+function showLoading(v) { document.getElementById('loading').classList.toggle('hidden', !v); }
 function toast(msg, isError) {
   var t = document.createElement('div');
   t.textContent = msg;
@@ -272,22 +332,17 @@ function fmtNum(n) {
   if (Number.isInteger(n)) return n.toLocaleString();
   return n.toFixed(n % 1 === 0 ? 0 : 1);
 }
-function fmtDate(d) {
-  if (!d) return '-';
-  var p = d.split('/');
-  return p[0] + '/' + p[1] + '/' + p[2];
-}
+function fmtDate(d) { if (!d) return '-'; var p = d.split('/'); return p[0] + '/' + p[1] + '/' + p[2]; }
 function ttfsClass(v) {
   if (v < 0) return 'ttfs-na';
-  if (v <= 1) return 'ttfs-good';
-  if (v <= 3) return 'ttfs-ok';
-  return 'ttfs-bad';
+  return 'ttfs-' + Math.min(v, 4);
 }
 function ttfsLabel(v) {
-  if (v < 0) return '無交易';
-  if (v === 0) return '當月即售';
+  if (v < 0) return '從未交易';
+  if (v === 0) return '當月即成交';
   return v + ' 月';
 }
+function gradeClass(g) { return 'grade-' + g; }
 
 function loadData() {
   var months = document.getElementById('sel-months').value;
@@ -297,42 +352,42 @@ function loadData() {
     .then(function(res) {
       showLoading(false);
       if (!res.success) { toast(res.msg || '載入失敗', true); return; }
-      chartData = res.data;
+      allData = res.data;
       renderSummary(res.data.summary);
       renderCohortCurve(res.data);
-      renderTable(res.data.products);
+      renderGradeGroups(res.data.gradeGroups);
+      renderSeriesGroups(res.data.seriesGroups);
+      populateSeriesFilter(res.data.seriesGroups);
+      applySeriesFilter();
       document.getElementById('btn-toggle-individual').style.display = 'inline-block';
+      document.getElementById('grade-groups-section').style.display = '';
+      document.getElementById('series-section').style.display = '';
     })
-    .catch(function(err) {
-      showLoading(false);
-      toast('連線失敗: ' + err, true);
-    });
+    .catch(function(err) { showLoading(false); toast('連線失敗: ' + err, true); });
 }
 
 function renderSummary(s) {
   var html = '';
   html += '<div class="stat-card"><div class="label">新品總數</div><div class="value">' + s.totalProducts + '</div><div class="sub">分析期間內首次進貨</div></div>';
-  html += '<div class="stat-card"><div class="label">A 級 (明星)</div><div class="value grade-A">' + s.gradeA + '</div><div class="sub">佔 ' + (s.totalProducts ? (s.gradeA / s.totalProducts * 100).toFixed(1) : 0) + '%</div></div>';
-  html += '<div class="stat-card"><div class="label">B 級 (一般)</div><div class="value grade-B">' + s.gradeB + '</div><div class="sub">佔 ' + (s.totalProducts ? (s.gradeB / s.totalProducts * 100).toFixed(1) : 0) + '%</div></div>';
-  html += '<div class="stat-card"><div class="label">C 級 (陣亡)</div><div class="value grade-C">' + s.gradeC + '</div><div class="sub">佔 ' + (s.totalProducts ? (s.gradeC / s.totalProducts * 100).toFixed(1) : 0) + '%</div></div>';
-  html += '<div class="stat-card"><div class="label">平均 TTFS</div><div class="value">' + (s.avgTTFS < 0 ? '-' : s.avgTTFS + ' 月') + '</div><div class="sub">首次交易到上市平均月數</div></div>';
-  html += '<div class="stat-card"><div class="label">平均銷售家數</div><div class="value">' + s.avgCustomerCount + '</div><div class="sub">每支新品平均客戶數</div></div>';
-  html += '<div class="stat-card"><div class="label">平均上架家數</div><div class="value">' + s.avgDisplayCount + '</div><div class="sub">每支新品累計上架</div></div>';
-  html += '<div class="stat-card"><div class="label">平均總銷售額</div><div class="value">' + fmtNum(s.avgTotalAmount) + '</div><div class="sub">每支新品總銷售</div></div>';
+  html += '<div class="stat-card"><div class="label">A 明星</div><div class="value grade-A">' + s.gradeA + '</div><div class="sub">' + (s.totalProducts ? (s.gradeA / s.totalProducts * 100).toFixed(1) : 0) + '%</div></div>';
+  html += '<div class="stat-card"><div class="label">B 潛力</div><div class="value grade-B">' + s.gradeB + '</div><div class="sub">' + (s.totalProducts ? (s.gradeB / s.totalProducts * 100).toFixed(1) : 0) + '%</div></div>';
+  html += '<div class="stat-card"><div class="label">C 觀察</div><div class="value grade-C">' + s.gradeC + '</div><div class="sub">' + (s.totalProducts ? (s.gradeC / s.totalProducts * 100).toFixed(1) : 0) + '%</div></div>';
+  html += '<div class="stat-card"><div class="label">D 弱勢</div><div class="value grade-D">' + s.gradeD + '</div><div class="sub">' + (s.totalProducts ? (s.gradeD / s.totalProducts * 100).toFixed(1) : 0) + '%</div></div>';
+  html += '<div class="stat-card"><div class="label">平均 TTFS</div><div class="value">' + (s.avgTTFS < 0 ? '-' : s.avgTTFS + ' 月') + '</div><div class="sub">上市到首單平均月數</div></div>';
+  html += '<div class="stat-card"><div class="label">平均銷售家數</div><div class="value">' + s.avgCustomerCount + '</div><div class="sub">每支新品</div></div>';
+  html += '<div class="stat-card"><div class="label">平均上架家數</div><div class="value">' + s.avgDisplayCount + '</div><div class="sub">每支新品累計</div></div>';
+  html += '<div class="stat-card"><div class="label">平均總銷售額</div><div class="value">' + fmtNum(s.avgTotalAmount) + '</div><div class="sub">每支新品總和</div></div>';
   document.getElementById('summary-grid').innerHTML = html;
 }
 
 function renderCohortCurve(d) {
   var canvas = document.getElementById('cohort-chart');
-  var ctx = canvas.getContext('2d');
   if (cohortChart) { cohortChart.destroy(); }
-
   var labels = d.cohortCurve.map(function(c) { return c.label; });
   var median = d.cohortCurve.map(function(c) { return c.median; });
   var p25 = d.cohortCurve.map(function(c) { return c.p25; });
   var p75 = d.cohortCurve.map(function(c) { return c.p75; });
-
-  cohortChart = new Chart(ctx, {
+  cohortChart = new Chart(canvas, {
     type: 'line',
     data: {
       labels: labels,
@@ -344,8 +399,7 @@ function renderCohortCurve(d) {
         pointBackgroundColor: '#c29d66',
         pointRadius: 3,
         borderWidth: 2.5,
-        tension: 0.3,
-        fill: false
+        tension: 0.3
       }, {
         label: 'P75',
         data: p75,
@@ -353,8 +407,7 @@ function renderCohortCurve(d) {
         borderWidth: 1.5,
         borderDash: [4, 4],
         pointRadius: 0,
-        tension: 0.3,
-        fill: false
+        tension: 0.3
       }, {
         label: 'P25',
         data: p25,
@@ -368,154 +421,167 @@ function renderCohortCurve(d) {
       }]
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
+      responsive: true, maintainAspectRatio: false,
       interaction: { intersect: false, mode: 'index' },
       plugins: {
-        legend: {
-          position: 'top',
-          labels: { color: 'rgba(255,255,255,0.6)', font: { size: 11 }, boxWidth: 14, padding: 12 }
-        },
-        tooltip: {
-          backgroundColor: '#111',
-          borderColor: 'rgba(194,157,102,0.3)',
-          borderWidth: 1,
-          titleColor: '#c29d66',
-          bodyColor: '#fff',
-          callbacks: {
-            label: function(ctx) {
-              return ctx.dataset.label + ': ' + fmtNum(ctx.parsed.y);
-            }
-          }
+        legend: { position: 'top', labels: { color: 'rgba(255,255,255,0.6)', font: { size: 11 }, boxWidth: 14, padding: 12 } },
+        tooltip: { backgroundColor: '#111', borderColor: 'rgba(194,157,102,0.3)', borderWidth: 1, titleColor: '#c29d66', bodyColor: '#fff',
+          callbacks: { label: function(ctx) { return ctx.dataset.label + ': ' + fmtNum(ctx.parsed.y); } }
         }
       },
       scales: {
-        x: {
-          grid: { color: 'rgba(255,255,255,0.04)', drawOnChartArea: true },
-          ticks: { color: 'rgba(255,255,255,0.35)', font: { size: 10 } }
-        },
-        y: {
-          beginAtZero: true,
-          grid: { color: 'rgba(255,255,255,0.04)' },
-          ticks: {
-            color: 'rgba(255,255,255,0.35)',
-            font: { size: 10 },
-            callback: function(v) { return fmtNum(v); }
-          }
-        }
+        x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: 'rgba(255,255,255,0.35)', font: { size: 10 } } },
+        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: 'rgba(255,255,255,0.35)', font: { size: 10 }, callback: function(v) { return fmtNum(v); } } }
       }
     }
   });
+}
+
+function renderGradeGroups(gg) {
+  var body = document.getElementById('grade-groups-body');
+  var grades = ['A', 'B', 'C', 'D'];
+  var html = '';
+  grades.forEach(function(g) {
+    var grp = gg[g];
+    if (!grp || grp.productCount === 0) {
+      html += '<div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border)">';
+      html += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:6px"><span class="grade-pill ' + g + '">' + g + '</span><span style="font-weight:700">' + (g === 'A' ? '明星' : g === 'B' ? '潛力' : g === 'C' ? '觀察' : '弱勢') + '</span></div>';
+      html += '<span style="color:var(--text2)">0 支產品</span></div>';
+      return;
+    }
+    html += '<div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border)">';
+    html += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;flex-wrap:wrap">';
+    html += '<span class="grade-pill ' + g + '">' + g + '</span>';
+    html += '<span style="font-weight:700">' + grp.label + '</span>';
+    html += '<span style="font-size:12px;color:var(--text2)">' + grp.productCount + ' 支 · 總額 ' + fmtNum(grp.totalAmount) + '</span></div>';
+    html += '<div style="font-size:12px;color:var(--text2);margin-bottom:8px">' + grp.desc + '</div>';
+    html += '<div style="font-size:12px;color:var(--gold);margin-bottom:10px">💡 ' + grp.suggestion + '</div>';
+    html += '<div style="display:flex;gap:6px;flex-wrap:wrap">';
+    (grp.seriesBreakdown || []).forEach(function(s) {
+      html += '<span class="series-badge ' + g + '">' + s.series + ' (' + s.count + '支, ' + fmtNum(s.amount) + ')</span>';
+    });
+    html += '</div></div>';
+  });
+  body.innerHTML = html;
+}
+
+function renderSeriesGroups(sgs) {
+  var body = document.getElementById('series-body');
+  if (!sgs || sgs.length === 0) { body.innerHTML = '<div class="empty-state"><div class="msg">暫無系列資料</div></div>'; return; }
+  var html = '<div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))">';
+  sgs.forEach(function(sg) {
+    var g = sg.mainGrade || 'C';
+    html += '<div style="background:var(--surface2);border-radius:var(--radius-md);padding:14px;border:1px solid var(--border)">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">';
+    html += '<span class="series-badge ' + g + '" style="font-size:13px">' + sg.series + '</span>';
+    html += '<span class="grade-pill ' + g + '">' + g + '</span></div>';
+    html += '<div style="font-size:12px;color:var(--text2)">' + sg.productCount + ' 支產品 · 總額 ' + fmtNum(sg.totalAmount) + '</div>';
+    html += '<div style="font-size:12px;color:var(--text2);margin-bottom:4px">平均分數 ' + sg.avgScore + ' · 均額 ' + fmtNum(sg.avgSales) + '</div>';
+    html += '<div class="grade-pills">';
+    ['A','B','C','D'].forEach(function(g2) {
+      if (sg.grades[g2] > 0) html += '<span class="grade-pill ' + g2 + '">' + g2 + ': ' + sg.grades[g2] + '</span>';
+    });
+    html += '</div></div>';
+  });
+  html += '</div>';
+  body.innerHTML = html;
+}
+
+function populateSeriesFilter(sgs) {
+  var sel = document.getElementById('sel-series-filter');
+  sel.innerHTML = '<option value="">全部系列</option>';
+  sgs.forEach(function(sg) {
+    sel.innerHTML += '<option value="' + sg.series + '">' + sg.series + ' (' + sg.productCount + '支)</option>';
+  });
+}
+
+function applySeriesFilter() {
+  if (!allData) return;
+  var seriesFilter = document.getElementById('sel-series-filter').value;
+  var gradeFilter = document.getElementById('sel-grade-filter').value;
+  var filtered = allData.products;
+  if (seriesFilter) filtered = filtered.filter(function(p) { return p.series === seriesFilter; });
+  if (gradeFilter) filtered = filtered.filter(function(p) { return p.grade === gradeFilter; });
+  renderTable(filtered);
+}
+
+function toggleSection(el) {
+  var body = el.nextElementSibling;
+  var label = el.querySelector('span:last-child');
+  if (body.style.display === 'none') { body.style.display = ''; label.textContent = '收合'; }
+  else { body.style.display = 'none'; label.textContent = '展開'; }
 }
 
 function toggleProducts() {
   showIndividual = !showIndividual;
   document.getElementById('individual-panel').style.display = showIndividual ? 'block' : 'none';
   document.getElementById('btn-toggle-individual').textContent = showIndividual ? '隱藏個別產品線' : '顯示個別產品線';
-  if (showIndividual && chartData) renderIndividualProducts(chartData);
+  if (showIndividual && allData) renderIndividualProducts(allData);
 }
 
 function renderIndividualProducts(d) {
   var canvas = document.getElementById('individual-chart');
-  var ctx = canvas.getContext('2d');
   if (individualChart) { individualChart.destroy(); }
-
   var top = d.products.slice(0, 20);
   var labels = d.cohortCurve.map(function(c) { return c.month; });
   var datasets = top.map(function(p, i) {
     var hue = (i * 137) % 360;
-    return {
-      label: p.sku,
-      data: p.monthlySales,
-      borderColor: 'hsla(' + hue + ', 60%, 55%, 0.6)',
-      borderWidth: 1.2,
-      pointRadius: 0,
-      tension: 0.2,
-      fill: false
-    };
+    return { label: p.sku, data: p.monthlySales, borderColor: 'hsla(' + hue + ', 60%, 55%, 0.6)', borderWidth: 1.2, pointRadius: 0, tension: 0.2 };
   });
-
-  individualChart = new Chart(ctx, {
+  individualChart = new Chart(canvas, {
     type: 'line',
     data: { labels: labels, datasets: datasets },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
+      responsive: true, maintainAspectRatio: false,
       interaction: { intersect: false, mode: 'index' },
       plugins: {
-        legend: {
-          position: 'right',
-          labels: { color: 'rgba(255,255,255,0.5)', font: { size: 10 }, boxWidth: 10, padding: 6 }
-        },
-        tooltip: {
-          backgroundColor: '#111',
-          borderColor: 'rgba(194,157,102,0.3)',
-          borderWidth: 1,
-          bodyColor: '#fff',
-          callbacks: {
-            label: function(ctx) { return ctx.dataset.label + ': ' + fmtNum(ctx.parsed.y); }
-          }
-        }
+        legend: { position: 'right', labels: { color: 'rgba(255,255,255,0.5)', font: { size: 10 }, boxWidth: 10, padding: 6 } },
+        tooltip: { backgroundColor: '#111', borderColor: 'rgba(194,157,102,0.3)', borderWidth: 1, bodyColor: '#fff', callbacks: { label: function(ctx) { return ctx.dataset.label + ': ' + fmtNum(ctx.parsed.y); } } }
       },
       scales: {
-        x: {
-          title: { display: true, text: '上市後第 N 月', color: 'rgba(255,255,255,0.35)', font: { size: 10 } },
-          grid: { color: 'rgba(255,255,255,0.04)' },
-          ticks: { color: 'rgba(255,255,255,0.35)', font: { size: 10 } }
-        },
-        y: {
-          beginAtZero: true,
-          grid: { color: 'rgba(255,255,255,0.04)' },
-          ticks: { color: 'rgba(255,255,255,0.35)', font: { size: 10 }, callback: function(v) { return fmtNum(v); } }
-        }
+        x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: 'rgba(255,255,255,0.35)', font: { size: 10 } } },
+        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: 'rgba(255,255,255,0.35)', font: { size: 10 }, callback: function(v) { return fmtNum(v); } } }
       }
     }
   });
 }
 
-var sortKey = 'score';
-var sortAsc = false;
-
 function renderTable(products) {
   var body = document.getElementById('table-body');
   document.getElementById('product-count').textContent = products.length + ' 支';
 
-  function renderRows(sorted) {
-    body.innerHTML = '';
-    sorted.forEach(function(p) {
-      var img = p.imageUrl ? '<img src="' + p.imageUrl + '" style="width:28px;height:28px;border-radius:4px;object-fit:cover;vertical-align:middle;margin-right:6px">' : '';
-      body.innerHTML += '<tr>'
-        + '<td><span class="grade-badge ' + p.grade + '">' + p.grade + '</span></td>'
-        + '<td>' + img + '<span class="mono">' + p.sku + '</span></td>'
-        + '<td>' + (p.series || '-') + '</td>'
-        + '<td class="mono">' + fmtDate(p.firstInDate) + '</td>'
-        + '<td class="mono ' + ttfsClass(p.ttfs) + '">' + ttfsLabel(p.ttfs) + '</td>'
-        + '<td class="mono">' + fmtNum(p.totalAmount) + '</td>'
-        + '<td class="mono">' + p.totalCount + '</td>'
-        + '<td class="mono">' + p.customerCount + '</td>'
-        + '<td class="mono">' + p.displayCount + '</td>'
-        + '<td class="mono" style="font-weight:700">' + p.score + '</td>'
-        + '</tr>';
-    });
-  }
-
-  var sorted = sortProducts(products, sortKey, sortAsc);
-  renderRows(sorted);
-}
-
-function sortProducts(products, key, asc) {
   var sorted = products.slice();
   sorted.sort(function(a, b) {
-    var va = a[key];
-    var vb = b[key];
-    if (typeof va === 'string' && typeof vb === 'string') {
-      return asc ? va.localeCompare(vb) : vb.localeCompare(va);
+    var va = a[sortKey], vb = b[sortKey];
+    if (sortKey === 'salesReps') {
+      va = (va || []).join(',');
+      vb = (vb || []).join(',');
+      return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
     }
+    if (typeof va === 'string') return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
     if (va == null) return 1;
     if (vb == null) return -1;
-    return asc ? (va - vb) : (vb - va);
+    return sortAsc ? (va - vb) : (vb - va);
   });
-  return sorted;
+
+  body.innerHTML = '';
+  sorted.forEach(function(p) {
+    var reps = (p.salesReps || []).map(function(r) { return '<span class="rep-tag">' + r + '</span>'; }).join('');
+    var img = p.imageUrl ? '<img src="' + p.imageUrl + '" style="width:24px;height:24px;border-radius:4px;object-fit:cover;vertical-align:middle;margin-right:6px">' : '';
+    body.innerHTML += '<tr>'
+      + '<td><span class="grade-pill ' + p.grade + '">' + p.grade + '</span></td>'
+      + '<td><a href="javascript:openDetail(\'' + p.sku + '\')" style="color:var(--gold);text-decoration:none;font-weight:600">' + img + '<span class="mono">' + p.sku + '</span></a></td>'
+      + '<td>' + (p.series || '-') + '</td>'
+      + '<td class="mono">' + fmtDate(p.firstInDate) + '</td>'
+      + '<td class="mono ' + ttfsClass(p.ttfs) + '" title="' + (p.ttfsDesc || '') + '">' + ttfsLabel(p.ttfs) + '</td>'
+      + '<td>' + reps + '</td>'
+      + '<td class="mono">' + fmtNum(p.totalAmount) + '</td>'
+      + '<td class="mono">' + p.totalCount + '</td>'
+      + '<td class="mono">' + p.customerCount + '</td>'
+      + '<td class="mono">' + p.displayCount + '</td>'
+      + '<td class="mono" style="font-weight:700">' + p.score + '</td>'
+      + '</tr>';
+  });
 }
 
 document.getElementById('product-table').addEventListener('click', function(e) {
@@ -527,12 +593,82 @@ document.getElementById('product-table').addEventListener('click', function(e) {
   else { sortKey = key; sortAsc = false; }
   document.querySelectorAll('#product-table th').forEach(function(t) { t.classList.remove('sorted'); });
   th.classList.add('sorted');
-  if (chartData) renderTable(chartData.products);
+  applySeriesFilter();
 });
 
-window.addEventListener('DOMContentLoaded', function() {
-  loadData();
-});
+function openDetail(sku) {
+  if (!allData) return;
+  var p = allData.products.find(function(x) { return x.sku === sku; });
+  if (!p) return;
+  var content = document.getElementById('detail-content');
+  var reps = (p.salesReps || []).map(function(r) { return '<span class="rep-tag">' + r + '</span>'; }).join('');
+  var areaTable = (p.areaSales || []).map(function(a) {
+    return '<tr><td>' + a.area + '</td><td class="mono" style="text-align:right">' + fmtNum(a.amount) + '</td><td style="text-align:right"><div style="background:var(--surface2);border-radius:4px;overflow:hidden"><div style="background:var(--gold);height:6px;width:' + Math.min(100, a.amount / Math.max.apply(null, p.areaSales.map(function(x){return x.amount})) * 100) + '%"></div></div></td></tr>';
+  }).join('');
+
+  content.innerHTML = '<div class="detail-title">'
+    + '<span class="grade-pill ' + p.grade + '">' + p.grade + '</span>'
+    + '<span class="mono">' + p.sku + '</span>'
+    + '<span style="font-size:13px;font-weight:400;color:var(--text2)">' + (p.series || '') + '</span>'
+    + '</div>'
+
+    + '<div class="detail-grid">'
+    + '<div class="detail-field"><div class="dl">分級</div><div class="dd ' + gradeClass(p.grade) + '">' + p.grade + ' - ' + (p.gradeLabel || '') + '</div></div>'
+    + '<div class="detail-field"><div class="dl">評分</div><div class="dd">' + p.score + ' / 12</div></div>'
+    + '<div class="detail-field"><div class="dl">TTFS（上市到首單）</div><div class="dd ' + ttfsClass(p.ttfs) + '">' + ttfsLabel(p.ttfs) + '</div></div>'
+    + '<div class="detail-field"><div class="dl">TTFS 說明</div><div class="dd" style="font-size:13px;font-weight:400;color:var(--text2)">' + (p.ttfsDesc || '') + '</div></div>'
+    + '<div class="detail-field"><div class="dl">總銷售額</div><div class="dd">' + fmtNum(p.totalAmount) + '</div></div>'
+    + '<div class="detail-field"><div class="dl">交易次數</div><div class="dd">' + p.totalCount + '</div></div>'
+    + '<div class="detail-field"><div class="dl">銷售家數</div><div class="dd">' + p.customerCount + '</div></div>'
+    + '<div class="detail-field"><div class="dl">上架家數</div><div class="dd">' + p.displayCount + '</div></div>'
+    + '<div class="detail-field"><div class="dl">負責業務</div><div class="dd">' + reps + '</div></div>'
+    + '<div class="detail-field"><div class="dl">首次進貨日</div><div class="dd mono">' + fmtDate(p.firstInDate) + '</div></div>'
+    + '</div>'
+
+    + '<div class="detail-section-title">💡 銷售建議</div>'
+    + '<div style="font-size:13px;color:var(--gold);padding:8px 0 4px">' + (p.gradeDesc || '') + '</div>'
+    + '<div style="font-size:13px;color:var(--text2);padding:4px 0 8px">' + (p.suggestion || '') + '</div>'
+
+    + '<div class="detail-section-title">區域銷售分佈</div>'
+    + '<div class="pie-wrap"><canvas id="detail-pie"></canvas></div>'
+    + '<table style="margin-top:10px;font-size:12px">'
+    + '<thead><tr><th>區域</th><th style="text-align:right">銷售額</th><th style="width:100px"></th></tr></thead>'
+    + '<tbody>' + (areaTable || '<tr><td colspan="3" style="color:var(--text2)">無區域資料</td></tr>') + '</tbody></table>';
+
+  document.getElementById('detail-overlay').classList.add('open');
+
+  setTimeout(function() {
+    var canvas = document.getElementById('detail-pie');
+    if (!canvas) return;
+    if (pieChart) pieChart.destroy();
+    var areas = p.areaSales || [];
+    if (areas.length === 0) return;
+    var colors = ['#c29d66','#22c55e','#60a5fa','#f59e0b','#ef4444','#a855f7','#ec4899','#14b8a6'];
+    pieChart = new Chart(canvas, {
+      type: 'doughnut',
+      data: {
+        labels: areas.map(function(a) { return a.area; }),
+        datasets: [{ data: areas.map(function(a) { return a.amount; }), backgroundColor: colors.slice(0, areas.length), borderWidth: 0 }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'right', labels: { color: 'rgba(255,255,255,0.6)', font: { size: 10 }, boxWidth: 12, padding: 8 } },
+          tooltip: { backgroundColor: '#111', borderColor: 'rgba(194,157,102,0.3)', borderWidth: 1, bodyColor: '#fff', callbacks: {
+            label: function(ctx) { return ctx.label + ': ' + fmtNum(ctx.parsed); }
+          }}
+        }
+      }
+    });
+  }, 100);
+}
+
+function closeDetail() {
+  document.getElementById('detail-overlay').classList.remove('open');
+  if (pieChart) { pieChart.destroy(); pieChart = null; }
+}
+
+window.addEventListener('DOMContentLoaded', function() { loadData(); });
 </script>
 </body>
 </html>

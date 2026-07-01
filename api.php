@@ -5709,8 +5709,8 @@ class SleeperService
     public function getNewProductAnalysis($cohortMonths = 24)
     {
         $profileMap = $this->getProductProfileMap();
+        $areaMap = $this->getSalesRepAreaMap();
 
-        // 篩選有首次進貨日且在指定月數內的產品
         $cutoff = new DateTime("-{$cohortMonths} months");
         $today = new DateTime('today');
         $newSkus = [];
@@ -5735,9 +5735,11 @@ class SleeperService
             ];
         }
 
-        // 讀取 CACHE_SHEET 一次，按 SKU+年月 彙總
         $cacheRows = $this->gs->readSheet(CACHE_SHEET);
         $cacheBySku = [];
+        $skuReps = [];
+        $skuCustRep = [];
+        $skuAreaAmount = [];
         if (count($cacheRows) > 1) {
             $h = $cacheRows[0];
             $idx = [
@@ -5747,7 +5749,8 @@ class SleeperService
                 'customer' => $this->findHeader($h, ['客戶名稱']),
                 'amount' => $this->findHeader($h, ['銷售金額']),
                 'count' => $this->findHeader($h, ['交易筆數']),
-                'pings' => $this->findHeader($h, ['銷售坪數'])
+                'pings' => $this->findHeader($h, ['銷售坪數']),
+                'sales' => $this->findHeader($h, ['負責業務', '業務'])
             ];
             for ($i = 1; $i < count($cacheRows); $i++) {
                 $row = $cacheRows[$i];
@@ -5768,16 +5771,27 @@ class SleeperService
                 $cacheBySku[$sku][$monthKey]['count'] += $cnt;
                 $cacheBySku[$sku][$monthKey]['pings'] += $ping;
                 $cacheBySku[$sku][$monthKey]['customers'][$cust] = true;
+
+                $rep = trim((string)$this->getVal($row, $idx['sales']));
+                if ($rep !== '') {
+                    $rep = self::$salesMerge[$rep] ?? $rep;
+                    if (!isset($skuReps[$sku])) $skuReps[$sku] = [];
+                    $skuReps[$sku][$rep] = true;
+                    $skuCustRep[$sku][$cust] = $rep;
+                    $area = $areaMap[$rep] ?? '未分配';
+                    if (!isset($skuAreaAmount[$sku])) $skuAreaAmount[$sku] = [];
+                    if (!isset($skuAreaAmount[$sku][$area])) $skuAreaAmount[$sku][$area] = 0;
+                    $skuAreaAmount[$sku][$area] += $amt;
+                }
             }
         }
 
-        // 讀取版面上架記錄（所有歷史陳列）
         $displayBySku = [];
         try {
             $gsLayout = new GoogleSheetsClient(SS_ID_LAYOUT);
             $layoutRows = $gsLayout->readSheet(LAYOUT_SHEET);
             if (count($layoutRows) > 2) {
-                $h = $layoutRows[1]; // header 在第 2 列
+                $h = $layoutRows[1];
                 $lCust = $this->findHeader($h, ['客戶名稱', '客戶']);
                 $lSku = $this->findHeader($h, ['編號', '產品編號']);
                 for ($i = 2; $i < count($layoutRows); $i++) {
@@ -5790,12 +5804,10 @@ class SleeperService
                 }
             }
         } catch (Exception $e) {
-            // 版面上架清單無法讀取不影響分析
         }
 
-        // 計算每支新品的指標
         $products = [];
-        $allMonths = []; // monthsSinceLaunch => [amounts array for percentile]
+        $allMonths = [];
 
         foreach ($newSkus as $sku => $info) {
             $fy = $info['firstInYear'];
@@ -5835,6 +5847,14 @@ class SleeperService
             $ttfs = $firstTxMonth !== null ? $firstTxMonth : -1;
             $customerCount = count($customerSet);
             $displayCount = count($displayBySku[$sku] ?? []);
+            $reps = array_keys($skuReps[$sku] ?? []);
+            $areaSales = [];
+            if (isset($skuAreaAmount[$sku])) {
+                foreach ($skuAreaAmount[$sku] as $area => $amt) {
+                    $areaSales[] = ['area' => $area, 'amount' => round($amt)];
+                }
+                usort($areaSales, function ($a, $b) { return $b['amount'] - $a['amount']; });
+            }
 
             $products[] = [
                 'sku' => $sku,
@@ -5848,24 +5868,25 @@ class SleeperService
                 'isDiscontinued' => $info['isDiscontinued'],
                 'imageUrl' => $info['imageUrl'],
                 'ttfs' => $ttfs,
+                'ttfsDesc' => $ttfs < 0 ? '從未交易' : ($ttfs === 0 ? '當月即成交' : "上市後 {$ttfs} 個月才首次成交"),
                 'totalAmount' => round($totalAmount),
                 'totalCount' => $totalCount,
                 'totalPings' => round($totalPings, 2),
                 'customerCount' => $customerCount,
                 'displayCount' => $displayCount,
+                'salesReps' => $reps,
+                'areaSales' => $areaSales,
                 'monthlySales' => array_map('round', $monthlySales),
                 'monthlyCount' => $monthlyCount,
                 'monthlyCustCount' => $monthlyCustCount
             ];
 
-            // 填入群組曲線
             for ($ms = 0; $ms < $cohortMonths; $ms++) {
                 if (!isset($allMonths[$ms])) $allMonths[$ms] = [];
                 $allMonths[$ms][] = $monthlySales[$ms];
             }
         }
 
-        // 計算群組曲線（中位數、P25、P75）
         $cohortCurve = [];
         for ($ms = 0; $ms < $cohortMonths; $ms++) {
             $vals = $allMonths[$ms] ?? [];
@@ -5883,42 +5904,98 @@ class SleeperService
             ];
         }
 
-        // 分級計算
+        $gradeDefs = [
+            'A' => ['label' => '明星產品', 'desc' => '短期內即獲得市場認可，銷售動能強勁', 'suggestion' => '維持上架優勢，可加推相關系列延伸品'],
+            'B' => ['label' => '潛力產品', 'desc' => '表現中上，有進一步成長空間', 'suggestion' => '加強業務推廣與陳列曝光，提升客戶迴轉率'],
+            'C' => ['label' => '觀察產品', 'desc' => '市場反應平淡，需檢討行銷策略', 'suggestion' => '檢討訂價策略與陳列位置，考慮搭售或促銷方案'],
+            'D' => ['label' => '弱勢產品', 'desc' => '幾乎無市場動能，面臨淘汰風險', 'suggestion' => '評估是否續留，建議降價出清或退場'],
+        ];
+
         $graded = [];
         foreach ($products as &$p) {
             $score = 0;
-            // TTFS
             if ($p['ttfs'] >= 0 && $p['ttfs'] <= 1) $score += 3;
             elseif ($p['ttfs'] >= 0 && $p['ttfs'] <= 3) $score += 2;
             elseif ($p['ttfs'] > 3) $score += 1;
-            // 客戶數
             if ($p['customerCount'] >= 5) $score += 3;
             elseif ($p['customerCount'] >= 2) $score += 2;
             elseif ($p['customerCount'] >= 1) $score += 1;
-            // 上架家數
             if ($p['displayCount'] >= 5) $score += 3;
             elseif ($p['displayCount'] >= 2) $score += 2;
             elseif ($p['displayCount'] >= 1) $score += 1;
-            // 總銷售
             if ($p['totalAmount'] >= 300000) $score += 3;
             elseif ($p['totalAmount'] >= 100000) $score += 2;
             elseif ($p['totalAmount'] > 0) $score += 1;
-            // 級別
             if ($score >= 10) $p['grade'] = 'A';
-            elseif ($score >= 6) $p['grade'] = 'B';
-            else $p['grade'] = 'C';
+            elseif ($score >= 7) $p['grade'] = 'B';
+            elseif ($score >= 4) $p['grade'] = 'C';
+            else $p['grade'] = 'D';
             $p['score'] = $score;
+            $p['gradeLabel'] = $gradeDefs[$p['grade']]['label'];
+            $p['gradeDesc'] = $gradeDefs[$p['grade']]['desc'];
+            $p['suggestion'] = $gradeDefs[$p['grade']]['suggestion'];
             $graded[] = $p;
         }
         unset($p);
 
         usort($graded, function ($a, $b) { return $b['score'] - $a['score']; });
 
+        $seriesGroups = [];
+        foreach ($graded as $p) {
+            $s = $p['series'] ?: '未分類';
+            if (!isset($seriesGroups[$s])) {
+                $seriesGroups[$s] = ['series' => $s, 'productCount' => 0, 'totalAmount' => 0, 'scoreSum' => 0, 'grades' => ['A' => 0, 'B' => 0, 'C' => 0, 'D' => 0], 'products' => []];
+            }
+            $seriesGroups[$s]['productCount']++;
+            $seriesGroups[$s]['totalAmount'] += $p['totalAmount'];
+            $seriesGroups[$s]['scoreSum'] += $p['score'];
+            $seriesGroups[$s]['grades'][$p['grade']]++;
+            $seriesGroups[$s]['products'][] = $p['sku'];
+        }
+        foreach ($seriesGroups as &$sg) {
+            $sg['avgScore'] = round($sg['scoreSum'] / $sg['productCount'], 1);
+            $sg['avgSales'] = round($sg['totalAmount'] / $sg['productCount']);
+            $grades = $sg['grades'];
+            $gc = $sg['productCount'];
+            if ($grades['A'] >= $gc * 0.5) $sg['mainGrade'] = 'A';
+            elseif ($grades['B'] >= $gc * 0.5) $sg['mainGrade'] = 'B';
+            elseif ($grades['D'] >= $gc * 0.5) $sg['mainGrade'] = 'D';
+            else $sg['mainGrade'] = 'C';
+        }
+        unset($sg);
+        usort($seriesGroups, function ($a, $b) { return $b['totalAmount'] - $a['totalAmount']; });
+
+        $gradeGroups = [];
+        foreach ($gradeDefs as $g => $def) {
+            $gradeGroups[$g] = [
+                'grade' => $g, 'label' => $def['label'], 'desc' => $def['desc'], 'suggestion' => $def['suggestion'],
+                'productCount' => 0, 'seriesCount' => 0, 'totalAmount' => 0, 'seriesBreakdown' => []
+            ];
+        }
+        foreach ($graded as $p) {
+            $g = $p['grade'];
+            $gradeGroups[$g]['productCount']++;
+            $gradeGroups[$g]['totalAmount'] += $p['totalAmount'];
+            $s = $p['series'] ?: '未分類';
+            if (!isset($gradeGroups[$g]['seriesBreakdown'][$s])) {
+                $gradeGroups[$g]['seriesBreakdown'][$s] = ['series' => $s, 'count' => 0, 'amount' => 0];
+            }
+            $gradeGroups[$g]['seriesBreakdown'][$s]['count']++;
+            $gradeGroups[$g]['seriesBreakdown'][$s]['amount'] += $p['totalAmount'];
+        }
+        foreach ($gradeGroups as &$gg) {
+            $gg['seriesCount'] = count($gg['seriesBreakdown']);
+            $gg['seriesBreakdown'] = array_values($gg['seriesBreakdown']);
+            usort($gg['seriesBreakdown'], function ($a, $b) { return $b['count'] - $a['count']; });
+        }
+        unset($gg);
+
         $summary = [
             'totalProducts' => count($graded),
             'gradeA' => count(array_filter($graded, function ($p) { return $p['grade'] === 'A'; })),
             'gradeB' => count(array_filter($graded, function ($p) { return $p['grade'] === 'B'; })),
             'gradeC' => count(array_filter($graded, function ($p) { return $p['grade'] === 'C'; })),
+            'gradeD' => count(array_filter($graded, function ($p) { return $p['grade'] === 'D'; })),
             'avgTTFS' => $this->safeAvg(array_map(function ($p) { return $p['ttfs']; }, $graded)),
             'avgCustomerCount' => round(array_sum(array_column($graded, 'customerCount')) / max(1, count($graded)), 1),
             'avgDisplayCount' => round(array_sum(array_column($graded, 'displayCount')) / max(1, count($graded)), 1),
@@ -5937,7 +6014,9 @@ class SleeperService
                 ],
                 'summary' => $summary,
                 'products' => $graded,
-                'cohortCurve' => $cohortCurve
+                'cohortCurve' => $cohortCurve,
+                'seriesGroups' => $seriesGroups,
+                'gradeGroups' => $gradeGroups
             ]
         ];
     }
