@@ -5706,6 +5706,248 @@ class SleeperService
 
 
 
+    public function getNewProductAnalysis($cohortMonths = 24)
+    {
+        $profileMap = $this->getProductProfileMap();
+
+        // 篩選有首次進貨日且在指定月數內的產品
+        $cutoff = new DateTime("-{$cohortMonths} months");
+        $today = new DateTime('today');
+        $newSkus = [];
+        foreach ($profileMap as $sku => $p) {
+            $firstIn = trim($p['firstInDate'] ?? '');
+            if ($firstIn === '') continue;
+            $d = $this->parseDate($firstIn);
+            if (!$d) continue;
+            if ($d < $cutoff || $d > $today) continue;
+            $newSkus[$sku] = [
+                'sku' => $sku,
+                'series' => $p['seriesCn'] ?: ($p['series'] ?: ''),
+                'brand' => $p['brand'] ?? '',
+                'category' => $p['category'] ?? '',
+                'firstInDate' => $d,
+                'firstInYear' => (int)$d->format('Y'),
+                'firstInMonth' => (int)$d->format('n'),
+                'isSleeper' => !empty($p['isSleeper']),
+                'isDiscontinued' => !empty($p['isDiscontinued']),
+                'cost' => $this->optFloat($p['cost'] ?? 0),
+                'imageUrl' => $p['imageUrl'] ?? ''
+            ];
+        }
+
+        // 讀取 CACHE_SHEET 一次，按 SKU+年月 彙總
+        $cacheRows = $this->gs->readSheet(CACHE_SHEET);
+        $cacheBySku = [];
+        if (count($cacheRows) > 1) {
+            $h = $cacheRows[0];
+            $idx = [
+                'year' => $this->findHeader($h, ['年度']),
+                'month' => $this->findHeader($h, ['月份']),
+                'sku' => $this->findHeader($h, ['產品編號']),
+                'customer' => $this->findHeader($h, ['客戶名稱']),
+                'amount' => $this->findHeader($h, ['銷售金額']),
+                'count' => $this->findHeader($h, ['交易筆數']),
+                'pings' => $this->findHeader($h, ['銷售坪數'])
+            ];
+            for ($i = 1; $i < count($cacheRows); $i++) {
+                $row = $cacheRows[$i];
+                $sku = $this->cleanSku($this->getVal($row, $idx['sku']));
+                if ($sku === '' || !isset($newSkus[$sku])) continue;
+                $y = (int)$this->getVal($row, $idx['year']);
+                $m = (int)$this->getVal($row, $idx['month']);
+                $cust = $this->displayCustomerName($this->getVal($row, $idx['customer']));
+                $amt = $this->optFloat($this->getVal($row, $idx['amount']));
+                $cnt = (int)$this->getVal($row, $idx['count']);
+                $ping = $this->optFloat($this->getVal($row, $idx['pings']));
+                $monthKey = sprintf('%04d-%02d', $y, $m);
+                if (!isset($cacheBySku[$sku])) $cacheBySku[$sku] = [];
+                if (!isset($cacheBySku[$sku][$monthKey])) {
+                    $cacheBySku[$sku][$monthKey] = ['amount' => 0, 'count' => 0, 'pings' => 0, 'customers' => []];
+                }
+                $cacheBySku[$sku][$monthKey]['amount'] += $amt;
+                $cacheBySku[$sku][$monthKey]['count'] += $cnt;
+                $cacheBySku[$sku][$monthKey]['pings'] += $ping;
+                $cacheBySku[$sku][$monthKey]['customers'][$cust] = true;
+            }
+        }
+
+        // 讀取版面上架記錄（所有歷史陳列）
+        $displayBySku = [];
+        try {
+            $gsLayout = new GoogleSheetsClient(SS_ID_LAYOUT);
+            $layoutRows = $gsLayout->readSheet(LAYOUT_SHEET);
+            if (count($layoutRows) > 2) {
+                $h = $layoutRows[1]; // header 在第 2 列
+                $lCust = $this->findHeader($h, ['客戶名稱', '客戶']);
+                $lSku = $this->findHeader($h, ['編號', '產品編號']);
+                for ($i = 2; $i < count($layoutRows); $i++) {
+                    $row = $layoutRows[$i];
+                    $sku = $this->cleanSku($this->getVal($row, $lSku));
+                    if ($sku === '' || !isset($newSkus[$sku])) continue;
+                    $cust = $this->displayCustomerName($this->getVal($row, $lCust));
+                    if (!isset($displayBySku[$sku])) $displayBySku[$sku] = [];
+                    $displayBySku[$sku][$cust] = true;
+                }
+            }
+        } catch (Exception $e) {
+            // 版面上架清單無法讀取不影響分析
+        }
+
+        // 計算每支新品的指標
+        $products = [];
+        $allMonths = []; // monthsSinceLaunch => [amounts array for percentile]
+
+        foreach ($newSkus as $sku => $info) {
+            $fy = $info['firstInYear'];
+            $fm = $info['firstInMonth'];
+            $monthlySales = array_fill(0, $cohortMonths, 0);
+            $monthlyCount = array_fill(0, $cohortMonths, 0);
+            $monthlyPings = array_fill(0, $cohortMonths, 0);
+            $monthlyCustCount = array_fill(0, $cohortMonths, 0);
+            $totalAmount = 0;
+            $totalCount = 0;
+            $totalPings = 0;
+            $customerSet = [];
+            $firstTxMonth = null;
+
+            $data = $cacheBySku[$sku] ?? [];
+            foreach ($data as $monthKey => $d) {
+                $parts = explode('-', $monthKey);
+                $y = (int)$parts[0];
+                $m = (int)$parts[1];
+                $monthsSince = ($y - $fy) * 12 + ($m - $fm);
+                if ($monthsSince < 0 || $monthsSince >= $cohortMonths) continue;
+
+                $monthlySales[$monthsSince] += $d['amount'];
+                $monthlyCount[$monthsSince] += $d['count'];
+                $monthlyPings[$monthsSince] += $d['pings'];
+                $monthlyCustCount[$monthsSince] += count($d['customers']);
+                $totalAmount += $d['amount'];
+                $totalCount += $d['count'];
+                $totalPings += $d['pings'];
+                foreach ($d['customers'] as $c => $v) $customerSet[$c] = true;
+
+                if ($firstTxMonth === null && $d['amount'] > 0) {
+                    $firstTxMonth = $monthsSince;
+                }
+            }
+
+            $ttfs = $firstTxMonth !== null ? $firstTxMonth : -1;
+            $customerCount = count($customerSet);
+            $displayCount = count($displayBySku[$sku] ?? []);
+
+            $products[] = [
+                'sku' => $sku,
+                'series' => $info['series'],
+                'brand' => $info['brand'],
+                'category' => $info['category'],
+                'firstInDate' => $info['firstInDate']->format('Y/m/d'),
+                'firstInYear' => $info['firstInYear'],
+                'firstInMonth' => $info['firstInMonth'],
+                'isSleeper' => $info['isSleeper'],
+                'isDiscontinued' => $info['isDiscontinued'],
+                'imageUrl' => $info['imageUrl'],
+                'ttfs' => $ttfs,
+                'totalAmount' => round($totalAmount),
+                'totalCount' => $totalCount,
+                'totalPings' => round($totalPings, 2),
+                'customerCount' => $customerCount,
+                'displayCount' => $displayCount,
+                'monthlySales' => array_map('round', $monthlySales),
+                'monthlyCount' => $monthlyCount,
+                'monthlyCustCount' => $monthlyCustCount
+            ];
+
+            // 填入群組曲線
+            for ($ms = 0; $ms < $cohortMonths; $ms++) {
+                if (!isset($allMonths[$ms])) $allMonths[$ms] = [];
+                $allMonths[$ms][] = $monthlySales[$ms];
+            }
+        }
+
+        // 計算群組曲線（中位數、P25、P75）
+        $cohortCurve = [];
+        for ($ms = 0; $ms < $cohortMonths; $ms++) {
+            $vals = $allMonths[$ms] ?? [];
+            sort($vals);
+            $n = count($vals);
+            $median = $n > 0 ? $vals[(int)($n / 2)] : 0;
+            $p25 = $n > 0 ? $vals[(int)($n * 0.25)] : 0;
+            $p75 = $n > 0 ? $vals[(int)($n * 0.75)] : 0;
+            $cohortCurve[] = [
+                'month' => $ms + 1,
+                'label' => '第' . ($ms + 1) . '月',
+                'median' => round($median),
+                'p25' => round($p25),
+                'p75' => round($p75)
+            ];
+        }
+
+        // 分級計算
+        $graded = [];
+        foreach ($products as &$p) {
+            $score = 0;
+            // TTFS
+            if ($p['ttfs'] >= 0 && $p['ttfs'] <= 1) $score += 3;
+            elseif ($p['ttfs'] >= 0 && $p['ttfs'] <= 3) $score += 2;
+            elseif ($p['ttfs'] > 3) $score += 1;
+            // 客戶數
+            if ($p['customerCount'] >= 5) $score += 3;
+            elseif ($p['customerCount'] >= 2) $score += 2;
+            elseif ($p['customerCount'] >= 1) $score += 1;
+            // 上架家數
+            if ($p['displayCount'] >= 5) $score += 3;
+            elseif ($p['displayCount'] >= 2) $score += 2;
+            elseif ($p['displayCount'] >= 1) $score += 1;
+            // 總銷售
+            if ($p['totalAmount'] >= 300000) $score += 3;
+            elseif ($p['totalAmount'] >= 100000) $score += 2;
+            elseif ($p['totalAmount'] > 0) $score += 1;
+            // 級別
+            if ($score >= 10) $p['grade'] = 'A';
+            elseif ($score >= 6) $p['grade'] = 'B';
+            else $p['grade'] = 'C';
+            $p['score'] = $score;
+            $graded[] = $p;
+        }
+        unset($p);
+
+        usort($graded, function ($a, $b) { return $b['score'] - $a['score']; });
+
+        $summary = [
+            'totalProducts' => count($graded),
+            'gradeA' => count(array_filter($graded, function ($p) { return $p['grade'] === 'A'; })),
+            'gradeB' => count(array_filter($graded, function ($p) { return $p['grade'] === 'B'; })),
+            'gradeC' => count(array_filter($graded, function ($p) { return $p['grade'] === 'C'; })),
+            'avgTTFS' => $this->safeAvg(array_map(function ($p) { return $p['ttfs']; }, $graded)),
+            'avgCustomerCount' => round(array_sum(array_column($graded, 'customerCount')) / max(1, count($graded)), 1),
+            'avgDisplayCount' => round(array_sum(array_column($graded, 'displayCount')) / max(1, count($graded)), 1),
+            'avgTotalAmount' => round(array_sum(array_column($graded, 'totalAmount')) / max(1, count($graded))),
+        ];
+
+        return [
+            'success' => true,
+            'data' => [
+                'cohortInfo' => [
+                    'cohortMonths' => $cohortMonths,
+                    'cohortStart' => $cutoff->format('Y/m/d'),
+                    'cohortEnd' => $today->format('Y/m/d'),
+                    'productCount' => count($graded),
+                    'filter' => '首次進貨日在 ' . $cutoff->format('Y/m') . ' ~ ' . $today->format('Y/m')
+                ],
+                'summary' => $summary,
+                'products' => $graded,
+                'cohortCurve' => $cohortCurve
+            ]
+        ];
+    }
+
+    private function safeAvg($values)
+    {
+        $vals = array_filter($values, function ($v) { return $v >= 0; });
+        return count($vals) > 0 ? round(array_sum($vals) / count($vals), 1) : -1;
+    }
+
     private function ensureTrialSheet()
     {
         $data = $this->gs->readSheet(TRIAL_SHEET);
@@ -6858,6 +7100,12 @@ try {
             $note      = $_POST['note'] ?? '';
             $res = $svc->updateTrialRow($rowIdx, $qty, $unitPrice, $multiplier, $clearance, $note);
             echo json_encode($res);
+            break;
+
+        case 'new-product-analysis':
+            $cohortMonths = (int)($_GET['months'] ?? 24);
+            $res = $svc->getNewProductAnalysis($cohortMonths);
+            echo json_encode($res, JSON_UNESCAPED_UNICODE);
             break;
 
         case 'send-daily-email':
