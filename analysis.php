@@ -626,9 +626,11 @@ function openDetail(sku) {
     + '<div class="detail-field"><div class="dl">首次進貨日</div><div class="dd mono">' + fmtDate(p.firstInDate) + '</div></div>'
     + '</div>'
 
-    + '<div class="detail-section-title">💡 銷售建議</div>'
-    + '<div style="font-size:13px;color:var(--gold);padding:8px 0 4px">' + (p.gradeDesc || '') + '</div>'
-    + '<div style="font-size:13px;color:var(--text2);padding:4px 0 8px">' + (p.suggestion || '') + '</div>'
+    + '<div class="detail-section-title" style="display:flex;justify-content:space-between;align-items:center">'
+    + '<span>💡 AI 銷售分析建議</span>'
+    + '<button onclick="loadAiAnalysis(\'' + p.sku + '\')" id="ai-analysis-btn" style="font-size:11px;padding:6px 14px;background:linear-gradient(135deg,#c29d66,#d4b483);color:#000;border:none;border-radius:6px;font-weight:700;cursor:pointer">產生 AI 分析</button>'
+    + '</div>'
+    + '<div id="ai-analysis-result" style="font-size:13px;line-height:1.7;padding:4px 0 8px;color:var(--text2)"></div>'
 
     + '<div class="detail-section-title">區域銷售分佈</div>'
     + '<div class="pie-wrap"><canvas id="detail-pie"></canvas></div>'
@@ -662,6 +664,39 @@ function openDetail(sku) {
       }
     });
   }, 100);
+}
+
+function loadAiAnalysis(sku) {
+  if (!allData) return;
+  var p = allData.products.find(function(x) { return x.sku === sku; });
+  if (!p) return;
+  var btn = document.getElementById('ai-analysis-btn');
+  var result = document.getElementById('ai-analysis-result');
+  btn.disabled = true;
+  btn.textContent = 'AI 分析中...';
+  result.innerHTML = '<span style="color:var(--text2)">分析中，請稍候⋯</span>';
+
+  fetch(API_BASE + '?action=new-product-ai-chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sku: sku, product: p })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    btn.disabled = false;
+    btn.textContent = '重新分析';
+    if (!res.success) {
+      result.innerHTML = '<span style="color:#ef4444">❌ ' + (res.msg || '分析失敗') + '</span>';
+      return;
+    }
+    var reply = (res.reply || '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+    result.innerHTML = '<div style="background:var(--surface2);border-radius:var(--radius-md);padding:14px;border:1px solid var(--border);color:var(--text)">' + reply + '</div>';
+  })
+  .catch(function(err) {
+    btn.disabled = false;
+    btn.textContent = '重新分析';
+    result.innerHTML = '<span style="color:#ef4444">❌ 連線錯誤: ' + err + '</span>';
+  });
 }
 
 function closeDetail() {

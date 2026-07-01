@@ -5226,6 +5226,105 @@ class SleeperService
         return ['success'=>true,'reply'=>trim($reply)];
     }
 
+    public function newProductAiChat($sku, $product, $message)
+    {
+        if (GEMINI_API_KEY === '') return ['success' => false, 'msg' => '尚未設定 GEMINI_API_KEY'];
+
+        $monthlySales = $product['monthlySales'] ?? [];
+        $monthlyMax = !empty($monthlySales) ? max($monthlySales) : 0;
+        $peakMonth = 0;
+        foreach ($monthlySales as $i => $v) { if ($v >= $monthlyMax) { $peakMonth = $i + 1; break; } }
+
+        $reps = !empty($product['salesReps']) ? implode('、', $product['salesReps']) : '無資料';
+        $custs = !empty($product['customers']) ? implode('、', array_slice($product['customers'], 0, 10)) : '無';
+        $areaSales = $product['areaSales'] ?? [];
+        $areaStr = '';
+        foreach ($areaSales as $a) {
+            $areaStr .= "• {$a['area']}：" . number_format($a['amount']) . " 元\n";
+        }
+        $monthTrend = [];
+        foreach ($monthlySales as $i => $v) {
+            if ($i % 3 === 0) {
+                $monthTrend[] = "第" . ($i + 1) . "月：" . number_format($v) . " 元";
+            }
+        }
+
+        $series = $product['series'] ?? '未分類';
+        $gradeLabel = $product['gradeLabel'] ?? '';
+        $gradeDesc = $product['gradeDesc'] ?? '';
+        $suggestion = $product['suggestion'] ?? '';
+        $firstInDate = $product['firstInDate'] ?? '';
+        $ttfsDesc = $product['ttfsDesc'] ?? '';
+        $totalAmount = $product['totalAmount'] ?? 0;
+        $customerCount = $product['customerCount'] ?? 0;
+        $displayCount = $product['displayCount'] ?? 0;
+        $score = $product['score'] ?? 0;
+
+        $ctxLines = [
+            "【新品銷售分析資料】",
+            "SKU：{$sku}",
+            "系列：{$series}",
+            "首次進貨日：{$firstInDate}",
+            "分級：{$gradeLabel}（{$gradeDesc}）",
+            "評分：{$score}/12",
+            "TTFS（上市到首次交易）：{$ttfsDesc}",
+            "總銷售額：" . number_format($totalAmount) . " 元",
+            "銷售客戶數：{$customerCount} 家",
+            "上架陳列家數：{$displayCount} 家",
+            "負責業務：{$reps}",
+            "銷售客戶（前10）：{$custs}",
+            "銷量高峰：第{$peakMonth}月（{$monthlyMax}元）",
+            "月銷售趨勢：\n" . implode("\n", $monthTrend),
+            "區域銷售分布：\n{$areaStr}",
+            "系統建議：{$suggestion}",
+            "分析期間（月）：" . count($monthlySales),
+        ];
+
+        $systemPrompt = "你是高雅瓷磁磚公司的資深行銷顧問，擁有 20 年以上瓷磚產業經驗。請根據以下新品銷售資料，用繁體中文（台灣用語）進行專業分析。\n\n" .
+            "【分析重點】\n" .
+            "1. 上架覆蓋評估：上架家數是否足夠？與銷售家數相比是否有明顯差距？\n" .
+            "2. 缺貨與流失風險：從月銷售趨勢判斷是否有不穩定或驟降情形，可能原因為何？\n" .
+            "3. 銷售動能：整體銷售表現是否符合預期？成長力道如何？\n" .
+            "4. 區域分布：哪些區域表現較好？哪些區域有待拓展？\n" .
+            "5. 具體行動建議：應該繼續加碼、調整策略，還是考慮汰換？\n\n" .
+            "請用以下格式回覆：\n" .
+            "【上架覆蓋】...\n" .
+            "【銷售動能】...\n" .
+            "【缺貨與風險】...\n" .
+            "【區域表現】...\n" .
+            "【行動建議】...\n\n" .
+            "回答要具體、有數據佐證、務實可操作。\n\n" .
+            implode("\n", $ctxLines) . "\n\n" .
+            "提問：" . $message;
+
+        $url = "https://generativelanguage.googleapis.com/v1beta/models/" . GEMINI_MODEL . ":generateContent?key=" . GEMINI_API_KEY;
+        $payload = [
+            'contents' => [['role' => 'user', 'parts' => [['text' => $systemPrompt]]]],
+            'generationConfig' => ['temperature' => 0.3, 'maxOutputTokens' => 4096]
+        ];
+
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST => true,
+            CURLOPT_TIMEOUT => 30,
+            CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+            CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE)
+        ]);
+        $resp = curl_exec($ch);
+        $err = curl_error($ch);
+        curl_close($ch);
+
+        if ($err) return ['success' => false, 'msg' => "連線失敗：{$err}"];
+        $result = json_decode($resp, true);
+        $reply = $result['candidates'][0]['content']['parts'][0]['text'] ?? '';
+        if ($reply === '') {
+            $blockReason = $result['candidates'][0]['finishReason'] ?? ($result['promptFeedback']['blockReason'] ?? 'UNKNOWN');
+            return ['success' => false, 'msg' => "Gemini 無回應（{$blockReason}）"];
+        }
+        return ['success' => true, 'reply' => trim($reply)];
+    }
+
     public function globalAiChat($message, $history, $tab, $context)
     {
         if (GEMINI_API_KEY === '') return ['success'=>false,'msg'=>'尚未設定 GEMINI_API_KEY'];
@@ -5875,6 +5974,7 @@ class SleeperService
                 'customerCount' => $customerCount,
                 'displayCount' => $displayCount,
                 'customers' => array_keys($customerSet),
+                'salesReps' => array_keys($skuReps[$sku] ?? []),
                 'areaSales' => $areaSales,
                 'monthlySales' => array_map('round', $monthlySales),
                 'monthlyCount' => $monthlyCount,
@@ -7108,6 +7208,19 @@ try {
             } catch (Exception $e) {
                 echo json_encode(['success' => false, 'msg' => $e->getMessage()]);
             }
+            break;
+
+        case 'new-product-ai-chat':
+            $body = json_decode(file_get_contents('php://input'), true) ?: [];
+            $sku = $body['sku'] ?? '';
+            $product = $body['product'] ?? [];
+            $message = $body['message'] ?? '請分析這款新品的銷售表現、上架覆蓋是否足夠、有無缺貨或流失風險，並給出具體建議。';
+            if (empty($product)) {
+                echo json_encode(['success' => false, 'msg' => '缺少產品資料']);
+                break;
+            }
+            $res = $svc->newProductAiChat($sku, $product, $message);
+            echo json_encode($res);
             break;
 
         case 'rebuild-cache':
