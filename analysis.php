@@ -278,30 +278,33 @@ tr:hover td { background: var(--surface2); }
       <div class="section-body" id="series-body" style="display:none"></div>
     </div>
 
-    <div class="table-card" id="table-wrap">
-      <div class="header">
-        <div class="title">新品打分卡 <span id="product-count" style="font-size:12px;color:var(--text2);font-weight:400"></span></div>
-        <span style="font-size:11px;color:var(--text2)">點擊欄位排序 · 點選 SKU 開啟詳細</span>
+    <div class="section-card" id="table-wrap">
+      <div class="section-title" onclick="toggleSection(this)">
+        <span>新品排行榜 <span id="product-count" style="font-size:12px;color:var(--text2);font-weight:400"></span></span>
+        <span style="font-size:11px;color:var(--text2)">展開</span>
       </div>
-      <div class="table-scroll">
-        <table id="product-table">
-          <thead>
-            <tr>
-              <th data-key="grade">級別</th>
-              <th data-key="sku">SKU</th>
-              <th data-key="series">系列</th>
-              <th data-key="firstInDate">首次進貨</th>
-              <th data-key="ttfs">TTFS</th>
-              <th data-key="customers">銷售客戶</th>
-              <th data-key="totalAmount">總銷售額</th>
-              <th data-key="totalCount">交易次數</th>
-              <th data-key="customerCount">銷售家數</th>
-              <th data-key="displayCount">上架家數</th>
-              <th data-key="score">分數</th>
-            </tr>
-          </thead>
-          <tbody id="table-body"></tbody>
-        </table>
+      <div id="table-body-wrap" style="display:none">
+        <div style="padding:10px 20px;border-bottom:1px solid var(--border);color:var(--text2);font-size:12px">點擊欄位排序 · 點選 SKU 開啟詳細</div>
+        <div class="table-scroll">
+          <table id="product-table">
+            <thead>
+              <tr>
+                <th data-key="grade">級別</th>
+                <th data-key="sku">SKU</th>
+                <th data-key="series">系列</th>
+                <th data-key="firstInDate">首次進貨</th>
+                <th data-key="ttfs">TTFS</th>
+                <th data-key="customers">銷售客戶</th>
+                <th data-key="totalAmount">總銷售額</th>
+                <th data-key="totalCount">交易次數</th>
+                <th data-key="customerCount">銷售家數</th>
+                <th data-key="displayCount">上架家數</th>
+                <th data-key="score">分數</th>
+              </tr>
+            </thead>
+            <tbody id="table-body"></tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
@@ -458,7 +461,7 @@ function renderGradeGroups(gg) {
     html += '<div style="font-size:12px;color:var(--gold);margin-bottom:10px">💡 ' + grp.suggestion + '</div>';
     html += '<div style="display:flex;gap:6px;flex-wrap:wrap">';
     (grp.seriesBreakdown || []).forEach(function(s) {
-      html += '<span class="series-badge ' + g + '">' + s.series + ' (' + s.count + '支, ' + fmtNum(s.amount) + ')</span>';
+      html += '<span class="series-badge ' + g + '" style="cursor:pointer" onclick="openSeriesDetail(\'' + s.series.replace(/'/g, "\\'") + '\')" title="點擊查看此系列詳細">' + s.series + ' (' + s.count + '支, ' + fmtNum(s.amount) + ')</span>';
     });
     html += '</div></div>';
   });
@@ -471,9 +474,9 @@ function renderSeriesGroups(sgs) {
   var html = '<div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))">';
   sgs.forEach(function(sg) {
     var g = sg.mainGrade || 'C';
-    html += '<div style="background:var(--surface2);border-radius:var(--radius-md);padding:14px;border:1px solid var(--border)">';
+    html += '<div style="background:var(--surface2);border-radius:var(--radius-md);padding:14px;border:1px solid var(--border);cursor:pointer" onclick="openSeriesDetail(\'' + sg.series.replace(/'/g, "\\'") + '\')">';
     html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">';
-    html += '<span class="series-badge ' + g + '" style="font-size:13px">' + sg.series + '</span>';
+    html += '<span class="series-badge ' + g + '" style="font-size:13px;cursor:pointer">' + sg.series + '</span>';
     html += '<span class="grade-pill ' + g + '">' + g + '</span></div>';
     html += '<div style="font-size:12px;color:var(--text2)">' + sg.productCount + ' 支產品 · 總額 ' + fmtNum(sg.totalAmount) + '</div>';
     html += '<div style="font-size:12px;color:var(--text2);margin-bottom:4px">平均分數 ' + sg.avgScore + ' · 均額 ' + fmtNum(sg.avgSales) + '</div>';
@@ -699,9 +702,109 @@ function loadAiAnalysis(sku) {
   });
 }
 
+function openSeriesDetail(seriesName) {
+  if (!allData) return;
+  var products = allData.products.filter(function(p) { return p.series === seriesName; });
+  if (products.length === 0) return;
+  var content = document.getElementById('detail-content');
+  var seriesInfo = (allData.seriesGroups || []).find(function(s) { return s.series === seriesName; });
+
+  var totalAmount = 0, totalScore = 0;
+  products.forEach(function(p) { totalAmount += p.totalAmount; totalScore += p.score; });
+  var avgScore = products.length > 0 ? (totalScore / products.length).toFixed(1) : 0;
+
+  var gradeCounts = {A:0, B:0, C:0, D:0};
+  products.forEach(function(p) { gradeCounts[p.grade]++; });
+  var gradeHtml = '';
+  ['A','B','C','D'].forEach(function(g) {
+    if (gradeCounts[g] > 0) gradeHtml += '<span class="grade-pill ' + g + '">' + g + ': ' + gradeCounts[g] + '</span> ';
+  });
+
+  var barLabels = [];
+  var barData = [];
+  var barColors = [];
+  var tableRows = '';
+  var sorted = products.slice().sort(function(a, b) { return b.totalAmount - a.totalAmount; });
+  sorted.forEach(function(p, i) {
+    barLabels.push(p.sku);
+    barData.push(p.totalAmount);
+    var hue = (i * 37) % 360;
+    barColors.push('hsla(' + hue + ', 60%, 55%, 0.7)');
+    var img = p.imageUrl ? '<img src="' + p.imageUrl + '" style="width:28px;height:28px;border-radius:4px;object-fit:cover;vertical-align:middle;margin-right:6px">' : '';
+    tableRows += '<tr>'
+      + '<td style="color:var(--text2);width:30px;font-weight:700">' + (i + 1) + '</td>'
+      + '<td><a href="javascript:openDetail(\'' + p.sku + '\')" style="color:var(--gold);text-decoration:none;font-weight:600">' + img + '<span class="mono">' + p.sku + '</span></a></td>'
+      + '<td><span class="grade-pill ' + p.grade + '">' + p.grade + '</span></td>'
+      + '<td class="mono">' + fmtNum(p.totalAmount) + '</td>'
+      + '<td class="mono">' + p.totalCount + '</td>'
+      + '<td class="mono">' + p.customerCount + '</td>'
+      + '<td class="mono ' + ttfsClass(p.ttfs) + '">' + ttfsLabel(p.ttfs) + '</td>'
+      + '<td class="mono" style="font-weight:700">' + p.score + '</td></tr>';
+  });
+
+  content.innerHTML = '<div class="detail-title">'
+    + '<span style="font-size:20px">📦</span>'
+    + '<span>' + seriesName + '</span>'
+    + '<span style="font-size:12px;font-weight:400;color:var(--text2)">' + products.length + ' 支產品</span>'
+    + '<button onclick="closeDetail()" style="margin-left:auto;background:var(--surface2);border:1px solid var(--border);color:var(--text2);padding:4px 12px;border-radius:6px;cursor:pointer;font-size:12px">✕ 關閉</button>'
+    + '</div>'
+
+    + '<div class="detail-grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">'
+    + '<div class="detail-field"><div class="dl">總銷售額</div><div class="dd">' + fmtNum(totalAmount) + '</div></div>'
+    + '<div class="detail-field"><div class="dl">平均分數</div><div class="dd">' + avgScore + ' / 12</div></div>'
+    + '<div class="detail-field"><div class="dl">平均銷售家數</div><div class="dd">' + (products.length > 0 ? (products.reduce(function(s, p) { return s + p.customerCount; }, 0) / products.length).toFixed(1) : 0) + '</div></div>'
+    + '<div class="detail-field"><div class="dl">平均上架家數</div><div class="dd">' + (products.length > 0 ? (products.reduce(function(s, p) { return s + p.displayCount; }, 0) / products.length).toFixed(1) : 0) + '</div></div>'
+    + '</div>'
+    + '<div class="grade-pills" style="margin-bottom:16px">' + gradeHtml + '</div>'
+
+    + '<div class="detail-section-title">銷售排行長條圖</div>'
+    + '<div class="pie-wrap" style="height:220px"><canvas id="series-bar-chart"></canvas></div>'
+
+    + '<div class="detail-section-title" style="margin-top:16px">產品排行</div>'
+    + '<div class="table-scroll"><table style="font-size:12px">'
+    + '<thead><tr><th>#</th><th>SKU</th><th>級別</th><th>總銷售額</th><th>交易次數</th><th>銷售家數</th><th>TTFS</th><th>分數</th></tr></thead>'
+    + '<tbody>' + tableRows + '</tbody></table></div>';
+
+  document.getElementById('detail-overlay').classList.add('open');
+
+  setTimeout(function() {
+    var canvas = document.getElementById('series-bar-chart');
+    if (!canvas) return;
+    new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels: barLabels,
+        datasets: [{
+          label: '總銷售額',
+          data: barData,
+          backgroundColor: barColors,
+          borderRadius: 4,
+          borderSkipped: false
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        indexAxis: 'y',
+        plugins: {
+          legend: { display: false },
+          tooltip: { backgroundColor: '#111', borderColor: 'rgba(194,157,102,0.3)', borderWidth: 1, bodyColor: '#fff',
+            callbacks: { label: function(ctx) { return fmtNum(ctx.parsed.x); } }
+          }
+        },
+        scales: {
+          x: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: 'rgba(255,255,255,0.35)', font: { size: 9 }, callback: function(v) { return fmtNum(v); } } },
+          y: { grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.5)', font: { size: 9 } } }
+        }
+      }
+    });
+  }, 100);
+}
+
 function closeDetail() {
   document.getElementById('detail-overlay').classList.remove('open');
   if (pieChart) { pieChart.destroy(); pieChart = null; }
+  var seriesChart = Chart.getChart('series-bar-chart');
+  if (seriesChart) seriesChart.destroy();
 }
 
 window.addEventListener('DOMContentLoaded', function() { loadData(); });
