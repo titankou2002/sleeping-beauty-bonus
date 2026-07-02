@@ -648,7 +648,7 @@ input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-colo
 
     <div id="loading" class="loading hidden">
       <div class="spinner"></div>
-      <span>处理中...</span>
+      <span>處理中...</span>
     </div>
 
     <main class="main" id="main-content"></main>
