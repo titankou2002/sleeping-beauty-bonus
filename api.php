@@ -390,6 +390,23 @@ try {
             echo json_encode($res);
             break;
 
+        case 'php-diag':
+            echo json_encode([
+                'php_version' => PHP_VERSION,
+                'display_errors' => ini_get('display_errors'),
+                'error_reporting' => error_reporting(),
+                'config_local_exists' => is_file(__DIR__ . '/config.local.php'),
+                'memory_limit' => ini_get('memory_limit'),
+                'max_execution_time' => ini_get('max_execution_time'),
+                'file_locations' => [
+                    'api.php' => filemtime(__FILE__),
+                    'GoogleSheetsClient' => filemtime(__DIR__ . '/classes/GoogleSheetsClient.php'),
+                    'SleeperService' => filemtime(__DIR__ . '/classes/SleeperService.php'),
+                ],
+                'trait_files' => array_map('filemtime', glob(__DIR__ . '/classes/traits/*.php')),
+            ]);
+            break;
+
         case 'rebuild-cache':
             $years = $_POST['years'] ?? $_GET['years'] ?? null;
             if ($years && is_string($years)) {
