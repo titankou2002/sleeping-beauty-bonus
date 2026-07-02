@@ -458,7 +458,7 @@ function renderGradeGroups(gg) {
     html += '<span style="font-weight:700">' + grp.label + '</span>';
     html += '<span style="font-size:12px;color:var(--text2)">' + grp.productCount + ' 支 · 總額 ' + fmtNum(grp.totalAmount) + '</span></div>';
     html += '<div style="font-size:12px;color:var(--text2);margin-bottom:8px">' + grp.desc + '</div>';
-    html += '<div style="font-size:12px;color:var(--gold);margin-bottom:10px">💡 ' + grp.suggestion + '</div>';
+    html += '<div style="font-size:12px;color:var(--gold);margin-bottom:10px">' + grp.suggestion + '</div>';
     html += '<div style="display:flex;gap:6px;flex-wrap:wrap">';
     (grp.seriesBreakdown || []).forEach(function(s) {
       html += '<span class="series-badge ' + g + '" style="cursor:pointer" onclick="openSeriesDetail(\'' + s.series.replace(/'/g, "\\'") + '\')" title="點擊查看此系列詳細">' + s.series + ' (' + s.count + '支, ' + fmtNum(s.amount) + ')</span>';
@@ -631,11 +631,11 @@ function openDetail(sku) {
     + '<div class="detail-field"><div class="dl">首次進貨日</div><div class="dd mono">' + fmtDate(p.firstInDate) + '</div></div>'
     + '</div>'
 
-    + '<div class="detail-section-title" style="font-size:13px">📦 每月銷售片數走勢</div>'
+    + '<div class="detail-section-title" style="font-size:13px">每月銷售片數走勢</div>'
     + '<div class="chart-micro" style="height:100px"><canvas id="detail-qty-chart"></canvas></div>'
 
     + '<div class="detail-section-title" style="display:flex;justify-content:space-between;align-items:center">'
-    + '<span>💡 AI 銷售分析建議</span>'
+    + '<span>AI 銷售分析建議</span>'
     + '<button onclick="loadAiAnalysis(\'' + p.sku + '\')" id="ai-analysis-btn" style="font-size:11px;padding:6px 14px;background:linear-gradient(135deg,#c29d66,#d4b483);color:#000;border:none;border-radius:6px;font-weight:700;cursor:pointer">產生 AI 分析</button>'
     + '</div>'
     + '<div id="ai-analysis-result" style="font-size:13px;line-height:1.7;padding:4px 0 8px;color:var(--text2)"></div>'
