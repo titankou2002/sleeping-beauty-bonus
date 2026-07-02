@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/auth.php';
 error_reporting(E_ALL);
-ini_set('display_errors', '1');
+ini_set('display_errors', is_file(__DIR__ . '/config.local.php') ? '1' : '0');
 header('Content-Type: application/json; charset=utf-8');
 
 set_error_handler(function ($severity, $msg, $file, $line) {
@@ -26,10 +26,17 @@ class GoogleSheetsClient
     private $sheetIdCache = [];
     private $sheetPropsCache = [];
     private $sheetValueCache = [];
+    private static $cacheDir = null;
 
     public function __construct($ssId = null)
     {
         $this->ssId = $ssId ?: SS_ID_MAIN;
+        if (self::$cacheDir === null) {
+            self::$cacheDir = defined('AI_ADVISOR_CACHE_DIR') ? AI_ADVISOR_CACHE_DIR . '/sheets' : (__DIR__ . '/cache/sheets');
+            if (!is_dir(self::$cacheDir)) {
+                @mkdir(self::$cacheDir, 0755, true);
+            }
+        }
     }
 
     public function readSheet($sheetName)
@@ -37,12 +44,33 @@ class GoogleSheetsClient
         if (isset($this->sheetValueCache[$sheetName])) {
             return $this->sheetValueCache[$sheetName];
         }
+
+        $cacheFile = self::$cacheDir . '/' . md5($this->ssId . '_' . $sheetName) . '.json';
+        $ttl = ($sheetName === CACHE_SHEET) ? 120 : 60;
+        if (is_file($cacheFile) && time() - filemtime($cacheFile) < $ttl) {
+            $rows = json_decode(file_get_contents($cacheFile), true);
+            if (is_array($rows)) {
+                $this->sheetValueCache[$sheetName] = $rows;
+                return $rows;
+            }
+        }
+
         $range = urlencode("'{$sheetName}'!A:ZZ");
         $url = "https://sheets.googleapis.com/v4/spreadsheets/{$this->ssId}/values/{$range}";
         $res = $this->api('GET', $url);
         $rows = isset($res['values']) ? $res['values'] : [];
         $this->sheetValueCache[$sheetName] = $rows;
+        file_put_contents($cacheFile, json_encode($rows, JSON_UNESCAPED_UNICODE));
         return $rows;
+    }
+
+    private function clearCache($sheetName)
+    {
+        $this->clearCache($sheetName);
+        if (self::$cacheDir) {
+            $cacheFile = self::$cacheDir . '/' . md5($this->ssId . '_' . $sheetName) . '.json';
+            if (is_file($cacheFile)) @unlink($cacheFile);
+        }
     }
 
     public function writeRows($sheetName, $startRow, $rows)
@@ -54,7 +82,7 @@ class GoogleSheetsClient
             'values' => $rows,
             'majorDimension' => 'ROWS'
         ]);
-        unset($this->sheetValueCache[$sheetName]);
+        $this->clearCache($sheetName);
     }
 
     public function appendRows($sheetName, $rows)
@@ -65,7 +93,7 @@ class GoogleSheetsClient
             'values' => $rows,
             'majorDimension' => 'ROWS'
         ]);
-        unset($this->sheetValueCache[$sheetName]);
+        $this->clearCache($sheetName);
     }
 
     public function clearSheet($sheetName)
@@ -73,7 +101,7 @@ class GoogleSheetsClient
         $range = urlencode("'{$sheetName}'!A:ZZ");
         $url = "https://sheets.googleapis.com/v4/spreadsheets/{$this->ssId}/values/{$range}:clear";
         $this->api('POST', $url, (object)[]);
-        unset($this->sheetValueCache[$sheetName]);
+        $this->clearCache($sheetName);
     }
 
     public function createSheet($sheetName)
@@ -123,7 +151,7 @@ class GoogleSheetsClient
             'values' => [[$value]],
             'majorDimension' => 'ROWS'
         ]);
-        unset($this->sheetValueCache[$sheetName]);
+        $this->clearCache($sheetName);
     }
 
     public function updateRowRange($sheetName, $row, $colStart, $values)
@@ -136,7 +164,7 @@ class GoogleSheetsClient
             'values' => [$values],
             'majorDimension' => 'ROWS'
         ]);
-        unset($this->sheetValueCache[$sheetName]);
+        $this->clearCache($sheetName);
     }
 
     public function writeBlock($sheetName, $startRow, $colStart, $rows)
@@ -150,7 +178,7 @@ class GoogleSheetsClient
             'values' => $rows,
             'majorDimension' => 'ROWS'
         ]);
-        unset($this->sheetValueCache[$sheetName]);
+        $this->clearCache($sheetName);
     }
 
     private function colIndexToLetter($i)
