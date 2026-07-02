@@ -623,11 +623,16 @@ function openDetail(sku) {
     + '<div class="detail-field"><div class="dl">TTFS 說明</div><div class="dd" style="font-size:13px;font-weight:400;color:var(--text2)">' + (p.ttfsDesc || '') + '</div></div>'
     + '<div class="detail-field"><div class="dl">總銷售額</div><div class="dd">' + fmtNum(p.totalAmount) + '</div></div>'
     + '<div class="detail-field"><div class="dl">交易次數</div><div class="dd">' + p.totalCount + '</div></div>'
+    + '<div class="detail-field"><div class="dl">總銷售片數</div><div class="dd">' + (p.totalQty || 0).toLocaleString() + ' 片</div></div>'
+    + '<div class="detail-field"><div class="dl">月均銷售片數</div><div class="dd">' + ((p.monthlyQty || []).reduce(function(s, v, i) { return s + v; }, 0) / Math.max(1, (p.monthlyQty || []).filter(function(v) { return v > 0; }).length)).toFixed(1) + ' 片/月</div></div>'
     + '<div class="detail-field"><div class="dl">銷售家數</div><div class="dd">' + p.customerCount + '</div></div>'
     + '<div class="detail-field"><div class="dl">上架家數</div><div class="dd">' + p.displayCount + '</div></div>'
     + '<div class="detail-field"><div class="dl">銷售客戶 (' + (p.customers || []).length + ' 家)</div><div class="dd" style="font-size:12px">' + custHtml + '</div></div>'
     + '<div class="detail-field"><div class="dl">首次進貨日</div><div class="dd mono">' + fmtDate(p.firstInDate) + '</div></div>'
     + '</div>'
+
+    + '<div class="detail-section-title" style="font-size:13px">📦 每月銷售片數走勢</div>'
+    + '<div class="chart-micro" style="height:100px"><canvas id="detail-qty-chart"></canvas></div>'
 
     + '<div class="detail-section-title" style="display:flex;justify-content:space-between;align-items:center">'
     + '<span>💡 AI 銷售分析建議</span>'
@@ -648,24 +653,59 @@ function openDetail(sku) {
     if (!canvas) return;
     if (pieChart) pieChart.destroy();
     var areas = p.areaSales || [];
-    if (areas.length === 0) return;
     var colors = ['#c29d66','#22c55e','#60a5fa','#f59e0b','#ef4444','#a855f7','#ec4899','#14b8a6'];
-    pieChart = new Chart(canvas, {
-      type: 'doughnut',
-      data: {
-        labels: areas.map(function(a) { return a.area; }),
-        datasets: [{ data: areas.map(function(a) { return a.amount; }), backgroundColor: colors.slice(0, areas.length), borderWidth: 0 }]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: {
-          legend: { position: 'right', labels: { color: 'rgba(255,255,255,0.6)', font: { size: 10 }, boxWidth: 12, padding: 8 } },
-          tooltip: { backgroundColor: '#111', borderColor: 'rgba(194,157,102,0.3)', borderWidth: 1, bodyColor: '#fff', callbacks: {
-            label: function(ctx) { return ctx.label + ': ' + fmtNum(ctx.parsed); }
-          }}
+    if (areas.length > 0) {
+      pieChart = new Chart(canvas, {
+        type: 'doughnut',
+        data: {
+          labels: areas.map(function(a) { return a.area; }),
+          datasets: [{ data: areas.map(function(a) { return a.amount; }), backgroundColor: colors.slice(0, areas.length), borderWidth: 0 }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'right', labels: { color: 'rgba(255,255,255,0.6)', font: { size: 10 }, boxWidth: 12, padding: 8 } },
+            tooltip: { backgroundColor: '#111', borderColor: 'rgba(194,157,102,0.3)', borderWidth: 1, bodyColor: '#fff', callbacks: {
+              label: function(ctx) { return ctx.label + ': ' + fmtNum(ctx.parsed); }
+            }}
+          }
         }
-      }
-    });
+      });
+    }
+
+    // Monthly qty bar chart
+    var qtyCanvas = document.getElementById('detail-qty-chart');
+    if (qtyCanvas && p.monthlyQty && p.monthlyQty.length > 0) {
+      var totalIn = p.totalQty || 0;
+      var activeMonths = p.monthlyQty.filter(function(v) { return v > 0; }).length;
+      var avgMonthly = activeMonths > 0 ? (totalIn / activeMonths).toFixed(1) : 0;
+      var qtyLabels = p.monthlyQty.map(function(_, i) { return '第' + (i + 1) + '月'; });
+      var cumulative = 0;
+      var cumulativeData = p.monthlyQty.map(function(v) { cumulative += v; return cumulative; });
+
+      new Chart(qtyCanvas, {
+        type: 'bar',
+        data: {
+          labels: qtyLabels,
+          datasets: [
+            { label: '月銷片數', data: p.monthlyQty, backgroundColor: 'rgba(194,157,102,0.5)', borderRadius: 2, borderSkipped: false },
+            { label: '累計片數', data: cumulativeData, type: 'line', borderColor: '#22c55e', borderWidth: 2, pointRadius: 0, tension: 0.2, fill: false, yAxisID: 'y1' }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'top', labels: { color: 'rgba(255,255,255,0.5)', font: { size: 9 }, boxWidth: 10, padding: 6 } },
+            tooltip: { backgroundColor: '#111', borderColor: 'rgba(194,157,102,0.3)', borderWidth: 1, bodyColor: '#fff' }
+          },
+          scales: {
+            x: { display: false, grid: { display: false } },
+            y: { display: false, beginAtZero: true, grid: { display: false } },
+            y1: { display: false, beginAtZero: true, grid: { display: false }, position: 'right' }
+          }
+        }
+      });
+    }
   }, 100);
 }
 

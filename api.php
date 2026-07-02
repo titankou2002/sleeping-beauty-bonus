@@ -5849,6 +5849,7 @@ class SleeperService
                 'amount' => $this->findHeader($h, ['銷售金額']),
                 'count' => $this->findHeader($h, ['交易筆數']),
                 'pings' => $this->findHeader($h, ['銷售坪數']),
+                'qty' => $this->findHeader($h, ['銷售片數', '數量']),
                 'sales' => $this->findHeader($h, ['負責業務', '業務'])
             ];
             for ($i = 1; $i < count($cacheRows); $i++) {
@@ -5861,14 +5862,16 @@ class SleeperService
                 $amt = $this->optFloat($this->getVal($row, $idx['amount']));
                 $cnt = (int)$this->getVal($row, $idx['count']);
                 $ping = $this->optFloat($this->getVal($row, $idx['pings']));
+                $qty = (int)$this->getVal($row, $idx['qty']);
                 $monthKey = sprintf('%04d-%02d', $y, $m);
                 if (!isset($cacheBySku[$sku])) $cacheBySku[$sku] = [];
                 if (!isset($cacheBySku[$sku][$monthKey])) {
-                    $cacheBySku[$sku][$monthKey] = ['amount' => 0, 'count' => 0, 'pings' => 0, 'customers' => []];
+                    $cacheBySku[$sku][$monthKey] = ['amount' => 0, 'count' => 0, 'pings' => 0, 'qty' => 0, 'customers' => []];
                 }
                 $cacheBySku[$sku][$monthKey]['amount'] += $amt;
                 $cacheBySku[$sku][$monthKey]['count'] += $cnt;
                 $cacheBySku[$sku][$monthKey]['pings'] += $ping;
+                $cacheBySku[$sku][$monthKey]['qty'] += $qty;
                 $cacheBySku[$sku][$monthKey]['customers'][$cust] = true;
 
                 $rep = trim((string)$this->getVal($row, $idx['sales']));
@@ -5914,10 +5917,12 @@ class SleeperService
             $monthlySales = array_fill(0, $cohortMonths, 0);
             $monthlyCount = array_fill(0, $cohortMonths, 0);
             $monthlyPings = array_fill(0, $cohortMonths, 0);
+            $monthlyQty = array_fill(0, $cohortMonths, 0);
             $monthlyCustCount = array_fill(0, $cohortMonths, 0);
             $totalAmount = 0;
             $totalCount = 0;
             $totalPings = 0;
+            $totalQty = 0;
             $customerSet = [];
             $firstTxMonth = null;
 
@@ -5932,10 +5937,12 @@ class SleeperService
                 $monthlySales[$monthsSince] += $d['amount'];
                 $monthlyCount[$monthsSince] += $d['count'];
                 $monthlyPings[$monthsSince] += $d['pings'];
+                $monthlyQty[$monthsSince] += $d['qty'];
                 $monthlyCustCount[$monthsSince] += count($d['customers']);
                 $totalAmount += $d['amount'];
                 $totalCount += $d['count'];
                 $totalPings += $d['pings'];
+                $totalQty += $d['qty'];
                 foreach ($d['customers'] as $c => $v) $customerSet[$c] = true;
 
                 if ($firstTxMonth === null && $d['amount'] > 0) {
@@ -5970,6 +5977,7 @@ class SleeperService
                 'ttfsDesc' => $ttfs < 0 ? '從未交易' : ($ttfs === 0 ? '當月即成交' : "上市後 {$ttfs} 個月才首次成交"),
                 'totalAmount' => round($totalAmount),
                 'totalCount' => $totalCount,
+                'totalQty' => $totalQty,
                 'totalPings' => round($totalPings, 2),
                 'customerCount' => $customerCount,
                 'displayCount' => $displayCount,
@@ -5978,6 +5986,7 @@ class SleeperService
                 'areaSales' => $areaSales,
                 'monthlySales' => array_map('round', $monthlySales),
                 'monthlyCount' => $monthlyCount,
+                'monthlyQty' => $monthlyQty,
                 'monthlyCustCount' => $monthlyCustCount
             ];
 
