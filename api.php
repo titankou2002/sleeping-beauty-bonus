@@ -122,8 +122,23 @@ try {
                 $year = (int)($_GET['year'] ?? date('Y'));
                 $month = (int)($_GET['month'] ?? date('n'));
 
+                if (!is_dir(AI_ADVISOR_CACHE_DIR)) {
+                    @mkdir(AI_ADVISOR_CACHE_DIR, 0775, true);
+                }
+                $cacheFile = AI_ADVISOR_CACHE_DIR . "/group_report_v" . GROUP_REPORT_CACHE_VER . "_{$year}_{$month}.json";
+
+                if (is_file($cacheFile)) {
+                    $cachedData = file_get_contents($cacheFile);
+                    if ($cachedData) {
+                        echo $cachedData;
+                        break;
+                    }
+                }
+
                 $res = $svc->getGroupDetailedReport($year, $month);
-                echo json_encode($res, JSON_UNESCAPED_UNICODE);
+                $jsonData = json_encode($res, JSON_UNESCAPED_UNICODE);
+                @file_put_contents($cacheFile, $jsonData);
+                echo $jsonData;
             } catch (Exception $e) {
                 echo json_encode(['success' => false, 'msg' => 'group-detailed-report 錯誤: ' . $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
             }
