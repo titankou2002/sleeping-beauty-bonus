@@ -407,7 +407,7 @@ trait ReportTrait
     private function buildFieldActivityReport($meta, $currentBucket)
     {
         $gsLayout = new GoogleSheetsClient(SS_ID_LAYOUT);
-        $workRows = $gsLayout->readSheet('工作日誌');
+        $workRows = $gsLayout->readSheet('智能_工作日誌');
         $driveRows = $gsLayout->readSheet('智能_行駛日誌');
 
         $salesByCustomer = [];

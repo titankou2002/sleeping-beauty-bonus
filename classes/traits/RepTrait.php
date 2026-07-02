@@ -99,10 +99,7 @@ trait RepTrait
         $noteData = [];
         try {
             $gsLy = new GoogleSheetsClient(SS_ID_LAYOUT);
-            $vr = $gsLy->readSheet('工作日誌');
-            if (count($vr) <= 1) {
-                $vr = $gsLy->readSheet('智能_工作日誌');
-            }
+            $vr = $gsLy->readSheet('智能_工作日誌');
             if (count($vr) > 1) {
                 $h = $vr[0];
                 $vDate = $this->findHeader($h, ['日期']);

@@ -188,7 +188,7 @@ trait CustomerTrait
         // 2. 拜訪 (智能_工作日誌)
         try {
             $gsLayout = new GoogleSheetsClient(SS_ID_LAYOUT);
-            $workRows = $gsLayout->readSheet('工作日誌');
+            $workRows = $gsLayout->readSheet('智能_工作日誌');
             if (count($workRows) >= 2) {
                 $h = $workRows[0];
                 $idxDate = $this->findHeader($h, ['日期']);
@@ -455,7 +455,7 @@ trait CustomerTrait
             $gsLayout = new GoogleSheetsClient(SS_ID_LAYOUT);
 
             // 拜訪
-            $workRows = $gsLayout->readSheet('工作日誌');
+            $workRows = $gsLayout->readSheet('智能_工作日誌');
             if (count($workRows) >= 2) {
                 $h = $workRows[0];
                 $idxDate = $this->findHeader($h, ['日期']);
