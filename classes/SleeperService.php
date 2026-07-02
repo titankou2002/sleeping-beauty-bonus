@@ -5056,6 +5056,54 @@ class SleeperService
         return ['success'=>true,'reply'=>trim($reply)];
     }
 
+    private function computeStagnancyDiagnostics($daysSinceLastSale, $stats, $stockPing)
+    {
+        $pings6M = $stats ? $stats['pings6M'] : 0;
+        $monthlySpeedPings = $pings6M / 6;
+        $mos = $monthlySpeedPings > 0 ? round(($stockPing / $monthlySpeedPings) * 10) / 10 : ($stockPing > 0 ? 888 : 0);
+
+        $action = '正常去化';
+        $actionColor = '#10b981';
+        $stagnantReason = '正常';
+        $mosLevel = 0;
+
+        if ($daysSinceLastSale === null) {
+            $action = '折扣促銷';
+            $actionColor = '#ef4444';
+            $stagnantReason = '從未銷售';
+            $mosLevel = 2;
+        } elseif ($daysSinceLastSale > 180) {
+            $action = '折扣促銷';
+            $actionColor = '#ef4444';
+            $stagnantReason = '6M無交易';
+            $mosLevel = 2;
+        } elseif ($daysSinceLastSale > 90) {
+            $action = '觀察/加強推廣';
+            $actionColor = '#f59e0b';
+            $stagnantReason = '3M無交易';
+            $mosLevel = 1;
+        } elseif ($mos > 12) {
+            $action = '折扣促銷';
+            $actionColor = '#ef4444';
+            $stagnantReason = '銷速過慢 (MOS > 12M)';
+            $mosLevel = 2;
+        } elseif ($mos > 6) {
+            $action = '觀察/加強推廣';
+            $actionColor = '#f59e0b';
+            $stagnantReason = '銷速偏慢 (MOS > 6M)';
+            $mosLevel = 1;
+        }
+
+        return [
+                'mos' => $diag['mos'],
+                'monthlySpeedPings' => $diag['monthlySpeedPings'],
+                'action' => $diag['action'],
+                'actionColor' => $diag['actionColor'],
+                'stagnantReason' => $diag['stagnantReason'],
+                'mosLevel' => $diag['mosLevel'],
+        ];
+    }
+
     public function getSleeperProductOverview()
     {
         $configRes = $this->getSleeperConfig();
@@ -5096,42 +5144,7 @@ class SleeperService
                 ? round((($stats['totalAmount'] - ($stats['totalQty'] * $slp['cost'])) / $stats['totalAmount']) * 100, 1)
                 : 0;
 
-            // Stagnancy diagnostics & actions
-            $pings6M = $stats ? $stats['pings6M'] : 0;
-            $monthlySpeedPings = $pings6M / 6;
-            $mos = $monthlySpeedPings > 0 ? round(($stockPing / $monthlySpeedPings) * 10) / 10 : ($stockPing > 0 ? 888 : 0);
-
-            $action = '正常去化';
-            $actionColor = '#10b981'; // green
-            $stagnantReason = '正常';
-            $mosLevel = 0; // 0: benign, 1: observation, 2: promotion
-
-            if ($daysSinceLastSale === null) {
-                $action = '🔥 折扣促銷';
-                $actionColor = '#ef4444'; // red
-                $stagnantReason = '💀 從未銷售';
-                $mosLevel = 2;
-            } elseif ($daysSinceLastSale > 180) {
-                $action = '🔥 折扣促銷';
-                $actionColor = '#ef4444'; // red
-                $stagnantReason = '💀 6M無交易';
-                $mosLevel = 2;
-            } elseif ($daysSinceLastSale > 90) {
-                $action = '📝 觀察/加強推廣';
-                $actionColor = '#f59e0b'; // yellow
-                $stagnantReason = '🔇 3M無交易';
-                $mosLevel = 1;
-            } elseif ($mos > 12) {
-                $action = '🔥 折扣促銷';
-                $actionColor = '#ef4444'; // red
-                $stagnantReason = '⚠️ 銷速過慢 (MOS > 12M)';
-                $mosLevel = 2;
-            } elseif ($mos > 6) {
-                $action = '📝 觀察/加強推廣';
-                $actionColor = '#f59e0b'; // yellow
-                $stagnantReason = '🔸 銷速偏慢 (MOS > 6M)';
-                $mosLevel = 1;
-            }
+            $diag = $this->computeStagnancyDiagnostics($daysSinceLastSale, $stats, $stockPing);
 
             $activeDisplays = isset($displaysMap[$sku]) ? $displaysMap[$sku] : [];
 
@@ -5235,42 +5248,7 @@ class SleeperService
                 ? round((($stats['totalAmount'] - ($stats['totalQty'] * $info['cost'])) / $stats['totalAmount']) * 100, 1)
                 : 0;
 
-            // Stagnancy diagnostics & actions
-            $pings6M = $stats ? $stats['pings6M'] : 0;
-            $monthlySpeedPings = $pings6M / 6;
-            $mos = $monthlySpeedPings > 0 ? round(($stockPing / $monthlySpeedPings) * 10) / 10 : ($stockPing > 0 ? 888 : 0);
-
-            $action = '正常去化';
-            $actionColor = '#10b981'; // green
-            $stagnantReason = '正常';
-            $mosLevel = 0;
-
-            if ($daysSinceLastSale === null) {
-                $action = '🔥 折扣促銷';
-                $actionColor = '#ef4444';
-                $stagnantReason = '💀 從未銷售';
-                $mosLevel = 2;
-            } elseif ($daysSinceLastSale > 180) {
-                $action = '🔥 折扣促銷';
-                $actionColor = '#ef4444';
-                $stagnantReason = '💀 6M無交易';
-                $mosLevel = 2;
-            } elseif ($daysSinceLastSale > 90) {
-                $action = '📝 觀察/加強推廣';
-                $actionColor = '#f59e0b';
-                $stagnantReason = '🔇 3M無交易';
-                $mosLevel = 1;
-            } elseif ($mos > 12) {
-                $action = '🔥 折扣促銷';
-                $actionColor = '#ef4444';
-                $stagnantReason = '⚠️ 銷速過慢 (MOS > 12M)';
-                $mosLevel = 2;
-            } elseif ($mos > 6) {
-                $action = '📝 觀察/加強推廣';
-                $actionColor = '#f59e0b';
-                $stagnantReason = '🔸 銷速偏慢 (MOS > 6M)';
-                $mosLevel = 1;
-            }
+            $diag = $this->computeStagnancyDiagnostics($daysSinceLastSale, $stats, $stockPing);
 
             $activeDisplays = isset($displaysMap[$sku]) ? $displaysMap[$sku] : [];
 
@@ -5292,12 +5270,12 @@ class SleeperService
                 'customers' => $customers,
                 'imageUrl' => $info['imageUrl'] ?: ($profileMap[$sku]['imageUrl'] ?? ''),
                 'productName' => $profileMap[$sku]['productName'] ?? '',
-                'mos' => $mos,
-                'monthlySpeedPings' => round($monthlySpeedPings * 10) / 10,
-                'action' => $action,
-                'actionColor' => $actionColor,
-                'stagnantReason' => $stagnantReason,
-                'mosLevel' => $mosLevel,
+                'mos' => $diag['mos'],
+                'monthlySpeedPings' => $diag['monthlySpeedPings'],
+                'action' => $diag['action'],
+                'actionColor' => $diag['actionColor'],
+                'stagnantReason' => $diag['stagnantReason'],
+                'mosLevel' => $diag['mosLevel'],
                 'displayCount' => count($activeDisplays),
                 'displays' => $activeDisplays
             ];
@@ -5374,42 +5352,7 @@ class SleeperService
                 ? round((($stats['totalAmount'] - ($stats['totalQty'] * $info['cost'])) / $stats['totalAmount']) * 100, 1)
                 : 0;
 
-            // Stagnancy diagnostics & actions
-            $pings6M = $stats ? $stats['pings6M'] : 0;
-            $monthlySpeedPings = $pings6M / 6;
-            $mos = $monthlySpeedPings > 0 ? round(($stockPing / $monthlySpeedPings) * 10) / 10 : ($stockPing > 0 ? 888 : 0);
-
-            $action = '正常去化';
-            $actionColor = '#10b981'; // green
-            $stagnantReason = '正常';
-            $mosLevel = 0;
-
-            if ($daysSinceLastSale === null) {
-                $action = '🔥 折扣促銷';
-                $actionColor = '#ef4444';
-                $stagnantReason = '💀 從未銷售';
-                $mosLevel = 2;
-            } elseif ($daysSinceLastSale > 180) {
-                $action = '🔥 折扣促銷';
-                $actionColor = '#ef4444';
-                $stagnantReason = '💀 6M無交易';
-                $mosLevel = 2;
-            } elseif ($daysSinceLastSale > 90) {
-                $action = '📝 觀察/加強推廣';
-                $actionColor = '#f59e0b';
-                $stagnantReason = '🔇 3M無交易';
-                $mosLevel = 1;
-            } elseif ($mos > 12) {
-                $action = '🔥 折扣促銷';
-                $actionColor = '#ef4444';
-                $stagnantReason = '⚠️ 銷速過慢 (MOS > 12M)';
-                $mosLevel = 2;
-            } elseif ($mos > 6) {
-                $action = '📝 觀察/加強推廣';
-                $actionColor = '#f59e0b';
-                $stagnantReason = '🔸 銷速偏慢 (MOS > 6M)';
-                $mosLevel = 1;
-            }
+            $diag = $this->computeStagnancyDiagnostics($daysSinceLastSale, $stats, $stockPing);
 
             $activeDisplays = isset($displaysMap[$sku]) ? $displaysMap[$sku] : [];
 
@@ -5431,12 +5374,12 @@ class SleeperService
                 'customers' => $customers,
                 'imageUrl' => $profileMap[$sku]['imageUrl'] ?? '',
                 'productName' => $profileMap[$sku]['productName'] ?? '',
-                'mos' => $mos,
-                'monthlySpeedPings' => round($monthlySpeedPings * 10) / 10,
-                'action' => $action,
-                'actionColor' => $actionColor,
-                'stagnantReason' => $stagnantReason,
-                'mosLevel' => $mosLevel,
+                'mos' => $diag['mos'],
+                'monthlySpeedPings' => $diag['monthlySpeedPings'],
+                'action' => $diag['action'],
+                'actionColor' => $diag['actionColor'],
+                'stagnantReason' => $diag['stagnantReason'],
+                'mosLevel' => $diag['mosLevel'],
                 'displayCount' => count($activeDisplays),
                 'displays' => $activeDisplays
             ];
