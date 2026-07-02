@@ -1669,6 +1669,8 @@ trait ReportTrait
             for ($i = 1; $i < count($rows); $i++) {
                 $row = $rows[$i];
                 $health = trim($this->getVal($row, $idxHealth));
+                // 跳過歷史紀錄（沖完合約未續約）
+                if (mb_strpos($health, '沖完') !== false || mb_strpos($health, '未續約') !== false) continue;
                 $customer = $this->displayCustomerName($this->getVal($row, $idxCustomer));
                 if ($customer === '未知客戶') continue;
 
