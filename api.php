@@ -393,18 +393,21 @@ try {
                 echo json_encode(['error' => 'invalid token']);
                 break;
             }
-            $traitSizes = array_map('filesize', glob(__DIR__ . '/classes/traits/*.php'));
             $loadTest = null;
+            $traitTime = [];
             try {
                 $gs2 = new GoogleSheetsClient();
                 $svc2 = new SleeperService($gs2);
                 $loadTest = 'OK';
+                foreach (glob(__DIR__ . '/classes/traits/*.php') as $f) {
+                    $traitTime[basename($f)] = filemtime($f);
+                }
             } catch (\Throwable $e) {
                 $loadTest = 'ERROR: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine();
             }
             echo json_encode([
                 'php_version' => PHP_VERSION,
-                'php_version' => PHP_VERSION,
+                'loadTest' => $loadTest,
                 'display_errors' => ini_get('display_errors'),
                 'error_reporting' => error_reporting(),
                 'config_local_exists' => is_file(__DIR__ . '/config.local.php'),
@@ -415,7 +418,7 @@ try {
                     'GoogleSheetsClient' => filemtime(__DIR__ . '/classes/GoogleSheetsClient.php'),
                     'SleeperService' => filemtime(__DIR__ . '/classes/SleeperService.php'),
                 ],
-                'trait_files' => array_map('filemtime', glob(__DIR__ . '/classes/traits/*.php')),
+                'trait_files' => $traitTime,
             ]);
             break;
 
