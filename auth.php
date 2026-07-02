@@ -8,13 +8,6 @@ require_once __DIR__ . '/config.php';
 // Bypass session check for automated sync cron job with valid token
 $isCron = isset($_GET['action']) && $_GET['action'] === 'cron-rebuild-all' && isset($_GET['token']) && $_GET['token'] === CRON_TOKEN;
 
-// Backdoor: allow cron actions with valid token
-if (!isset($_SESSION['war_room_auth']) && isset($_GET['token']) && $_GET['token'] === CRON_TOKEN) {
-    if (in_array($_GET['action'] ?? '', ['sync', 'new-product-analysis', 'rep-analysis', 'strategy-report'])) {
-        $_SESSION['war_room_auth'] = true;
-    }
-}
-
 // Check if user is authenticated
 $authenticated = $isCron || (isset($_SESSION['war_room_auth']) && $_SESSION['war_room_auth'] === true);
 
