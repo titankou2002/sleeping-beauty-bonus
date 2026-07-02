@@ -296,6 +296,15 @@ class SleeperService
         return strtoupper(preg_replace('/[\s\-]/', '', trim($v)));
     }
 
+    private static $brandMerge = ['STN' => 'ALAPLANA', 'VITACER' => 'ALAPLANA'];
+
+    public function normalizeBrand($brand)
+    {
+        $b = strtoupper(trim((string)$brand));
+        if ($b === '') return '';
+        return self::$brandMerge[$b] ?? $b;
+    }
+
     private function normalizeSalesRep($v)
     {
         $name = trim((string)$v);

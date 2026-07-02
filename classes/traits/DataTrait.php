@@ -379,7 +379,7 @@ trait DataTrait
                 'series' => $idxSeries !== -1 ? trim($this->getVal($row, $idxSeries)) : '',
                 'seriesCn' => $idxSeriesCn !== -1 ? trim($this->getVal($row, $idxSeriesCn)) : '',
                 'perPing' => $idxPerPing !== -1 ? ($this->optFloat($this->getVal($row, $idxPerPing)) ?: 36) : 36,
-                'brand' => $idxBrand !== -1 ? trim($this->getVal($row, $idxBrand)) : '',
+                'brand' => $idxBrand !== -1 ? $this->normalizeBrand($this->getVal($row, $idxBrand)) : '',
                 'country' => $idxCountry !== -1 ? trim($this->getVal($row, $idxCountry)) : '',
                 'productName' => $idxProduct !== -1 ? trim($this->getVal($row, $idxProduct)) : '',
                 'size' => $this->normalizeSizeLabel($idxSize !== -1 ? $this->getVal($row, $idxSize) : ''),

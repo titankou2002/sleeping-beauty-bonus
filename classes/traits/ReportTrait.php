@@ -1572,7 +1572,7 @@ trait ReportTrait
                     if (!$sku) continue;
                     $metaMap[$sku] = [
                         'size' => $pSize !== -1 ? $this->normalizeSizeLabel($this->getVal($priceData[$i], $pSize)) : '未標尺寸',
-                        'brand' => $pBrand !== -1 ? trim($this->getVal($priceData[$i], $pBrand)) : '未知',
+                        'brand' => $pBrand !== -1 ? $this->normalizeBrand($this->getVal($priceData[$i], $pBrand)) : '未知',
                         'category' => $pCat !== -1 ? trim($this->getVal($priceData[$i], $pCat)) : '未分類',
                     ];
                 }
