@@ -1698,22 +1698,17 @@ trait ReportTrait
                 if ($totalContract == 0 || $bal <= 0) {
                     $bucket = '待續約';
                 } elseif ($dueDays === null || $dueDays >= 0) {
-                    // 尚未到期 — 只依餘額比
                     $bucket = $balRatio > 0.9 ? '觀察' : '正常';
                 } else {
-                    // 已逾期 — 餘額比 + 逾期月數
-                    if ($balRatio > 0.95 && $dueDays < -300 && $consumption == 0) {
-                        $bucket = '黑死';
-                    } elseif ($balRatio > 0.9 && $dueDays < -180) {
-                        $bucket = '危險';
-                    } elseif ($balRatio > 0.7 && $dueDays < -90) {
+                    $od = abs($dueDays);
+                    if ($od >= 730) {
+                        $bucket = '掛點';
+                    } elseif ($od >= 365) {
                         $bucket = '警示';
-                    } elseif ($balRatio > 0.5 && $dueDays < -180) {
-                        $bucket = '警示';
-                    } elseif ($balRatio > 0.3 && $dueDays < -90) {
-                        $bucket = '觀察';
+                    } elseif ($od >= 180) {
+                        $bucket = $balRatio > 0.5 ? '警示' : '觀察';
                     } else {
-                        $bucket = '正常';
+                        $bucket = $balRatio > 0.4 ? '觀察' : '正常';
                     }
                 }
 
@@ -1725,7 +1720,7 @@ trait ReportTrait
                 if (!isset($healthCounts[$bucket])) $healthCounts[$bucket] = 0;
                 $healthCounts[$bucket]++;
 
-                if (in_array($bucket, ['正常', '觀察', '警示', '危險', '黑死', '待續約'], true)) {
+                if (in_array($bucket, ['正常', '觀察', '警示', '掛點', '待續約'], true)) {
                     $monthlyTarget += $contractAmt;
                 }
 
@@ -2212,7 +2207,7 @@ trait ReportTrait
                 foreach ($allCustomers[$key] as $cust => $cData) {
                     if (isset($ct['customers'][$cust])) {
                         $healthBucket = $ct['customers'][$cust]['health'] ?? '';
-                        if (in_array($healthBucket, ['正常', '觀察', '警示', '危險', '黑死', '待續約'], true)) {
+                        if (in_array($healthBucket, ['正常', '觀察', '警示', '掛點', '待續約'], true)) {
                             $signedStoreSales += $cData['curMonth'] ?? 0;
                         }
                     }

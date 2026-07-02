@@ -87,7 +87,7 @@ trait AiTrait
         $active = $ct['active'] ?? 0;
         $monthlyTarget = $ct['monthlyTarget'] ?? 0;
         $parts[] = "合約客戶 {$active} 家，月目標 " . number_format(round($monthlyTarget/10000),0) . " 萬";
-        foreach (['正常','觀察','警示','危險','黑死'] as $b) {
+        foreach (['正常','觀察','警示','掛點','待續約'] as $b) {
             if (($hc[$b] ?? 0) > 0) $parts[] = $b . " {$hc[$b]}";
         }
 

@@ -95,8 +95,7 @@ require_once __DIR__ . '/config.php';
     .ht-renewed{background:rgba(167,139,250,.15);color:var(--purple)}
     .ht-watch{background:rgba(245,158,11,.15);color:var(--orange)}
     .ht-warning{background:rgba(239,68,68,.2);color:var(--red)}
-    .ht-danger{background:rgba(220,38,38,.25);color:var(--red)}
-    .ht-black{background:rgba(0,0,0,.3);color:#888}
+    .ht-dead{background:rgba(0,0,0,.3);color:#888}
     .detail-btn{background:none;border:1px solid rgba(194,157,102,.4);color:var(--gold);font-size:12px;font-weight:700;padding:4px 12px;border-radius:4px;cursor:pointer;transition:all .2s}
     .detail-btn:hover{background:rgba(194,157,102,.15);border-color:var(--gold)}
 
@@ -386,22 +385,22 @@ function renderAll(d){
     const c=cos[k]; const ct=c.contract;
     const hc=ct.healthCounts||{};
     const total=ct.active||1;
-    const warnPct=total>0?(((hc['觀察']||0)+(hc['警示']||0)+(hc['危險']||0)+(hc['黑死']||0))/total*100).toFixed(0):0;
+    const warnPct=total>0?(((hc['觀察']||0)+(hc['警示']||0)+(hc['掛點']||0))/total*100).toFixed(0):0;
     const healthPct = ct.healthPct != null ? ct.healthPct : 0;
     html+=`<div class="cc"><div class="nm"><span class="dot" style="background:${c.color}"></span>${c.name}</div>
       <div style="font-size:13px;display:flex;flex-direction:column;gap:4px">
         <span>合約客戶 <b>${ct.active}</b> 家</span>
-        <span>正常 ${hc['正常']||0} · 觀察 ${hc['觀察']||0} · 警示 ${hc['警示']||0} · 危險 ${hc['危險']||0}</span>
-        <span>黑死 ${hc['黑死']||0} · 待續約 ${hc['待續約']||0} · 異常率 ${warnPct}%</span>
+        <span>正常 ${hc['正常']||0} · 觀察 ${hc['觀察']||0} · 警示 ${hc['警示']||0} · 掛點 ${hc['掛點']||0} · 待續約 ${hc['待續約']||0}</span>
+        <span>異常率 ${warnPct}%</span>
         <span>合約月目標 <b>${fmtW(ct.monthlyTarget)}</b></span>
         <span>簽約店實銷 <b>${fmtW(ct.signedStoreSales)}</b></span>
         <span>健康度 <b style="font-size:16px" class="${Number(healthPct)>=75?'up':'dn'}">${healthPct}%</b></span>
       </div>
       <div style="margin-top:8px;height:8px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden;display:flex">
         <div style="width:${total>0?(((hc['正常']||0)+(hc['待續約']||0))/total*100).toFixed(0):0}%;background:var(--green)"></div>
-        <div style="width:${total>0?(((hc['觀察']||0)+(hc['警示']||0)+(hc['危險']||0)+(hc['黑死']||0))/total*100).toFixed(0):0}%;background:var(--red)"></div>
+        <div style="width:${total>0?(((hc['觀察']||0)+(hc['警示']||0)+(hc['掛點']||0))/total*100).toFixed(0):0}%;background:var(--red)"></div>
       </div>
-      <div style="font-size:11px;color:var(--muted);margin-top:4px;display:flex;gap:12px"><span style="color:var(--green)">■ 正常/待續約</span><span style="color:var(--red)">■ 異常（觀察/警示/危險/黑死）</span></div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;display:flex;gap:12px"><span style="color:var(--green)">■ 正常/待續約</span><span style="color:var(--red)">■ 異常（觀察/警示/掛點）</span></div>
       <div class="link-row" style="display:flex;gap:8px;flex-wrap:wrap"><button class="detail-btn" onclick="showContractDetail('${k}')">📋 合約客戶明細</button><a class="btn-report" href="${reportUrl(k,d.year,d.month)}" target="_blank">🔗 ${c.name}月報</a></div></div>`;
   });
   html+=`</div>`;
@@ -411,7 +410,7 @@ function renderAll(d){
 
   // 合約健康度摘要
   const hcTotal = g.contractTotal.healthCounts || {};
-  const hcAll = (hcTotal['正常']||0)+(hcTotal['觀察']||0)+(hcTotal['警示']||0)+(hcTotal['危險']||0)+(hcTotal['黑死']||0)+(hcTotal['待續約']||0);
+  const hcAll = (hcTotal['正常']||0)+(hcTotal['觀察']||0)+(hcTotal['警示']||0)+(hcTotal['掛點']||0)+(hcTotal['待續約']||0);
   const hcHealthy = (hcTotal['正常']||0)+(hcTotal['待續約']||0);
   const hcHealthPct = hcAll > 0 ? (hcHealthy/hcAll*100).toFixed(1) : 0;
   html+=`<div style="font-size:12px;color:var(--muted);margin-top:8px;display:flex;gap:16px;flex-wrap:wrap">
@@ -419,8 +418,7 @@ function renderAll(d){
     <span style="color:var(--blue)">待續約 ${hcTotal['待續約']||0}</span>
     <span style="color:var(--orange)">觀察 ${hcTotal['觀察']||0}</span>
     <span style="color:var(--orange)">警示 ${hcTotal['警示']||0}</span>
-    <span style="color:var(--red)">危險 ${hcTotal['危險']||0}</span>
-    <span style="color:#888">黑死 ${hcTotal['黑死']||0}</span>
+    <span style="color:#888">掛點 ${hcTotal['掛點']||0}</span>
     <span style="color:var(--gold);font-weight:700">健康度 ${hcHealthPct}%</span>
   </div>`;
 
@@ -715,9 +713,9 @@ function showContractDetail(companyKey){
   const c=_groupData.companies[companyKey];
   const ct=c.contract; const detail=ct.detail||[];
   const hc=ct.healthCounts||{};
-  const buckets=['正常','觀察','警示','危險','黑死','待續約'];
-  const htClass={'正常':'ht-normal','觀察':'ht-watch','警示':'ht-warning','危險':'ht-danger','黑死':'ht-black','待續約':'ht-pending'};
-  const htLabel={'正常':'正常','觀察':'觀察','警示':'警示','危險':'危險','黑死':'黑死','待續約':'待續約'};
+  const buckets=['正常','觀察','警示','掛點','待續約'];
+  const htClass={'正常':'ht-normal','觀察':'ht-watch','警示':'ht-warning','掛點':'ht-dead','待續約':'ht-pending'};
+  const htLabel={'正常':'正常','觀察':'觀察','警示':'警示','掛點':'掛點','待續約':'待續約'};
 
   let h=`<div class="modal-title"><span class="dot" style="background:${c.color};width:12px;height:12px"></span>${c.name} — 合約客戶明細</div>`;
   h+=`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">`;
