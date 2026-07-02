@@ -296,7 +296,7 @@ class SleeperService
         return strtoupper(preg_replace('/[\s\-]/', '', trim($v)));
     }
 
-    private static $brandMerge = ['STN' => 'ALAPLANA', 'VITACER' => 'ALAPLANA'];
+    private static $brandMerge = ['ALAPLANA' => 'STN', 'VITACER' => 'STN'];
 
     public function normalizeBrand($brand)
     {
