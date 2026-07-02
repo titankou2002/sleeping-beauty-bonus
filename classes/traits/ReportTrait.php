@@ -2196,7 +2196,7 @@ trait ReportTrait
                 foreach ($allCustomers[$key] as $cust => $cData) {
                     if (isset($ct['customers'][$cust])) {
                         $healthBucket = $ct['customers'][$cust]['health'] ?? '';
-                        if (in_array($healthBucket, ['正常', '觀察', '警示', '危險', '黑死', '逾期', '嚴重', '待續', '已續'], true)) {
+                        if (in_array($healthBucket, ['正常', '觀察', '警示', '危險', '黑死'], true)) {
                             $signedStoreSales += $cData['curMonth'] ?? 0;
                         }
                     }

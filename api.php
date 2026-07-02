@@ -145,6 +145,17 @@ try {
             }
             break;
 
+        case 'group-ai-explain':
+            try {
+                $year = (int)($_GET['year'] ?? date('Y'));
+                $month = (int)($_GET['month'] ?? date('n'));
+                $res = $svc->getGroupAiExplain($year, $month);
+                echo json_encode($res, JSON_UNESCAPED_UNICODE);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'msg' => 'group-ai-explain 錯誤: ' . $e->getMessage()]);
+            }
+            break;
+
         case 'get-mgr-report':
             try {
                 $year = (int)($_GET['year'] ?? date('Y'));
@@ -265,13 +276,6 @@ try {
                 $body['context'] ?? []
             );
             echo json_encode($res);
-            break;
-
-        case 'contract-health-ai':
-            $year = (int)($_GET['year'] ?? date('Y'));
-            $month = (int)($_GET['month'] ?? date('n'));
-            $res = $svc->explainContractHealth($year, $month);
-            echo json_encode($res, JSON_UNESCAPED_UNICODE);
             break;
 
         case 'product-lifecycle':
