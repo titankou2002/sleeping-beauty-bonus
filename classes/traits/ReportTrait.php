@@ -1654,7 +1654,6 @@ trait ReportTrait
                 $bucket = $healthMeta['bucket'];
                 if (!isset($healthCounts[$bucket])) $healthCounts[$bucket] = 0;
                 $healthCounts[$bucket]++;
-                $active++;
 
                 $contractAmt = $idxContractAmt !== -1 ? $this->optFloat($this->getVal($row, $idxContractAmt)) : 0;
                 if (in_array($bucket, ['正常', '逾期', '嚴重', '待續', '已續'], true)) {
@@ -1682,7 +1681,7 @@ trait ReportTrait
                 ];
             }
             usort($detail, function ($a, $b) { return $b['balance'] - $a['balance']; });
-            return ['customers' => $customers, 'healthCounts' => $healthCounts, 'active' => $active, 'monthlyTarget' => round($monthlyTarget), 'detail' => $detail];
+            return ['customers' => $customers, 'healthCounts' => $healthCounts, 'active' => count($customers), 'monthlyTarget' => round($monthlyTarget), 'detail' => $detail];
         } catch (Exception $e) {
             return ['customers' => [], 'healthCounts' => [], 'active' => 0, 'monthlyTarget' => 0, 'detail' => []];
         }
@@ -2088,18 +2087,20 @@ trait ReportTrait
 
         $contractTotal = ['active' => 0, 'monthlyTarget' => 0, 'healthCounts' => []];
         $contractOverlap = [];
+        $contractAllCustomers = [];
         foreach ($companyIds as $key => $info) {
             $c = $allContracts[$key];
-            $contractTotal['active'] += $c['active'];
             $contractTotal['monthlyTarget'] += $c['monthlyTarget'];
             foreach ($c['healthCounts'] as $bucket => $cnt) {
                 $contractTotal['healthCounts'][$bucket] = ($contractTotal['healthCounts'][$bucket] ?? 0) + $cnt;
             }
             foreach ($c['customers'] as $custName => $custData) {
+                $contractAllCustomers[$custName] = true;
                 if (!isset($contractOverlap[$custName])) $contractOverlap[$custName] = [];
                 $contractOverlap[$custName][$key] = ['name' => $info['name'], 'health' => $custData['health'], 'target' => $custData['target']];
             }
         }
+        $contractTotal['active'] = count($contractAllCustomers);
         $overlapContracts = [];
         foreach ($contractOverlap as $custName => $coMap) {
             if (count($coMap) >= 2) {

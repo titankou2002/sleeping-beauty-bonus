@@ -210,11 +210,14 @@ function renderAll(d){
 
   // === 1. 集團總覽 ===
   html+=`<div class="section"><div class="section-title">📊 集團總覽 — ${y} 年 ${m} 月</div><div class="kpi-grid">
-    <div class="kpi"><div class="lb">集團本月營收</div><div class="vl">${fmtW(g.kpis.sales)}</div><div class="sb">${fmtYoy(g.kpis.salesYoyPct)}</div></div>
-    <div class="kpi"><div class="lb">YTD 累計營收</div><div class="vl">${fmtW(g.kpis.ytdSales)}</div><div class="sb">${fmtYoy(g.kpis.ytdYoyPct)}</div></div>
+    <div class="kpi"><div class="lb">集團本月營收</div><div class="vl">${fmtW(g.kpis.sales)}</div><div class="sb">${fmtYoy(g.kpis.salesYoyPct)} <span style="font-size:10px;color:var(--muted)">vs 去年同期</span></div></div>
+    <div class="kpi"><div class="lb">YTD 累計營收</div><div class="vl">${fmtW(g.kpis.ytdSales)}</div><div class="sb">${fmtYoy(g.kpis.ytdYoyPct)} <span style="font-size:10px;color:var(--muted)">vs 去年同期</span></div></div>
     <div class="kpi"><div class="lb">出貨坪數</div><div class="vl">${fmtP(g.kpis.pings)}</div></div>
     <div class="kpi"><div class="lb">合約客戶總數</div><div class="vl">${g.contractTotal.active} 家</div><div class="sb">目標 ${fmtW(g.contractTotal.monthlyTarget)}</div></div>
-  </div></div>`;
+  </div>
+  <details style="margin-top:12px"><summary style="cursor:pointer;font-size:12px;color:var(--muted)">📈 各月營收趨勢（分公司顏色）</summary>
+    <div class="chart-wrap" style="height:280px;margin-top:12px"><canvas id="monthlyStackChart"></canvas></div>
+  </details></div>`;
 
   // === 2. 各公司比較 ===
   html+=`<div class="section"><div class="section-title">📑 各公司比較</div>
@@ -362,6 +365,20 @@ function renderAll(d){
 
   // 合約目標 vs 實際柱狀圖
   html+=`<div class="chart-wrap" style="height:220px;margin-top:20px"><canvas id="contractChart"></canvas></div>`;
+
+  // 合約健康度摘要
+  const hcTotal = g.contractTotal.healthCounts || {};
+  const hcAll = (hcTotal['正常']||0)+(hcTotal['逾期']||0)+(hcTotal['嚴重']||0)+(hcTotal['待續']||0)+(hcTotal['已續']||0);
+  const hcHealthy = (hcTotal['正常']||0)+(hcTotal['待續']||0)+(hcTotal['已續']||0);
+  const hcHealthPct = hcAll > 0 ? (hcHealthy/hcAll*100).toFixed(1) : 0;
+  html+=`<div style="font-size:12px;color:var(--muted);margin-top:8px;display:flex;gap:16px;flex-wrap:wrap">
+    <span>正常 ${hcTotal['正常']||0}</span>
+    <span>逾期 ${hcTotal['逾期']||0}</span>
+    <span>嚴重 ${hcTotal['嚴重']||0}</span>
+    <span>待續 ${hcTotal['待續']||0}</span>
+    <span>已續 ${hcTotal['已續']||0}</span>
+    <span style="color:var(--gold);font-weight:700">健康度 ${hcHealthPct}%</span>
+  </div>`;
 
   // 重覆合約客戶
   if(d.overlapContracts && d.overlapContracts.length>0){
@@ -632,6 +649,14 @@ function renderCharts(d){
 
   const ctx6=document.getElementById('brandChart').getContext('2d');
   charts.push(new Chart(ctx6,{type:'bar',data:{labels:brandLabels,datasets:CO_KEYS.map(k=>({label:CO_LABELS[k],data:brandLabels.map(b=>Math.round(((cos[k].products.byBrand||{})[b]||{amount:0}).amount/10000)),backgroundColor:CO_COLORS[k]}))},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{labels:{color:'#f6f1e6',font:{weight:'bold'}}}},scales:{y:{stacked:true,grid:{display:false},ticks:{color:'#a9a39a',font:{size:11}}},x:{stacked:true,grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#a9a39a',callback:v=>v+'萬'}}}}}));
+
+  // 各月營收趨勢堆疊長條圖（集團總覽下方摺疊區）
+  const msEl=document.getElementById('monthlyStackChart');
+  if(msEl){
+    const msLabels=[];
+    for(let mi=1;mi<=m;mi++)msLabels.push(mi+'月');
+    charts.push(new Chart(msEl.getContext('2d'),{type:'bar',data:{labels:msLabels,datasets:CO_KEYS.map(k=>({label:CO_LABELS[k],data:msLabels.map((_,idx)=>{const ms=cos[k].monthlySales||[];return Math.round((ms[idx]||0)/10000)}),backgroundColor:CO_COLORS[k]}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#f6f1e6',font:{weight:'bold'}}},tooltip:{callbacks:{label:c=>{const ds=c.dataset;const total=ds.data.reduce((a,b)=>a+b,0);return` ${c.dataset.label}: ${c.parsed||0} 萬 (佔比 ${c.parsed>0?((c.parsed||0)/total*100).toFixed(1):0}%)`}}}},scales:{x:{stacked:true,grid:{display:false},ticks:{color:'#a9a39a'}},y:{stacked:true,grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#a9a39a',callback:v=>v+'萬'}}}}}));
+  }
 }
 
 let _groupData=null;
