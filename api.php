@@ -395,20 +395,26 @@ try {
             if ($years && is_string($years)) {
                 $years = array_map('intval', preg_split('/[,，\s]+/', $years));
             }
+            $steps = [];
             try {
-                $res = $svc->rebuildSalesYearCache($years);
-                if (!is_array($res)) {
-                    http_response_code(500);
-                    echo json_encode(['success' => false, 'error' => 'rebuildSalesYearCache returned non-array: ' . gettype($res)]);
-                    break;
-                }
-                echo json_encode($res);
-            } catch (Exception $e) {
+                $steps[] = 'start';
+                set_time_limit(120);
+                ini_set('memory_limit', '256M');
+                $steps[] = 'limits_set';
+                $gs2 = new GoogleSheetsClient();
+                $steps[] = 'gs_created';
+                $testRead = $gs2->readSheet(SALES_SHEET);
+                $steps[] = 'sales_read:' . count($testRead) . 'rows';
+                $testCache = $gs2->readSheet(CACHE_SHEET);
+                $steps[] = 'cache_read:' . count($testCache) . 'rows';
+                echo json_encode(['success' => true, 'steps' => $steps, 'salesRows' => count($testRead), 'cacheRows' => count($testCache)]);
+            } catch (Throwable $e) {
+                $steps[] = 'error:' . $e->getMessage();
+                $msg = implode(' | ', $steps);
+                error_log('rebuild-cache-diag: ' . $msg);
+                @file_put_contents(__DIR__ . '/error-log.txt', date('Y-m-d H:i:s') . ' ' . $msg . "\n", FILE_APPEND);
                 http_response_code(500);
-                $msg = $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine();
-                error_log('rebuild-cache: ' . $msg);
-                @file_put_contents(__DIR__ . '/error-log.txt', date('Y-m-d H:i:s') . ' rebuild-catch: ' . $msg . "\n", FILE_APPEND);
-                echo json_encode(['success' => false, 'error' => $msg]);
+                echo json_encode(['success' => false, 'steps' => $steps, 'error' => $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
             }
             break;
 
