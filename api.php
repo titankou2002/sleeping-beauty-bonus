@@ -5878,7 +5878,8 @@ class SleeperService
                 'count' => $this->findHeader($h, ['交易筆數']),
                 'pings' => $this->findHeader($h, ['銷售坪數']),
                 'qty' => $this->findHeader($h, ['銷售片數', '數量']),
-                'sales' => $this->findHeader($h, ['負責業務', '業務'])
+                'sales' => $this->findHeader($h, ['負責業務', '業務']),
+                'prodName' => $this->findHeader($h, ['產品名稱'])
             ];
             for ($i = 1; $i < count($cacheRows); $i++) {
                 $row = $cacheRows[$i];
@@ -5891,6 +5892,8 @@ class SleeperService
                 $cnt = (int)$this->getVal($row, $idx['count']);
                 $ping = $this->optFloat($this->getVal($row, $idx['pings']));
                 $qty = (int)$this->getVal($row, $idx['qty']);
+                $prodName = $idx['prodName'] !== -1 ? $this->getVal($row, $idx['prodName']) : '';
+                if ($this->isSampleRow($sku, $cust, $prodName, $amt)) continue;
                 $monthKey = sprintf('%04d-%02d', $y, $m);
                 if (!isset($cacheBySku[$sku])) $cacheBySku[$sku] = [];
                 if (!isset($cacheBySku[$sku][$monthKey])) {
@@ -6182,7 +6185,8 @@ class SleeperService
                 'sku' => $this->findHeader($h, ['產品編號']),
                 'cust' => $this->findHeader($h, ['客戶名稱']),
                 'amt' => $this->findHeader($h, ['銷售金額']),
-                'sales' => $this->findHeader($h, ['負責業務', '業務'])
+                'sales' => $this->findHeader($h, ['負責業務', '業務']),
+                'prodName' => $this->findHeader($h, ['產品名稱'])
             ];
             for ($i = 1; $i < count($cacheRows); $i++) {
                 $row = $cacheRows[$i];
@@ -6192,6 +6196,8 @@ class SleeperService
                 $amt = $this->optFloat($this->getVal($row, $idx['amt']));
                 $y = (int)$this->getVal($row, $idx['year']);
                 $m = (int)$this->getVal($row, $idx['month']);
+                $prodName = $idx['prodName'] !== -1 ? $this->getVal($row, $idx['prodName']) : '';
+                if ($this->isSampleRow($sku, $cust, $prodName, $amt)) continue;
                 if ($y !== $thisYear && $y !== $lastYear) continue;
 
                 if (!isset($custMonthly[$cust])) $custMonthly[$cust] = [];
