@@ -443,8 +443,4 @@ class SleeperService
         if ($v >= 1000) return number_format($v / 1000, 1) . '千';
         return round($v) . '元';
     }
-
-
-
-}
 }
