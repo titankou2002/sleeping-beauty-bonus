@@ -6,7 +6,9 @@ if (session_status() === PHP_SESSION_NONE) {
 require_once __DIR__ . '/config.php';
 
 // Bypass session check for automated sync cron job with valid token
-$isCron = isset($_GET['action']) && $_GET['action'] === 'cron-rebuild-all' && isset($_GET['token']) && $_GET['token'] === CRON_TOKEN;
+$action = $_GET['action'] ?? '';
+$hasValidToken = isset($_GET['token']) && $_GET['token'] === CRON_TOKEN;
+$isCron = $hasValidToken && in_array($action, ['cron-rebuild-all', 'php-diag']);
 
 // Check if user is authenticated
 $authenticated = $isCron || (isset($_SESSION['war_room_auth']) && $_SESSION['war_room_auth'] === true);

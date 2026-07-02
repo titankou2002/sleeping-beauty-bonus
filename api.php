@@ -391,7 +391,13 @@ try {
             break;
 
         case 'php-diag':
+            $token = $_GET['token'] ?? '';
+            if ($token !== CRON_TOKEN) {
+                echo json_encode(['error' => 'invalid token']);
+                break;
+            }
             echo json_encode([
+                'php_version' => PHP_VERSION,
                 'php_version' => PHP_VERSION,
                 'display_errors' => ini_get('display_errors'),
                 'error_reporting' => error_reporting(),
