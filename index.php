@@ -571,6 +571,7 @@ input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-colo
           <button class="tab-btn" id="tab-bonus" onclick="switchTab('bonus')">睡美人銷售</button>
           <button class="tab-btn" id="tab-customers" onclick="switchTab('customers')">客戶分析</button>
           <button class="tab-btn" id="tab-analysis" onclick="location.href='analysis.php'" style="background:rgba(194,157,102,0.08);border-color:rgba(194,157,102,0.3)">📊 新品分析</button>
+          <button class="tab-btn" id="tab-reps" onclick="location.href='reps.php'" style="background:rgba(194,157,102,0.08);border-color:rgba(194,157,102,0.3)">👥 業務分析</button>
         </div>
       </div>
     </header>
