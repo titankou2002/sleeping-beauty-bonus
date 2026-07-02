@@ -10,9 +10,12 @@ set_error_handler(function ($severity, $msg, $file, $line) {
 register_shutdown_function(function () {
     $e = error_get_last();
     if ($e && in_array($e['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+        $msg = '重大錯誤: ' . $e['message'] . ' in ' . $e['file'] . ':' . $e['line'];
+        error_log($msg);
+        @file_put_contents(__DIR__ . '/error-log.txt', date('Y-m-d H:i:s') . ' ' . $msg . "\n", FILE_APPEND);
         http_response_code(500);
         header('Content-Type: application/json; charset=utf-8');
-        echo json_encode(['success' => false, 'msg' => '重大錯誤: ' . $e['message'], 'file' => $e['file'], 'line' => $e['line']]);
+        echo json_encode(['success' => false, 'msg' => $msg]);
     }
 });
 
@@ -482,6 +485,9 @@ try {
             echo json_encode(['success' => false, 'msg' => '未知 action: ' . $action]);
     }
 } catch (Throwable $e) {
+    $msg = $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine();
+    error_log($msg);
+    @file_put_contents(__DIR__ . '/error-log.txt', date('Y-m-d H:i:s') . ' ' . $msg . "\n", FILE_APPEND);
     http_response_code(500);
-    echo json_encode(['success' => false, 'msg' => $e->getMessage()]);
+    echo json_encode(['success' => false, 'msg' => $msg]);
 }
