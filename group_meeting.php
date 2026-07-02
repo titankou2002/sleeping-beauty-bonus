@@ -697,7 +697,7 @@ function renderCharts(d){
   const msEl=document.getElementById('monthlyStackChart');
   if(msEl){
     const msLabels=[];
-    for(let mi=1;mi<=m;mi++)msLabels.push(mi+'月');
+    for(let mi=1;mi<=d.month;mi++)msLabels.push(mi+'月');
     charts.push(new Chart(msEl.getContext('2d'),{type:'bar',data:{labels:msLabels,datasets:CO_KEYS.map(k=>({label:CO_LABELS[k],data:msLabels.map((_,idx)=>{const ms=cos[k].monthlySales||[];return Math.round((ms[idx]||0)/10000)}),backgroundColor:CO_COLORS[k]}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#f6f1e6',font:{weight:'bold'}}},tooltip:{callbacks:{label:c=>{const ds=c.dataset;const total=ds.data.reduce((a,b)=>a+b,0);return` ${c.dataset.label}: ${c.parsed||0} 萬 (佔比 ${c.parsed>0?((c.parsed||0)/total*100).toFixed(1):0}%)`}}}},scales:{x:{stacked:true,grid:{display:false},ticks:{color:'#a9a39a'}},y:{stacked:true,grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#a9a39a',callback:v=>v+'萬'}}}}}));
   }
 }
