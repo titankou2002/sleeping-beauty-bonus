@@ -570,8 +570,8 @@ input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-colo
           <button class="tab-btn" id="tab-reports" onclick="switchTab('reports')">銷售報表</button>
           <button class="tab-btn" id="tab-bonus" onclick="switchTab('bonus')">睡美人銷售</button>
           <button class="tab-btn" id="tab-customers" onclick="switchTab('customers')">客戶分析</button>
-          <button class="tab-btn" id="tab-analysis" onclick="location.href='analysis.php'" style="background:rgba(194,157,102,0.08);border-color:rgba(194,157,102,0.3)">📊 新品分析</button>
-          <button class="tab-btn" id="tab-reps" onclick="location.href='reps.php'" style="background:rgba(194,157,102,0.08);border-color:rgba(194,157,102,0.3)">👥 業務分析</button>
+          <button class="tab-btn" id="tab-analysis" onclick="switchTab('analysis')">新品分析 <span style="font-size:10px;color:var(--text2);margin-left:4px;cursor:pointer;text-decoration:underline" onclick="event.stopPropagation();window.open('analysis.php','_blank')">新視窗</span></button>
+          <button class="tab-btn" id="tab-reps" onclick="switchTab('reps')">業務分析 <span style="font-size:10px;color:var(--text2);margin-left:4px;cursor:pointer;text-decoration:underline" onclick="event.stopPropagation();window.open('reps.php','_blank')">新視窗</span></button>
         </div>
       </div>
     </header>
@@ -1052,6 +1052,8 @@ function switchTab(tab) {
   document.getElementById('tab-products').classList.toggle('active', tab === 'products');
   document.getElementById('tab-reports').classList.toggle('active', tab === 'reports');
   document.getElementById('tab-customers').classList.toggle('active', tab === 'customers');
+  document.getElementById('tab-analysis').classList.toggle('active', tab === 'analysis');
+  document.getElementById('tab-reps').classList.toggle('active', tab === 'reps');
   document.getElementById('ctrl-bonus').classList.toggle('hidden', tab !== 'bonus');
   document.getElementById('ctrl-products').classList.toggle('hidden', tab !== 'products');
   document.getElementById('ctrl-reports').classList.toggle('hidden', tab !== 'reports');
@@ -1069,6 +1071,16 @@ function switchTab(tab) {
     loadSalesList();
   } else if (tab === 'customers') {
     loadCustomerAnalysis();
+  } else if (tab === 'analysis') {
+    var c = document.getElementById('main-content');
+    if (!c.querySelector('iframe[data-tab=analysis]')) {
+      c.innerHTML = '<iframe data-tab="analysis" src="analysis.php" style="width:100%;border:none;background:var(--bg);min-height:calc(100vh - 120px)"></iframe>';
+    }
+  } else if (tab === 'reps') {
+    var c = document.getElementById('main-content');
+    if (!c.querySelector('iframe[data-tab=reps]')) {
+      c.innerHTML = '<iframe data-tab="reps" src="reps.php" style="width:100%;border:none;background:var(--bg);min-height:calc(100vh - 120px)"></iframe>';
+    }
   }
 }
 
