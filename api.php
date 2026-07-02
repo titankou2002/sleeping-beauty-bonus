@@ -1,15 +1,19 @@
 <?php
+ob_start();
 require_once __DIR__ . '/auth.php';
 error_reporting(E_ALL);
-ini_set('display_errors', is_file(__DIR__ . '/config.local.php') ? '1' : '0');
+ini_set('display_errors', '0');
 header('Content-Type: application/json; charset=utf-8');
 
 set_error_handler(function ($severity, $msg, $file, $line) {
+    ob_clean();
     throw new ErrorException($msg, 0, $severity, $file, $line);
 });
 register_shutdown_function(function () {
     $e = error_get_last();
     if ($e && in_array($e['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+        ob_clean();
+        http_response_code(500);
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode(['success' => false, 'msg' => '重大錯誤: ' . $e['message'], 'file' => $e['file'], 'line' => $e['line']]);
     }
