@@ -1630,17 +1630,39 @@ trait ReportTrait
             $idxHealth = $this->findHeader($h, ['健康度']);
             $idxCustomer = $this->findHeader($h, ['客戶']);
             $idxContractAmt = $this->findHeader($h, ['合約內容']);
-            $idxSales = $this->findHeader($h, ['業務']);
+            $idxQty = $this->findHeader($h, ['張數']);
+            $idxPayment = $this->findHeader($h, ['沖帳方式']);
+            $idxFirstDue = $this->findHeader($h, ['第一張票期']);
             $idxLastDue = $this->findHeader($h, ['最後一張票期']);
-            $idxBalance = -1;
+            $idxPrepay = $this->findHeader($h, ['預收金額']);
+            $idxSales = $this->findHeader($h, ['業務']);
+
+            $balanceCols = [];
             foreach ($h as $i => $col) {
-                if (mb_strpos((string)$col, '餘額') !== false) $idxBalance = $i;
+                $c = trim((string)$col);
+                if (mb_strpos($c, '餘額') !== false) {
+                    $dateInfo = ['rocY' => null, 'm' => null];
+                    if (preg_match('/(\d{2,4})[\/年](\d{1,2})月/u', $c, $m)) {
+                        $y = (int)$m[1];
+                        if ($y < 100) $y += 1911;
+                        $dateInfo = ['rocY' => $y, 'm' => (int)$m[2]];
+                    }
+                    $balanceCols[] = ['idx' => $i, 'date' => $dateInfo];
+                }
             }
+            usort($balanceCols, function ($a, $b) {
+                if ($a['date']['rocY'] === null && $b['date']['rocY'] === null) return 0;
+                if ($a['date']['rocY'] === null) return 1;
+                if ($b['date']['rocY'] === null) return -1;
+                if ($a['date']['rocY'] !== $b['date']['rocY']) return $a['date']['rocY'] - $b['date']['rocY'];
+                return $a['date']['m'] - $b['date']['m'];
+            });
+            $idxBalance = count($balanceCols) > 0 ? $balanceCols[count($balanceCols) - 1]['idx'] : -1;
+            $idxPrevBalance = count($balanceCols) > 1 ? $balanceCols[count($balanceCols) - 2]['idx'] : -1;
 
             $healthCounts = [];
             $customers = [];
             $detail = [];
-            $active = 0;
             $monthlyTarget = 0;
             $today = new DateTime('today');
 
@@ -1650,23 +1672,64 @@ trait ReportTrait
                 $customer = $this->displayCustomerName($this->getVal($row, $idxCustomer));
                 if ($customer === '未知客戶') continue;
 
-                $healthMeta = $this->normalizeContractHealthLabel($health);
-                $bucket = $healthMeta['bucket'];
+                $contractAmt = $idxContractAmt !== -1 ? $this->optFloat($this->getVal($row, $idxContractAmt)) : 0;
+                $qty = $idxQty !== -1 ? max((int)$this->getVal($row, $idxQty), 1) : 1;
+                $totalContract = $contractAmt * $qty;
+
+                $bal = $idxBalance !== -1 ? $this->optFloat($this->getVal($row, $idxBalance)) : 0;
+                $prevBal = $idxPrevBalance !== -1 ? $this->optFloat($this->getVal($row, $idxPrevBalance)) : null;
+                $consumption = ($prevBal !== null && $prevBal > $bal) ? ($prevBal - $bal) : 0;
+
+                $balRatio = $totalContract > 0 ? ($bal / $totalContract) : 1;
+
+                $due = $this->parseDate($this->getVal($row, $idxLastDue));
+                $dueDays = $due ? (int)$today->diff($due)->format('%r%a') : null;
+
+                $paymentMethod = $idxPayment !== -1 ? trim($this->getVal($row, $idxPayment)) : '';
+                $firstDue = $this->parseDate($this->getVal($row, $idxFirstDue));
+                $prepay = $idxPrepay !== -1 ? $this->optFloat($this->getVal($row, $idxPrepay)) : 0;
+                $rep = $idxSales !== -1 ? trim($this->getVal($row, $idxSales)) : '';
+
+                $score = 0;
+                if ($balRatio < 0.3) $score += 40;
+                elseif ($balRatio < 0.5) $score += 30;
+                elseif ($balRatio < 0.7) $score += 15;
+                elseif ($balRatio < 0.9) $score += 5;
+
+                if ($consumption > 0) $score += 30;
+                elseif ($prevBal !== null && $prevBal == $bal && $bal > 0) $score += 0;
+                else $score += 15;
+
+                if ($dueDays === null) $score += 10;
+                elseif ($dueDays > 0) $score += 20;
+                elseif ($dueDays > -90) $score += 10;
+                elseif ($dueDays > -180) $score += 0;
+                elseif ($dueDays > -365) $score -= 10;
+                else $score -= 20;
+
+                if ($balRatio > 0.95 && $consumption == 0 && $dueDays !== null && $dueDays < -365) {
+                    $bucket = '黑死';
+                } elseif ($balRatio > 0.9 && $dueDays !== null && $dueDays < -180) {
+                    $bucket = '危險';
+                } elseif ($balRatio > 0.8 || ($dueDays !== null && $dueDays < -90)) {
+                    $bucket = '警示';
+                } elseif ($balRatio > 0.5) {
+                    $bucket = '觀察';
+                } else {
+                    $bucket = '正常';
+                }
+
                 if (!isset($healthCounts[$bucket])) $healthCounts[$bucket] = 0;
                 $healthCounts[$bucket]++;
 
-                $contractAmt = $idxContractAmt !== -1 ? $this->optFloat($this->getVal($row, $idxContractAmt)) : 0;
-                if (in_array($bucket, ['正常', '逾期', '嚴重', '待續', '已續'], true)) {
+                if (in_array($bucket, ['正常', '觀察', '警示', '危險', '黑死'], true)) {
                     $monthlyTarget += $contractAmt;
                 }
-                $rep = $idxSales !== -1 ? trim($this->getVal($row, $idxSales)) : '';
-                $bal = $idxBalance !== -1 ? $this->optFloat($this->getVal($row, $idxBalance)) : 0;
-                $due = $this->parseDate($this->getVal($row, $idxLastDue));
+
                 $dueText = '';
-                if ($due) {
-                    $diff = (int)$today->diff($due)->format('%r%a');
-                    if ($diff < 0) $dueText = '逾期 ' . abs($diff) . ' 天';
-                    elseif ($diff > 0) $dueText = $diff . ' 天後到期';
+                if ($dueDays !== null) {
+                    if ($dueDays < 0) $dueText = '逾期 ' . abs($dueDays) . ' 天';
+                    elseif ($dueDays > 0) $dueText = $dueDays . ' 天後到期';
                     else $dueText = '今天到期';
                 }
 
@@ -1674,10 +1737,20 @@ trait ReportTrait
                 $detail[] = [
                     'name' => $customer,
                     'health' => $bucket,
+                    'paymentMethod' => $paymentMethod,
                     'target' => round($contractAmt),
+                    'qty' => $qty,
+                    'totalContract' => round($totalContract),
                     'balance' => round($bal),
-                    'rep' => $rep,
+                    'prevBalance' => $prevBal !== null ? round($prevBal) : null,
+                    'consumption' => round($consumption),
+                    'balRatio' => round($balRatio * 100, 1),
+                    'prepay' => round($prepay),
+                    'firstDue' => $firstDue ? $firstDue->format('Y/m/d') : '',
+                    'lastDue' => $due ? $due->format('Y/m/d') : '',
+                    'dueDays' => $dueDays,
                     'dueText' => $dueText,
+                    'rep' => $rep,
                 ];
             }
             usort($detail, function ($a, $b) { return $b['balance'] - $a['balance']; });
@@ -2123,7 +2196,7 @@ trait ReportTrait
                 foreach ($allCustomers[$key] as $cust => $cData) {
                     if (isset($ct['customers'][$cust])) {
                         $healthBucket = $ct['customers'][$cust]['health'] ?? '';
-                        if (in_array($healthBucket, ['正常', '逾期', '嚴重', '待續', '已續'], true)) {
+                        if (in_array($healthBucket, ['正常', '觀察', '警示', '危險', '黑死', '逾期', '嚴重', '待續', '已續'], true)) {
                             $signedStoreSales += $cData['curMonth'] ?? 0;
                         }
                     }

@@ -168,12 +168,12 @@ trait ProductTrait
         }
 
         return [
-                'mos' => $diag['mos'],
-                'monthlySpeedPings' => $diag['monthlySpeedPings'],
-                'action' => $diag['action'],
-                'actionColor' => $diag['actionColor'],
-                'stagnantReason' => $diag['stagnantReason'],
-                'mosLevel' => $diag['mosLevel'],
+                'mos' => $mos,
+                'monthlySpeedPings' => $monthlySpeedPings,
+                'action' => $action,
+                'actionColor' => $actionColor,
+                'stagnantReason' => $stagnantReason,
+                'mosLevel' => $mosLevel,
         ];
     }
 

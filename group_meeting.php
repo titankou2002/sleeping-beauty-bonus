@@ -89,12 +89,14 @@ require_once __DIR__ . '/config.php';
     .modal-title{font-size:17px;font-weight:800;color:var(--gold);margin:0 0 16px;display:flex;align-items:center;gap:8px}
     .health-tag{display:inline-block;padding:3px 10px;border-radius:4px;font-size:12px;font-weight:700;margin-right:6px}
     .ht-normal{background:rgba(34,197,94,.15);color:var(--green)}
-    .ht-overdue{background:rgba(245,158,11,.15);color:var(--orange)}
-    .ht-severe{background:rgba(239,68,68,.15);color:var(--red)}
-    .ht-pending{background:rgba(96,165,250,.15);color:var(--blue)}
-    .ht-renewed{background:rgba(167,139,250,.15);color:var(--purple)}
+    .ht-watch{background:rgba(234,179,8,.15);color:#eab308}
+    .ht-warning{background:rgba(245,158,11,.15);color:var(--orange)}
+    .ht-danger{background:rgba(239,68,68,.15);color:var(--red)}
+    .ht-black{background:rgba(128,128,128,.2);color:#999}
     .detail-btn{background:none;border:1px solid rgba(194,157,102,.4);color:var(--gold);font-size:12px;font-weight:700;padding:4px 12px;border-radius:4px;cursor:pointer;transition:all .2s}
     .detail-btn:hover{background:rgba(194,157,102,.15);border-color:var(--gold)}
+    .ai-btn{background:rgba(194,157,102,.15);border:1px solid rgba(194,157,102,.5);color:var(--gold);font-size:12px;font-weight:700;padding:4px 14px;border-radius:6px;cursor:pointer;transition:all .2s;vertical-align:middle}
+    .ai-btn:hover{background:rgba(194,157,102,.3)}
 
     .mgr-tab-content { margin-top: 14px; }
     .mgr-form-group { margin-bottom: 16px; }
@@ -336,30 +338,37 @@ function renderAll(d){
   html+=`</div></div>`;
 
   // === 5. 合約客戶狀況 ===
-  html+=`<div class="section"><div class="section-title">📋 合約客戶狀況</div><div class="co3">`;
+  const hcBuckets=['正常','觀察','警示','危險','黑死'];
+  const hcColors={'正常':'var(--green)','觀察':'#eab308','警示':'var(--orange)','危險':'var(--red)','黑死':'#999'};
+  html+=`<div class="section"><div class="section-title">合約客戶狀況 <button class="ai-btn" onclick="explainContractHealth(this)" style="margin-left:8px">AI 解說</button></div><div class="co3">`;
   CO_KEYS.forEach(k=>{
     const c=cos[k]; const ct=c.contract;
     const hc=ct.healthCounts||{};
     const total=ct.active||1;
-    const normalPct=((hc['正常']||0)/total*100).toFixed(0);
-    const overduePct=(((hc['逾期']||0)+(hc['嚴重']||0))/total*100).toFixed(0);
+    const normalPct=total>0?((hc['正常']||0)/total*100).toFixed(0):0;
+    const dangerTotal=(hc['危險']||0)+(hc['黑死']||0);
+    const dangerPct=total>0?(dangerTotal/total*100).toFixed(0):0;
     const healthPct = ct.healthPct != null ? ct.healthPct : 0;
+    let tagHtml='';
+    hcBuckets.forEach(b=>{
+      const n=hc[b]||0;
+      if(n>0)tagHtml+=`<span class="health-tag" style="background:${hcColors[b]}22;color:${hcColors[b]};border:1px solid ${hcColors[b]}44">${b} ${n}家</span> `;
+    });
     html+=`<div class="cc"><div class="nm"><span class="dot" style="background:${c.color}"></span>${c.name}</div>
       <div style="font-size:13px;display:flex;flex-direction:column;gap:4px">
         <span>合約客戶 <b>${ct.active}</b> 家</span>
-        <span>正常 ${hc['正常']||0}（${normalPct}%）· 逾期 ${hc['逾期']||0} · 嚴重 ${hc['嚴重']||0}（逾期率 ${overduePct}%）</span>
-        <span>待續 ${hc['待續']||0} · 已續 ${hc['已續']||0}</span>
+        <span>${tagHtml}</span>
+        <span>健康率 ${normalPct}% · 危險+黑死 ${dangerPct}%</span>
         <span>合約月目標 <b>${fmtW(ct.monthlyTarget)}</b></span>
         <span>簽約店實銷 <b>${fmtW(ct.signedStoreSales)}</b></span>
-        <span>健康度 <b style="font-size:16px" class="${Number(healthPct)>=75?'up':'dn'}">${healthPct}%</b></span>
       </div>
       <div style="margin-top:8px;height:8px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden;display:flex">
         <div style="width:${normalPct}%;background:var(--green)"></div>
-        <div style="width:${(((hc['逾期']||0))/total*100).toFixed(0)}%;background:var(--orange)"></div>
-        <div style="width:${(((hc['嚴重']||0))/total*100).toFixed(0)}%;background:var(--red)"></div>
+        <div style="width:${total>0?(((hc['觀察']||0)+(hc['警示']||0))/total*100).toFixed(0):0}%;background:var(--orange)"></div>
+        <div style="width:${dangerPct}%;background:var(--red)"></div>
       </div>
-      <div style="font-size:11px;color:var(--muted);margin-top:4px;display:flex;gap:12px"><span style="color:var(--green)">■ 正常</span><span style="color:var(--orange)">■ 逾期</span><span style="color:var(--red)">■ 嚴重</span></div>
-      <div class="link-row" style="display:flex;gap:8px;flex-wrap:wrap"><button class="detail-btn" onclick="showContractDetail('${k}')">📋 合約客戶明細</button><a class="btn-report" href="${reportUrl(k,d.year,d.month)}" target="_blank">🔗 ${c.name}月報</a></div></div>`;
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;display:flex;gap:12px;flex-wrap:wrap"><span style="color:var(--green)">■ 健康</span><span style="color:var(--orange)">■ 觀察/警示</span><span style="color:var(--red)">■ 危險/黑死</span></div>
+      <div class="link-row" style="display:flex;gap:8px;flex-wrap:wrap"><button class="detail-btn" onclick="showContractDetail('${k}')">合約明細</button><a class="btn-report" href="${reportUrl(k,d.year,d.month)}" target="_blank">${c.name}月報</a></div></div>`;
   });
   html+=`</div>`;
 
@@ -368,16 +377,17 @@ function renderAll(d){
 
   // 合約健康度摘要
   const hcTotal = g.contractTotal.healthCounts || {};
-  const hcAll = (hcTotal['正常']||0)+(hcTotal['逾期']||0)+(hcTotal['嚴重']||0)+(hcTotal['待續']||0)+(hcTotal['已續']||0);
-  const hcHealthy = (hcTotal['正常']||0)+(hcTotal['待續']||0)+(hcTotal['已續']||0);
+  const hcAll = hcBuckets.reduce((s,b) => s+(hcTotal[b]||0), 0);
+  const hcHealthy = (hcTotal['正常']||0);
   const hcHealthPct = hcAll > 0 ? (hcHealthy/hcAll*100).toFixed(1) : 0;
+  let hcLine='';
+  hcBuckets.forEach(b=>{
+    const n=hcTotal[b]||0;
+    if(n>0)hcLine+=`<span style="color:${hcColors[b]}">${b} ${n}</span> `;
+  });
   html+=`<div style="font-size:12px;color:var(--muted);margin-top:8px;display:flex;gap:16px;flex-wrap:wrap">
-    <span>正常 ${hcTotal['正常']||0}</span>
-    <span>逾期 ${hcTotal['逾期']||0}</span>
-    <span>嚴重 ${hcTotal['嚴重']||0}</span>
-    <span>待續 ${hcTotal['待續']||0}</span>
-    <span>已續 ${hcTotal['已續']||0}</span>
-    <span style="color:var(--gold);font-weight:700">健康度 ${hcHealthPct}%</span>
+    ${hcLine}
+    <span style="color:var(--gold);font-weight:700">健康率 ${hcHealthPct}%</span>
   </div>`;
 
   // 重覆合約客戶
@@ -671,8 +681,9 @@ function showContractDetail(companyKey){
   const c=_groupData.companies[companyKey];
   const ct=c.contract; const detail=ct.detail||[];
   const hc=ct.healthCounts||{};
-  const buckets=['正常','逾期','嚴重','待續','已續','其它未續約','未分類'];
-  const htClass={'正常':'ht-normal','逾期':'ht-overdue','嚴重':'ht-severe','待續':'ht-pending','已續':'ht-renewed'};
+  const buckets=['正常','觀察','警示','危險','黑死'];
+  const htClass={'正常':'ht-normal','觀察':'ht-watch','警示':'ht-warning','危險':'ht-danger','黑死':'ht-black'};
+  const htLabel={'正常':'健康','觀察':'觀察','警示':'警示','危險':'危險','黑死':'黑死'};
 
   let h=`<div class="modal-title"><span class="dot" style="background:${c.color};width:12px;height:12px"></span>${c.name} — 合約客戶明細</div>`;
   h+=`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">`;
@@ -687,16 +698,34 @@ function showContractDetail(companyKey){
     const items=detail.filter(d=>d.health===b);
     if(items.length===0)return;
     const cls=htClass[b]||'';
-    h+=`<div style="margin-top:16px"><div style="font-size:14px;font-weight:700;margin-bottom:8px"><span class="health-tag ${cls}">${b}</span> ${items.length} 家</div>`;
-    h+=`<table class="tbl"><tr><th>客戶</th><th>業務</th><th class="r">合約金額</th><th class="r">餘額</th><th>票期狀態</th></tr>`;
-    items.forEach(d=>{
-      const balColor=d.balance>0?'color:var(--red)':'';
-      h+=`<tr><td>${d.name}</td><td>${d.rep||'—'}</td><td class="r">${fmtW(d.target)}</td><td class="r" style="${balColor};font-weight:700">${fmtW(d.balance)}</td><td>${d.dueText||'—'}</td></tr>`;
+    h+=`<div style="margin-top:16px"><div style="font-size:14px;font-weight:700;margin-bottom:8px"><span class="health-tag ${cls}">${b}</span> ${items.length} 筆</div>`;
+    h+=`<div class="tbl-wrap"><table class="tbl"><tr><th>#</th><th>健康度</th><th>客戶</th><th>沖帳方式</th><th>合約總額</th><th>張數</th><th>餘額</th><th>餘額%</th><th>月消耗</th><th>最後票期</th><th>預期</th></tr>`;
+    items.forEach((d,i)=>{
+      const brColor = d.balRatio >= 90 ? 'color:var(--red)' : d.balRatio >= 70 ? 'color:var(--orange)' : '';
+      const htColor = htClass[d.health] ? `class="${htClass[d.health]}"` : '';
+      h+=`<tr><td>${i+1}</td><td ${htColor}>${htLabel[d.health]||d.health}</td><td>${d.name}</td><td>${d.paymentMethod||'—'}</td>
+        <td class="r">${fmtW(d.totalContract)}</td><td class="r">${d.qty||1}</td>
+        <td class="r" style="${brColor};font-weight:700">${fmtW(d.balance)}</td>
+        <td class="r" style="${brColor}">${d.balRatio}%</td>
+        <td class="r">${d.consumption>0?fmtW(d.consumption):'—'}</td>
+        <td style="font-size:11px">${d.lastDue||'—'}</td>
+        <td style="font-size:11px;color:var(--muted)">${d.dueText||'—'}</td></tr>`;
     });
     h+=`</table></div>`;
   });
 
   showModal(h);
+}
+
+function explainContractHealth(btn){
+  if(!_groupData)return;
+  const d=_groupData;
+  btn.disabled=true; btn.textContent='思考中...';
+  fetch(`api.php?action=contract-health-ai&year=${d.year}&month=${d.month}`).then(r=>r.json()).then(res=>{
+    btn.disabled=false; btn.textContent='AI 解說';
+    if(!res.success){showModal(`<div class="modal-title">AI 解說</div><div style="color:var(--red)">${res.msg||'無法取得'}</div>`);return;}
+    showModal(`<div class="modal-title">AI 合約健康解說</div><div style="line-height:1.8;font-size:14px;white-space:pre-wrap">${res.reply}</div>`);
+  }).catch(()=>{btn.disabled=false;btn.textContent='AI 解說';showModal(`<div class="modal-title">AI 解說</div><div style="color:var(--red)">請求失敗</div>`);});
 }
 
 function showProductDetail(companyKey, type){

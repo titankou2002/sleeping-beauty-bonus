@@ -497,4 +497,81 @@ trait AiTrait
         if ($reply === '') return ['success'=>false,'msg'=>'Gemini 無回應（'.($result['candidates'][0]['finishReason']??'UNKNOWN').'）'];
         return ['success'=>true,'reply'=>trim($reply)];
     }
+
+    public function explainContractHealth($year, $month)
+    {
+        if (GEMINI_API_KEY === '') return ['success'=>false,'msg'=>'尚未設定 GEMINI_API_KEY'];
+        $report = $this->getGroupDetailedReport($year, $month);
+        if (!($report['success'] ?? false)) {
+            return ['success'=>false,'msg'=>'無法取得集團資料'];
+        }
+        $data = $report['data'];
+        $ct = $data['contractTotal'] ?? [];
+        $hc = $ct['healthCounts'] ?? [];
+        $total = $ct['active'] ?? 0;
+        $monthlyTarget = $ct['monthlyTarget'] ?? 0;
+
+        $lines = ["集團合約健康度概況（{$year}年{$month}月）"];
+        $lines[] = "合約客戶總數：{$total} 家";
+        $lines[] = "月目標：{$monthlyTarget} 元";
+        $lines[] = "正常：{$hc['正常']} 家，觀察：{$hc['觀察']} 家，警示：{$hc['警示']} 家，危險：{$hc['危險']} 家，黑死：{$hc['黑死']} 家";
+
+        if (!empty($data['companies'])) {
+            foreach ($data['companies'] as $ck => $cv) {
+                $ch = $cv['contract'] ?? [];
+                $chc = $ch['healthCounts'] ?? [];
+                $lines[] = "{$ck}：合約客戶 {$ch['active']} 家，正常 {$chc['正常']} 觀察 {$chc['觀察']} 警示 {$chc['警示']} 危險 {$chc['危險']} 黑死 {$chc['黑死']}";
+            }
+        }
+
+        $detail = [];
+        if (!empty($data['companies'])) {
+            foreach ($data['companies'] as $ck => $cv) {
+                $dd = $cv['contract']['detail'] ?? [];
+                foreach ($dd as $d) {
+                    $detail[] = $d;
+                }
+            }
+        }
+
+        $balHigh = [];
+        $balOld = [];
+        foreach ($detail as $d) {
+            if ($d['health'] === '危險' || $d['health'] === '黑死' || $d['health'] === '警示') {
+                $balHigh[] = "{$d['name']}({$d['health']},餘額{$d['balance']}元,餘額比{$d['balRatio']}%)";
+            }
+        }
+        if (!empty($balHigh)) {
+            $lines[] = "需關注的合約：" . implode('；', array_slice($balHigh, 0, 15));
+        }
+
+        $ctx = implode("\n", $lines);
+
+        $systemPrompt = "你是高雅瓷磁磚公司（elitile，睡美人磁磚）的業務分析顧問。請根據以下合約健康度數據，用繁體中文（台灣用語）寫一段白話文解說。
+
+解說要包含：
+1. 整體健康狀況摘要（健康比例多少，最主要問題在哪）
+2. 各公司比較（哪家最需要關注）
+3. 重點客戶警示（哪些客戶餘額比過高或逾期過久）
+4. 具體建議（應該做什麼行動）
+
+語氣直接、務實，像在跟老闆報告，不要條列式，用一段通順的白話文即可。避免格式化、避免項目符號。
+
+【數據】\n{$ctx}";
+
+        $url = "https://generativelanguage.googleapis.com/v1beta/models/" . GEMINI_MODEL . ":generateContent?key=" . GEMINI_API_KEY;
+        $payload = [
+            'system_instruction' => ['parts'=>[['text'=>$systemPrompt]]],
+            'contents' => [['role'=>'user', 'parts'=>[['text'=>'請分析上述合約健康狀況，用白話文說明。']]]],
+            'generationConfig' => ['temperature'=>0.7, 'maxOutputTokens'=>2048]
+        ];
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER=>true, CURLOPT_POST=>true, CURLOPT_TIMEOUT=>30, CURLOPT_HTTPHEADER=>['Content-Type: application/json'], CURLOPT_POSTFIELDS=>json_encode($payload, JSON_UNESCAPED_UNICODE)]);
+        $resp = curl_exec($ch); $err = curl_error($ch); curl_close($ch);
+        if ($err) return ['success'=>false,'msg'=>"連線失敗：{$err}"];
+        $result = json_decode($resp, true);
+        $reply = $result['candidates'][0]['content']['parts'][0]['text'] ?? '';
+        if ($reply === '') return ['success'=>false,'msg'=>'Gemini 無回應'];
+        return ['success'=>true, 'reply'=>trim($reply)];
+    }
 }

@@ -267,6 +267,13 @@ try {
             echo json_encode($res);
             break;
 
+        case 'contract-health-ai':
+            $year = (int)($_GET['year'] ?? date('Y'));
+            $month = (int)($_GET['month'] ?? date('n'));
+            $res = $svc->explainContractHealth($year, $month);
+            echo json_encode($res, JSON_UNESCAPED_UNICODE);
+            break;
+
         case 'product-lifecycle':
             $sku = $_GET['sku'] ?? '';
             $res = $svc->getProductLifecycle($sku);
