@@ -572,6 +572,7 @@ input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-colo
           <button class="tab-btn" id="tab-customers" onclick="switchTab('customers')">客戶分析</button>
           <button class="tab-btn" id="tab-analysis" onclick="switchTab('analysis')">新品分析 <span style="font-size:10px;color:var(--text2);margin-left:4px;cursor:pointer;text-decoration:underline" onclick="event.stopPropagation();window.open('analysis.php','_blank')">新視窗</span></button>
           <button class="tab-btn" id="tab-reps" onclick="switchTab('reps')">業務分析 <span style="font-size:10px;color:var(--text2);margin-left:4px;cursor:pointer;text-decoration:underline" onclick="event.stopPropagation();window.open('reps.php','_blank')">新視窗</span></button>
+          <button class="tab-btn" id="tab-mgr" onclick="switchTab('mgr')">主管報告 <span style="font-size:10px;color:var(--text2);margin-left:4px;cursor:pointer;text-decoration:underline" onclick="event.stopPropagation();window.open('group_meeting.php','_blank')">新視窗</span></button>
         </div>
       </div>
     </header>
@@ -1054,6 +1055,7 @@ function switchTab(tab) {
   document.getElementById('tab-customers').classList.toggle('active', tab === 'customers');
   document.getElementById('tab-analysis').classList.toggle('active', tab === 'analysis');
   document.getElementById('tab-reps').classList.toggle('active', tab === 'reps');
+  document.getElementById('tab-mgr').classList.toggle('active', tab === 'mgr');
   document.getElementById('ctrl-bonus').classList.toggle('hidden', tab !== 'bonus');
   document.getElementById('ctrl-products').classList.toggle('hidden', tab !== 'products');
   document.getElementById('ctrl-reports').classList.toggle('hidden', tab !== 'reports');
@@ -1080,6 +1082,11 @@ function switchTab(tab) {
     var c = document.getElementById('main-content');
     if (!c.querySelector('iframe[data-tab=reps]')) {
       c.innerHTML = '<iframe data-tab="reps" src="reps.php" style="width:100%;border:none;background:var(--bg);min-height:calc(100vh - 120px)"></iframe>';
+    }
+  } else if (tab === 'mgr') {
+    var c = document.getElementById('main-content');
+    if (!c.querySelector('iframe[data-tab=mgr]')) {
+      c.innerHTML = '<iframe data-tab="mgr" src="group_meeting.php" style="width:100%;border:none;background:var(--bg);min-height:calc(100vh - 120px)"></iframe>';
     }
   }
 }
