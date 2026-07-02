@@ -5803,6 +5803,13 @@ class SleeperService
         return ['success' => true, 'data' => $products];
     }
 
+    public function debugAreaMap()
+    {
+        $rows = $this->gs->readSheet('業務分區');
+        $areaMap = $this->getSalesRepAreaMap();
+        return ['success' => true, 'rows' => $rows, 'map' => $areaMap];
+    }
+
 
 
     public function getNewProductAnalysis($cohortMonths = 24)
@@ -7546,6 +7553,11 @@ try {
             $cohortMonths = (int)($_GET['months'] ?? 24);
             $res = $svc->getNewProductAnalysis($cohortMonths);
             echo json_encode($res, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'debug-area-map':
+            $res = $svc->debugAreaMap();
+            echo json_encode($res, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
             break;
 
         case 'send-daily-email':
