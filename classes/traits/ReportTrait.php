@@ -1693,23 +1693,32 @@ trait ReportTrait
                 $dueMonths = $dueDays !== null ? round(abs($dueDays) / 30, 1) : null;
 
                 // === 健康分級 ===
-                if ($totalContract == 0) {
+                if ($totalContract == 0 || $bal <= 0) {
                     $bucket = '待續約';
-                } elseif ($balRatio > 0.95 && $dueDays !== null && $dueDays < -300 && $consumption == 0) {
-                    $bucket = '黑死';
-                } elseif ($balRatio > 0.9 && $dueDays !== null && $dueDays < -180) {
-                    $bucket = '危險';
-                } elseif ($dueDays !== null && $dueDays < -300) {
-                    $bucket = '警示';
-                } elseif ($balRatio > 0.7 && $dueDays !== null && $dueDays < -90) {
-                    $bucket = '警示';
-                } elseif ($balRatio > 0.9 && ($dueDays === null || $dueDays >= 0)) {
-                    $bucket = '觀察';
-                } elseif ($dueDays !== null && $dueDays < -90) {
-                    $bucket = '觀察';
+                } elseif ($dueDays === null || $dueDays >= 0) {
+                    // 尚未到期 — 只依餘額比
+                    $bucket = $balRatio > 0.9 ? '觀察' : '正常';
                 } else {
-                    $bucket = '正常';
+                    // 已逾期 — 餘額比 + 逾期月數
+                    if ($balRatio > 0.95 && $dueDays < -300 && $consumption == 0) {
+                        $bucket = '黑死';
+                    } elseif ($balRatio > 0.9 && $dueDays < -180) {
+                        $bucket = '危險';
+                    } elseif ($balRatio > 0.7 && $dueDays < -90) {
+                        $bucket = '警示';
+                    } elseif ($balRatio > 0.5 && $dueDays < -180) {
+                        $bucket = '警示';
+                    } elseif ($balRatio > 0.3 && $dueDays < -90) {
+                        $bucket = '觀察';
+                    } else {
+                        $bucket = '正常';
+                    }
                 }
+
+                // 餘額狀態（純視覺）
+                $balStatus = 'normal';
+                if ($bal <= 0) $balStatus = 'none';
+                elseif ($bal > 0 && $bal <= 30000 && $balRatio < 0.3) $balStatus = 'low';
 
                 if (!isset($healthCounts[$bucket])) $healthCounts[$bucket] = 0;
                 $healthCounts[$bucket]++;
@@ -1739,6 +1748,7 @@ trait ReportTrait
                 $detail[] = [
                     'name' => $customer,
                     'health' => $bucket,
+                    'balStatus' => $balStatus,
                     'paymentMethod' => $paymentMethod,
                     'target' => round($contractAmt),
                     'qty' => $qty,

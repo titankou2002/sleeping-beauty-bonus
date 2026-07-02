@@ -735,15 +735,19 @@ function showContractDetail(companyKey){
     h+=`<div style="margin-top:16px"><div style="font-size:14px;font-weight:700;margin-bottom:8px"><span class="health-tag ${cls}">${b}</span> ${items.length} 筆</div>`;
     h+=`<div class="tbl-wrap"><table class="tbl"><tr><th>#</th><th>健康度</th><th>客戶</th><th>沖帳方式</th><th>合約總額</th><th>張數</th><th>餘額</th><th>餘額%</th><th>月消耗</th><th>最後票期</th><th>預期</th></tr>`;
     items.forEach((d,i)=>{
-      const brColor = d.balRatio >= 90 ? 'color:var(--red)' : d.balRatio >= 70 ? 'color:var(--orange)' : '';
+      let balColor = '';
+      if(d.balStatus === 'none') balColor = 'color:var(--blue)';
+      else if(d.balStatus === 'low') balColor = 'color:#93c5fd';
+      else if(d.balRatio >= 90) balColor = 'color:var(--red)';
+      else if(d.balRatio >= 70) balColor = 'color:var(--orange)';
       let dueColor = '';
-      if(d.dueLevel === 3) dueColor = 'color:#a78bfa'; // purple
-      else if(d.dueLevel === 2) dueColor = 'color:var(--red)'; // red
-      else if(d.dueLevel === 1) dueColor = 'color:var(--orange)'; // yellow
+      if(d.dueLevel === 3) dueColor = 'color:#a78bfa';
+      else if(d.dueLevel === 2) dueColor = 'color:var(--red)';
+      else if(d.dueLevel === 1) dueColor = 'color:var(--orange)';
       h+=`<tr><td>${i+1}</td><td class="${htClass[d.health]||''}">${htLabel[d.health]||d.health}</td><td>${d.name}</td><td>${d.paymentMethod||'—'}</td>
         <td class="r">${fmtW(d.totalContract)}</td><td class="r">${d.qty||1}</td>
-        <td class="r" style="${brColor};font-weight:700">${fmtW(d.balance)}</td>
-        <td class="r" style="${brColor}">${d.balRatio}%</td>
+        <td class="r" style="${balColor};font-weight:700">${fmtW(d.balance)}</td>
+        <td class="r" style="${balColor}">${d.balRatio}%</td>
         <td class="r">${d.consumption>0?fmtW(d.consumption):'—'}</td>
         <td style="font-size:11px">${d.lastDue||'—'}</td>
         <td style="font-size:11px;${dueColor}">${d.dueText||'—'}</td></tr>`;
