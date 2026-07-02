@@ -170,6 +170,13 @@ tr.selected td { background: var(--gold-soft); }
         <span>業務績效排名</span>
         <span style="font-size:11px;color:var(--text2)">點選業務查看客戶詳細</span>
       </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;padding:4px 0;border-bottom:1px solid var(--border)">
+        <span style="font-size:11px;color:var(--text2);font-weight:600;margin-right:4px">排序:</span>
+        <button class="sort-btn" onclick="sortRepTable('totalThisYear')" style="font-size:11px;padding:2px 8px;background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text2);cursor:pointer">今年業績</button>
+        <button class="sort-btn" onclick="sortRepTable('avgYoy')" style="font-size:11px;padding:2px 8px;background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text2);cursor:pointer">平均 YOY</button>
+        <button class="sort-btn" onclick="sortRepTable('customerCount')" style="font-size:11px;padding:2px 8px;background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text2);cursor:pointer">客戶數</button>
+        <button class="sort-btn" onclick="sortRepTable('totalAmount')" style="font-size:11px;padding:2px 8px;background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text2);cursor:pointer">總業績</button>
+      </div>
       <div class="table-scroll">
         <table id="rep-table">
           <thead>
@@ -200,6 +207,7 @@ tr.selected td { background: var(--gold-soft); }
 var API_BASE = 'api.php';
 var allData = null;
 var charts = [];
+var _sortedReps = [];
 
 function showLoading(v) { document.getElementById('loading').classList.toggle('hidden', !v); }
 function toast(msg, isError) {
@@ -229,6 +237,7 @@ function loadData() {
       showLoading(false);
       if (!res.success) { toast(res.msg || '載入失敗', true); return; }
       allData = res.data;
+      allData.reps.forEach(function(r) { r._sortField = ''; r._sortAsc = false; });
       document.getElementById('year-label').textContent = new Date().getFullYear();
       renderRepTable(res.data.reps);
     })
@@ -236,12 +245,13 @@ function loadData() {
 }
 
 function renderRepTable(reps) {
+  _sortedReps = reps;
   var body = document.getElementById('rep-table-body');
   body.innerHTML = '';
   reps.forEach(function(r, i) {
     var yoyStr = fmtPct(r.avgYoy);
     var yoyClass = r.avgYoy > 0 ? 'green' : (r.avgYoy < 0 ? 'red' : '');
-    body.innerHTML += '<tr style="cursor:pointer" onclick="openRepDetail(' + i + ')">'
+    body.innerHTML += '<tr style="cursor:pointer" onclick="openRepDetail(\'' + r.name.replace(/'/g,"\\'") + '\')">'
       + '<td style="color:var(--text2);font-weight:700">' + (i + 1) + '</td>'
       + '<td style="font-weight:700">' + r.name + '</td>'
       + '<td style="color:var(--text2)">' + (r.area || '未分配') + '</td>'
@@ -254,26 +264,84 @@ function renderRepTable(reps) {
   });
 }
 
-function openRepDetail(index) {
+function openRepDetail(name) {
   destroyCharts();
-  var rep = allData.reps[index];
+  var rep = null;
+  for (var i = 0; i < allData.reps.length; i++) {
+    if (allData.reps[i].name === name) { rep = allData.reps[i]; break; }
+  }
+  if (!rep) { toast('\u627E\u4E0D\u5230\u8A72\u696D\u52D9', true); return; }
+  var index = allData.reps.indexOf(rep);
   document.getElementById('rep-table-card').style.display = 'none';
   document.getElementById('rep-detail').classList.add('open');
 
   var content = document.getElementById('rep-detail-content');
   var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">';
   html += '<div><span style="font-size:22px;font-weight:800">' + rep.name + '</span>';
-  html += '<span style="font-size:13px;color:var(--text2);margin-left:10px">' + (rep.area || '') + ' · ' + rep.customerCount + ' 家客戶 · 總業績 ' + fmtNum(rep.totalAmount) + '</span></div>';
+  html += '<span style="font-size:13px;color:var(--text2);margin-left:10px">' + (rep.area || '') + ' \u00B7 ' + rep.customerCount + ' \u5BB6\u5BA2\u6236 \u00B7 \u7E3D\u696D\u7E3E ' + fmtNum(rep.totalAmount) + '</span></div>';
   html += '<span class="mono" style="font-size:15px;font-weight:700">' + fmtPct(rep.avgYoy) + '</span></div>';
 
-  html += '<div class="cust-grid">';
-  rep.customers.forEach(function(c, ci) {
+  // Sort bar
+  html += '<div class="sort-bar" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;padding:6px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)">';
+  html += '<span style="font-size:11px;color:var(--text2);font-weight:600;margin-right:4px;align-self:center">\u6392\u5E8F:</span>';
+  var sortOpts = [
+    {key:'thisYearAmount', label:'\u4ECA\u5E74\u696D\u7E3E'},
+    {key:'yoyPct', label:'YOY'},
+    {key:'lastOrderDate', label:'\u6700\u5F8C\u4E0B\u55AE'},
+    {key:'visitCount', label:'\u5230\u8A2A\u6B21\u6578'}
+  ];
+  sortOpts.forEach(function(o) {
+    var active = (rep._sortField === o.key);
+    html += '<button class="sort-btn" data-sort="' + o.key + '" style="font-size:11px;padding:3px 10px;background:' + (active ? 'var(--gold)' : 'transparent') + ';border:1px solid ' + (active ? 'var(--gold)' : 'var(--border)') + ';border-radius:4px;color:' + (active ? '#000' : 'var(--text2)') + ';cursor:pointer;font-weight:' + (active ? '700' : '500') + '" onclick="sortCustomers(' + index + ',\'' + o.key + '\')">' + o.label + '</button>';
+  });
+  html += '</div>';
+
+  html += '<div class="cust-grid" id="cust-grid-' + index + '">';
+  // Will be populated by renderCustomers
+  html += '</div>';
+  content.innerHTML = html;
+
+  renderCustomers(index);
+}
+
+function sortCustomers(index, field) {
+  var rep = allData.reps[index];
+  if (rep._sortField === field) {
+    rep._sortAsc = !(rep._sortAsc || false);
+  } else {
+    rep._sortField = field;
+    rep._sortAsc = false;
+  }
+  renderCustomers(index);
+}
+
+function renderCustomers(index) {
+  var rep = allData.reps[index];
+  var custs = rep.customers.slice();
+  var field = rep._sortField || null;
+
+  if (field === 'thisYearAmount') {
+    custs.sort(function(a,b){ return rep._sortAsc ? a.thisYearAmount - b.thisYearAmount : b.thisYearAmount - a.thisYearAmount; });
+  } else if (field === 'yoyPct') {
+    custs.sort(function(a,b){ return rep._sortAsc ? (a.yoyPct||0) - (b.yoyPct||0) : (b.yoyPct||0) - (a.yoyPct||0); });
+  } else if (field === 'lastOrderDate') {
+    custs.sort(function(a,b){
+      return rep._sortAsc ? (a.lastOrderDate||'').localeCompare(b.lastOrderDate||'') : (b.lastOrderDate||'').localeCompare(a.lastOrderDate||'');
+    });
+  } else if (field === 'visitCount') {
+    custs.sort(function(a,b){ return rep._sortAsc ? (a.visits||[]).length - (b.visits||[]).length : (b.visits||[]).length - (a.visits||[]).length; });
+  } else {
+    custs.sort(function(a,b){ return b.totalAmount - a.totalAmount; });
+  }
+
+  var html = '';
+  custs.forEach(function(c, ci) {
     var yoyClass = c.yoyPct > 0 ? 'green' : (c.yoyPct < 0 ? 'red' : '');
     var contractStr = '-';
     if (c.contract && c.contract.balance !== null) {
       var bal = c.contract.balance;
       var ratio = c.totalAmount > 0 ? (c.totalAmount / bal * 100).toFixed(1) : 0;
-      contractStr = '簽約 ' + fmtNum(bal) + ' · 達成 ' + ratio + '%';
+      contractStr = '\u7C3D\u7D04 ' + fmtNum(bal) + ' \u00B7 \u9054\u6210 ' + ratio + '%';
     }
     var lod = c.lastOrderDate || '-';
     var lastVisit = (c.visits && c.visits.length > 0) ? c.visits[0].date : '-';
@@ -286,12 +354,12 @@ function openRepDetail(index) {
     html += '</div>';
     html += '<div class="cc-body">';
     html += '<div class="cc-stats">';
-    html += '<div class="cc-stat"><div class="cs-label">今年業績</div><div class="cs-value">' + fmtNum(c.thisYearAmount) + '</div></div>';
-    html += '<div class="cc-stat"><div class="cs-label">去年業績</div><div class="cs-value">' + fmtNum(c.lastYearAmount) + '</div></div>';
+    html += '<div class="cc-stat"><div class="cs-label">\u4ECA\u5E74\u696D\u7E3E</div><div class="cs-value">' + fmtNum(c.thisYearAmount) + '</div></div>';
+    html += '<div class="cc-stat"><div class="cs-label">\u53BB\u5E74\u696D\u7E3E</div><div class="cs-value">' + fmtNum(c.lastYearAmount) + '</div></div>';
     html += '<div class="cc-stat"><div class="cs-label">YOY</div><div class="cs-value ' + yoyClass + '">' + fmtPct(c.yoyPct) + '</div></div>';
-    html += '<div class="cc-stat"><div class="cs-label">交易次數</div><div class="cs-value">' + c.saleCount + '</div></div>';
-    html += '<div class="cc-stat"><div class="cs-label">最後下單</div><div class="cs-value mono" style="font-size:12px">' + lod + '</div></div>';
-    html += '<div class="cc-stat"><div class="cs-label">最後拜訪</div><div class="cs-value mono" style="font-size:12px">' + lastVisit + '</div></div>';
+    html += '<div class="cc-stat"><div class="cs-label">\u4EA4\u6613\u6B21\u6578</div><div class="cs-value">' + c.saleCount + '</div></div>';
+    html += '<div class="cc-stat"><div class="cs-label">\u6700\u5F8C\u4E0B\u55AE</div><div class="cs-value mono" style="font-size:12px">' + lod + '</div></div>';
+    html += '<div class="cc-stat"><div class="cs-label">\u6700\u5F8C\u62DC\u8A2A</div><div class="cs-value mono" style="font-size:12px">' + lastVisit + '</div></div>';
     html += '</div>';
 
     // Monthly trend chart placeholder
@@ -300,69 +368,69 @@ function openRepDetail(index) {
     // Top series comparison
     html += '<div style="display:flex;gap:12px;margin:8px 0">';
     html += '<div style="flex:1;background:var(--surface2);border-radius:var(--radius-md);padding:10px">';
-    html += '<div style="font-size:10px;color:var(--text2);font-weight:600;margin-bottom:4px">去年 Top 3</div>';
+    html += '<div style="font-size:10px;color:var(--text2);font-weight:600;margin-bottom:4px">\u53BB\u5E74 Top 3</div>';
     (c.seriesTrend.lastYear || []).slice(0, 3).forEach(function(s) {
       html += '<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0">';
       html += '<span>' + s.series + '</span><span class="mono">' + fmtNum(s.amount) + ' (' + s.pct + '%)</span></div>';
     });
     if (!c.seriesTrend.lastYear || c.seriesTrend.lastYear.length === 0) {
-      html += '<div style="font-size:11px;color:var(--text2)">無資料</div>';
+      html += '<div style="font-size:11px;color:var(--text2)">\u7121\u8CC7\u6599</div>';
     }
     html += '</div>';
     html += '<div style="flex:1;background:var(--surface2);border-radius:var(--radius-md);padding:10px">';
-    html += '<div style="font-size:10px;color:var(--text2);font-weight:600;margin-bottom:4px">今年 Top 3</div>';
+    html += '<div style="font-size:10px;color:var(--text2);font-weight:600;margin-bottom:4px">\u4ECA\u5E74 Top 3</div>';
     (c.seriesTrend.thisYear || []).slice(0, 3).forEach(function(s) {
       html += '<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0">';
       html += '<span>' + s.series + '</span><span class="mono">' + fmtNum(s.amount) + ' (' + s.pct + '%)</span></div>';
     });
     if (!c.seriesTrend.thisYear || c.seriesTrend.thisYear.length === 0) {
-      html += '<div style="font-size:11px;color:var(--text2)">無資料</div>';
+      html += '<div style="font-size:11px;color:var(--text2)">\u7121\u8CC7\u6599</div>';
     }
     html += '</div>';
     html += '</div>';
 
     // Contract info
     html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid var(--border);font-size:12px">';
-    html += '<span class="text-muted">合約：' + contractStr + '</span>';
+    html += '<span class="text-muted">\u5408\u7D04\uFF1A' + contractStr + '</span>';
     if (c.contract && c.contract.health) html += '<span class="gold">' + c.contract.health + '</span>';
     html += '</div>';
 
     // Recent note
     if (lastNote) {
-      html += '<div style="font-size:11px;color:var(--text2);padding:4px 0;border-top:1px solid var(--border)">📝 ' + lastNote + '</div>';
+      html += '<div style="font-size:11px;color:var(--text2);padding:4px 0;border-top:1px solid var(--border)">' + lastNote + '</div>';
     }
 
     // Recent visits
     if (c.visits && c.visits.length > 0) {
       html += '<div style="font-size:11px;color:var(--text2);padding:4px 0;border-top:1px solid var(--border)">';
-      html += '👣 ' + c.visits.slice(0, 2).map(function(v) { return v.date + (v.summary ? ' ' + v.summary : ''); }).join(' · ');
+      html += c.visits.slice(0, 2).map(function(v) { return v.date + (v.summary ? ' ' + v.summary : ''); }).join(' \u00B7 ');
       html += '</div>';
     }
 
     html += '</div></div>';
   });
-  html += '</div>';
-  content.innerHTML = html;
+
+  var grid = document.getElementById('cust-grid-' + index);
+  if (grid) { grid.innerHTML = html; }
 
   // Render charts after DOM update
   setTimeout(function() {
-    rep.customers.forEach(function(c, ci) {
+    custs.forEach(function(c, ci) {
       var el = document.getElementById('trend-chart-' + index + '-' + ci);
       if (!el) return;
       var ctx = document.createElement('canvas');
       el.appendChild(ctx);
       var months = c.monthlyTrend || [];
-      var labels = months.map(function(m) { return m.month + '月'; });
+      var labels = months.map(function(m) { return m.month + '\u6708'; });
       var ty = months.map(function(m) { return m.thisYear; });
       var ly = months.map(function(m) { return m.lastYear; });
-
       charts.push(new Chart(ctx, {
         type: 'line',
         data: {
           labels: labels,
           datasets: [
-            { label: '今年', data: ty, borderColor: '#c29d66', borderWidth: 2, pointRadius: 1.5, tension: 0.2, fill: false },
-            { label: '去年', data: ly, borderColor: 'rgba(255,255,255,0.2)', borderWidth: 1.5, borderDash: [3,3], pointRadius: 0, tension: 0.2, fill: false }
+            { label: '\u4ECA\u5E74', data: ty, borderColor: '#c29d66', borderWidth: 2, pointRadius: 1.5, tension: 0.2, fill: false },
+            { label: '\u53BB\u5E74', data: ly, borderColor: 'rgba(255,255,255,0.2)', borderWidth: 1.5, borderDash: [3,3], pointRadius: 0, tension: 0.2, fill: false }
           ]
         },
         options: {
@@ -388,6 +456,19 @@ function closeRepDetail() {
 function destroyCharts() {
   charts.forEach(function(c) { c.destroy(); });
   charts = [];
+}
+
+var repSortAsc = false;
+var repSortField = 'totalAmount';
+function sortRepTable(field) {
+  if (repSortField === field) repSortAsc = !repSortAsc;
+  else { repSortField = field; repSortAsc = false; }
+  var reps = allData.reps.slice();
+  reps.sort(function(a, b) {
+    var va = a[field] || 0, vb = b[field] || 0;
+    return repSortAsc ? va - vb : vb - va;
+  });
+  renderRepTable(reps);
 }
 
 window.addEventListener('DOMContentLoaded', function() { loadData(); });

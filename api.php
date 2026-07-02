@@ -2275,7 +2275,7 @@ class SleeperService
     private function buildFieldActivityReport($meta, $currentBucket)
     {
         $gsLayout = new GoogleSheetsClient(SS_ID_LAYOUT);
-        $workRows = $gsLayout->readSheet('智能_工作日誌');
+        $workRows = $gsLayout->readSheet('工作日誌');
         $driveRows = $gsLayout->readSheet('智能_行駛日誌');
 
         $salesByCustomer = [];
@@ -4636,7 +4636,7 @@ class SleeperService
         // 2. 拜訪 (智能_工作日誌)
         try {
             $gsLayout = new GoogleSheetsClient(SS_ID_LAYOUT);
-            $workRows = $gsLayout->readSheet('智能_工作日誌');
+            $workRows = $gsLayout->readSheet('工作日誌');
             if (count($workRows) >= 2) {
                 $h = $workRows[0];
                 $idxDate = $this->findHeader($h, ['日期']);
@@ -4903,7 +4903,7 @@ class SleeperService
             $gsLayout = new GoogleSheetsClient(SS_ID_LAYOUT);
 
             // 拜訪
-            $workRows = $gsLayout->readSheet('智能_工作日誌');
+            $workRows = $gsLayout->readSheet('工作日誌');
             if (count($workRows) >= 2) {
                 $h = $workRows[0];
                 $idxDate = $this->findHeader($h, ['日期']);
@@ -5803,13 +5803,6 @@ class SleeperService
         return ['success' => true, 'data' => $products];
     }
 
-    public function debugAreaMap()
-    {
-        $rows = $this->gs->readSheet('業務分區');
-        $areaMap = $this->getSalesRepAreaMap();
-        return ['success' => true, 'rows' => $rows, 'map' => $areaMap];
-    }
-
 
 
     public function getNewProductAnalysis($cohortMonths = 24)
@@ -6230,7 +6223,10 @@ class SleeperService
         $noteData = [];
         try {
             $gsLy = new GoogleSheetsClient(SS_ID_LAYOUT);
-            $vr = $gsLy->readSheet('智能_工作日誌');
+            $vr = $gsLy->readSheet('工作日誌');
+            if (count($vr) <= 1) {
+                $vr = $gsLy->readSheet('智能_工作日誌');
+            }
             if (count($vr) > 1) {
                 $h = $vr[0];
                 $vDate = $this->findHeader($h, ['日期']);
@@ -6333,9 +6329,13 @@ class SleeperService
                     $lod = "{$thisYear}-" . str_pad($m, 2, '0', STR_PAD_LEFT);
                     break;
                 }
-                if (($custMonthly[$cust][$lastYear][$m] ?? 0) > 0) {
-                    $lod = "{$lastYear}-" . str_pad($m, 2, '0', STR_PAD_LEFT);
-                    break;
+            }
+            if ($lod === null) {
+                for ($m = 12; $m >= 1; $m--) {
+                    if (($custMonthly[$cust][$lastYear][$m] ?? 0) > 0) {
+                        $lod = "{$lastYear}-" . str_pad($m, 2, '0', STR_PAD_LEFT);
+                        break;
+                    }
                 }
             }
 
@@ -7553,11 +7553,6 @@ try {
             $cohortMonths = (int)($_GET['months'] ?? 24);
             $res = $svc->getNewProductAnalysis($cohortMonths);
             echo json_encode($res, JSON_UNESCAPED_UNICODE);
-            break;
-
-        case 'debug-area-map':
-            $res = $svc->debugAreaMap();
-            echo json_encode($res, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
             break;
 
         case 'send-daily-email':
