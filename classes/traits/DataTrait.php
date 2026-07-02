@@ -491,6 +491,9 @@ trait DataTrait
 
     public function rebuildSalesYearCache($years = null)
     {
+        set_time_limit(120);
+        ini_set('memory_limit', '256M');
+
         $lockFp = null;
         try {
             $lockFp = fopen(sys_get_temp_dir() . '/sleeping_beauty_sales_year_cache.lock', 'c');
