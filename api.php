@@ -395,8 +395,21 @@ try {
             if ($years && is_string($years)) {
                 $years = array_map('intval', preg_split('/[,，\s]+/', $years));
             }
-            $res = $svc->rebuildSalesYearCache($years);
-            echo json_encode($res);
+            try {
+                $res = $svc->rebuildSalesYearCache($years);
+                if (!is_array($res)) {
+                    http_response_code(500);
+                    echo json_encode(['success' => false, 'error' => 'rebuildSalesYearCache returned non-array: ' . gettype($res)]);
+                    break;
+                }
+                echo json_encode($res);
+            } catch (Exception $e) {
+                http_response_code(500);
+                $msg = $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine();
+                error_log('rebuild-cache: ' . $msg);
+                @file_put_contents(__DIR__ . '/error-log.txt', date('Y-m-d H:i:s') . ' rebuild-catch: ' . $msg . "\n", FILE_APPEND);
+                echo json_encode(['success' => false, 'error' => $msg]);
+            }
             break;
 
         case 'cron-rebuild-all':
