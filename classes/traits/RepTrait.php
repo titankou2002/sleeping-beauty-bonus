@@ -158,6 +158,10 @@ trait RepTrait
             $reps[$rep]['customerCount']++;
             $tyAmt = array_sum($custMonthly[$cust][$thisYear] ?? []);
             $lyAmt = array_sum($custMonthly[$cust][$lastYear] ?? []);
+            $weight = 1.0;
+            if (mb_strpos($cust, '漢樺') !== false) $weight = 1/3;
+            $tyAmt *= $weight;
+            $lyAmt *= $weight;
             $reps[$rep]['totalAmount'] += $custTotal[$cust] ?? 0;
             $reps[$rep]['totalThisYear'] += $tyAmt;
             $reps[$rep]['totalLastYear'] += $lyAmt;
@@ -170,8 +174,8 @@ trait RepTrait
 
             $monthlyTrend = [];
             for ($m = 1; $m <= 12; $m++) {
-                $ty = $custMonthly[$cust][$thisYear][$m] ?? 0;
-                $ly = $custMonthly[$cust][$lastYear][$m] ?? 0;
+                $ty = ($custMonthly[$cust][$thisYear][$m] ?? 0) * $weight;
+                $ly = ($custMonthly[$cust][$lastYear][$m] ?? 0) * $weight;
                 $yoy = $ly > 0 ? round(($ty - $ly) / $ly * 100, 1) : ($ty > 0 ? 100 : 0);
                 $pm = ($m > 1) ? ($custMonthly[$cust][$thisYear][$m - 1] ?? 0) : 0;
                 $mom = $pm > 0 ? round(($ty - $pm) / $pm * 100, 1) : ($ty > 0 ? 100 : ($m === 1 ? null : 0));

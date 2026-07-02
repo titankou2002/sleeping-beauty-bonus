@@ -300,8 +300,15 @@ trait CustomerTrait
         } catch (Exception $e) {
         }
 
+        $customerWeights = [
+            '漢樺' => 1/3,
+        ];
         $result = [];
         foreach ($customers as $key => $c) {
+            $weight = 1.0;
+            foreach ($customerWeights as $name => $w) {
+                if (mb_strpos($key, $name) !== false) { $weight = $w; break; }
+            }
             $daysSinceLastOrder = $c['lastOrderDate'] ? (int)$now->diff(new DateTime($c['lastOrderDate']))->days : null;
             $yoyPct = $c['lastYearAmount'] > 0
                 ? round((($c['thisYearAmount'] - $c['lastYearAmount']) / $c['lastYearAmount']) * 100, 1)
@@ -324,8 +331,8 @@ trait CustomerTrait
             $result[] = [
                 'name' => $key,
                 'totalAmount' => round($c['totalAmount']),
-                'thisYearAmount' => round($c['thisYearAmount']),
-                'lastYearAmount' => round($c['lastYearAmount']),
+                'thisYearAmount' => round($c['thisYearAmount'] * $weight),
+                'lastYearAmount' => round($c['lastYearAmount'] * $weight),
                 'yoyPct' => $yoyPct,
                 'lastOrderDate' => $c['lastOrderDate'],
                 'daysSinceLastOrder' => $daysSinceLastOrder,
