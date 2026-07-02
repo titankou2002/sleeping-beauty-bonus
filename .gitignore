@@ -4,3 +4,4 @@ config.local.php
 .DS_Store
 *.log
 /cache/
+*.bak
