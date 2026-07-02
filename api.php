@@ -17,10 +17,15 @@ register_shutdown_function(function () {
 
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/classes/GoogleSheetsClient.php';
-$traitDir = __DIR__ . '/classes/traits';
-if (is_dir($traitDir)) {
-    foreach (glob($traitDir . '/*Trait.php') as $f) { require_once $f; }
-}
+require_once __DIR__ . '/classes/traits/DataTrait.php';
+require_once __DIR__ . '/classes/traits/BonusTrait.php';
+require_once __DIR__ . '/classes/traits/CustomerTrait.php';
+require_once __DIR__ . '/classes/traits/ProductTrait.php';
+require_once __DIR__ . '/classes/traits/ReportTrait.php';
+require_once __DIR__ . '/classes/traits/ProjectTrait.php';
+require_once __DIR__ . '/classes/traits/AiTrait.php';
+require_once __DIR__ . '/classes/traits/RepTrait.php';
+require_once __DIR__ . '/classes/traits/MailTrait.php';
 require_once __DIR__ . '/classes/SleeperService.php';
 // ====== ROUTER ======
 try {
