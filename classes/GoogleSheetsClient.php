@@ -48,7 +48,7 @@ class GoogleSheetsClient
 
     private function clearCache($sheetName)
     {
-        $this->clearCache($sheetName);
+        unset($this->sheetValueCache[$sheetName]);
         if (self::$cacheDir) {
             $cacheFile = self::$cacheDir . '/' . md5($this->ssId . '_' . $sheetName) . '.json';
             if (is_file($cacheFile)) @unlink($cacheFile);

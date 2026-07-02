@@ -395,27 +395,10 @@ try {
             if ($years && is_string($years)) {
                 $years = array_map('intval', preg_split('/[,，\s]+/', $years));
             }
-            $steps = [];
-            try {
-                $steps[] = 'start';
-                set_time_limit(120);
-                ini_set('memory_limit', '256M');
-                $steps[] = 'limits_set';
-                $gs2 = new GoogleSheetsClient();
-                $steps[] = 'gs_created';
-                $testRead = $gs2->readSheet(SALES_SHEET);
-                $steps[] = 'sales_read:' . count($testRead) . 'rows';
-                $testCache = $gs2->readSheet(CACHE_SHEET);
-                $steps[] = 'cache_read:' . count($testCache) . 'rows';
-                echo json_encode(['success' => true, 'steps' => $steps, 'salesRows' => count($testRead), 'cacheRows' => count($testCache)]);
-            } catch (Throwable $e) {
-                $steps[] = 'error:' . $e->getMessage();
-                $msg = implode(' | ', $steps);
-                error_log('rebuild-cache-diag: ' . $msg);
-                @file_put_contents(__DIR__ . '/error-log.txt', date('Y-m-d H:i:s') . ' ' . $msg . "\n", FILE_APPEND);
-                http_response_code(500);
-                echo json_encode(['success' => false, 'steps' => $steps, 'error' => $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
-            }
+            set_time_limit(120);
+            ini_set('memory_limit', '256M');
+            $res = $svc->rebuildSalesYearCache($years);
+            echo json_encode($res);
             break;
 
         case 'cron-rebuild-all':
