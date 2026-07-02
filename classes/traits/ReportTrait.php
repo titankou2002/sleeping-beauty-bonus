@@ -1690,30 +1690,22 @@ trait ReportTrait
                 $prepay = $idxPrepay !== -1 ? $this->optFloat($this->getVal($row, $idxPrepay)) : 0;
                 $rep = $idxSales !== -1 ? trim($this->getVal($row, $idxSales)) : '';
 
-                $score = 0;
-                if ($balRatio < 0.3) $score += 40;
-                elseif ($balRatio < 0.5) $score += 30;
-                elseif ($balRatio < 0.7) $score += 15;
-                elseif ($balRatio < 0.9) $score += 5;
+                $dueMonths = $dueDays !== null ? round(abs($dueDays) / 30, 1) : null;
 
-                if ($consumption > 0) $score += 30;
-                elseif ($prevBal !== null && $prevBal == $bal && $bal > 0) $score += 0;
-                else $score += 15;
-
-                if ($dueDays === null) $score += 10;
-                elseif ($dueDays > 0) $score += 20;
-                elseif ($dueDays > -90) $score += 10;
-                elseif ($dueDays > -180) $score += 0;
-                elseif ($dueDays > -365) $score -= 10;
-                else $score -= 20;
-
-                if ($balRatio > 0.95 && $consumption == 0 && $dueDays !== null && $dueDays < -365) {
+                // === 健康分級 ===
+                if ($totalContract == 0) {
+                    $bucket = '待續約';
+                } elseif ($balRatio > 0.95 && $dueDays !== null && $dueDays < -300 && $consumption == 0) {
                     $bucket = '黑死';
                 } elseif ($balRatio > 0.9 && $dueDays !== null && $dueDays < -180) {
                     $bucket = '危險';
-                } elseif ($balRatio > 0.8 || ($dueDays !== null && $dueDays < -90)) {
+                } elseif ($dueDays !== null && $dueDays < -300) {
                     $bucket = '警示';
-                } elseif ($balRatio > 0.5) {
+                } elseif ($balRatio > 0.7 && $dueDays !== null && $dueDays < -90) {
+                    $bucket = '警示';
+                } elseif ($balRatio > 0.9 && ($dueDays === null || $dueDays >= 0)) {
+                    $bucket = '觀察';
+                } elseif ($dueDays !== null && $dueDays < -90) {
                     $bucket = '觀察';
                 } else {
                     $bucket = '正常';
@@ -1722,15 +1714,25 @@ trait ReportTrait
                 if (!isset($healthCounts[$bucket])) $healthCounts[$bucket] = 0;
                 $healthCounts[$bucket]++;
 
-                if (in_array($bucket, ['正常', '觀察', '警示', '危險', '黑死'], true)) {
+                if (in_array($bucket, ['正常', '觀察', '警示', '危險', '黑死', '待續約'], true)) {
                     $monthlyTarget += $contractAmt;
                 }
 
                 $dueText = '';
+                $dueLevel = 0;
                 if ($dueDays !== null) {
-                    if ($dueDays < 0) $dueText = '逾期 ' . abs($dueDays) . ' 天';
-                    elseif ($dueDays > 0) $dueText = $dueDays . ' 天後到期';
-                    else $dueText = '今天到期';
+                    if ($dueDays < 0) {
+                        $m = round(abs($dueDays) / 30, 1);
+                        $dueText = '逾期 ' . $m . ' 個月';
+                        if (abs($dueDays) >= 300) $dueLevel = 3;
+                        elseif (abs($dueDays) >= 180) $dueLevel = 2;
+                        elseif (abs($dueDays) >= 90) $dueLevel = 1;
+                    } elseif ($dueDays > 0) {
+                        $m = round($dueDays / 30, 1);
+                        $dueText = $m . ' 個月後到期';
+                    } else {
+                        $dueText = '今天到期';
+                    }
                 }
 
                 $customers[$customer] = ['health' => $bucket, 'target' => $contractAmt, 'rep' => $rep];
@@ -1749,6 +1751,8 @@ trait ReportTrait
                     'firstDue' => $firstDue ? $firstDue->format('Y/m/d') : '',
                     'lastDue' => $due ? $due->format('Y/m/d') : '',
                     'dueDays' => $dueDays,
+                    'dueMonths' => $dueMonths,
+                    'dueLevel' => $dueLevel,
                     'dueText' => $dueText,
                     'rep' => $rep,
                 ];
@@ -2196,7 +2200,7 @@ trait ReportTrait
                 foreach ($allCustomers[$key] as $cust => $cData) {
                     if (isset($ct['customers'][$cust])) {
                         $healthBucket = $ct['customers'][$cust]['health'] ?? '';
-                        if (in_array($healthBucket, ['正常', '觀察', '警示', '危險', '黑死'], true)) {
+                        if (in_array($healthBucket, ['正常', '觀察', '警示', '危險', '黑死', '待續約'], true)) {
                             $signedStoreSales += $cData['curMonth'] ?? 0;
                         }
                     }

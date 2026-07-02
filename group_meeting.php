@@ -391,17 +391,17 @@ function renderAll(d){
     html+=`<div class="cc"><div class="nm"><span class="dot" style="background:${c.color}"></span>${c.name}</div>
       <div style="font-size:13px;display:flex;flex-direction:column;gap:4px">
         <span>合約客戶 <b>${ct.active}</b> 家</span>
-        <span>🟢 正常 ${hc['正常']||0} · 🟡 觀察 ${hc['觀察']||0} · 🟠 警示 ${hc['警示']||0} · 🔴 危險 ${hc['危險']||0}</span>
-        <span>⚫ 黑死 ${hc['黑死']||0} · 異常率 ${warnPct}%</span>
+        <span>正常 ${hc['正常']||0} · 觀察 ${hc['觀察']||0} · 警示 ${hc['警示']||0} · 危險 ${hc['危險']||0}</span>
+        <span>黑死 ${hc['黑死']||0} · 待續約 ${hc['待續約']||0} · 異常率 ${warnPct}%</span>
         <span>合約月目標 <b>${fmtW(ct.monthlyTarget)}</b></span>
         <span>簽約店實銷 <b>${fmtW(ct.signedStoreSales)}</b></span>
         <span>健康度 <b style="font-size:16px" class="${Number(healthPct)>=75?'up':'dn'}">${healthPct}%</b></span>
       </div>
       <div style="margin-top:8px;height:8px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden;display:flex">
-        <div style="width:${total>0?(((hc['正常']||0))/total*100).toFixed(0):0}%;background:var(--green)"></div>
+        <div style="width:${total>0?(((hc['正常']||0)+(hc['待續約']||0))/total*100).toFixed(0):0}%;background:var(--green)"></div>
         <div style="width:${total>0?(((hc['觀察']||0)+(hc['警示']||0)+(hc['危險']||0)+(hc['黑死']||0))/total*100).toFixed(0):0}%;background:var(--red)"></div>
       </div>
-      <div style="font-size:11px;color:var(--muted);margin-top:4px;display:flex;gap:12px"><span style="color:var(--green)">■ 正常</span><span style="color:var(--red)">■ 異常（觀察/警示/危險/黑死）</span></div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;display:flex;gap:12px"><span style="color:var(--green)">■ 正常/待續約</span><span style="color:var(--red)">■ 異常（觀察/警示/危險/黑死）</span></div>
       <div class="link-row" style="display:flex;gap:8px;flex-wrap:wrap"><button class="detail-btn" onclick="showContractDetail('${k}')">📋 合約客戶明細</button><a class="btn-report" href="${reportUrl(k,d.year,d.month)}" target="_blank">🔗 ${c.name}月報</a></div></div>`;
   });
   html+=`</div>`;
@@ -411,11 +411,12 @@ function renderAll(d){
 
   // 合約健康度摘要
   const hcTotal = g.contractTotal.healthCounts || {};
-  const hcAll = (hcTotal['正常']||0)+(hcTotal['觀察']||0)+(hcTotal['警示']||0)+(hcTotal['危險']||0)+(hcTotal['黑死']||0);
-  const hcHealthy = (hcTotal['正常']||0);
+  const hcAll = (hcTotal['正常']||0)+(hcTotal['觀察']||0)+(hcTotal['警示']||0)+(hcTotal['危險']||0)+(hcTotal['黑死']||0)+(hcTotal['待續約']||0);
+  const hcHealthy = (hcTotal['正常']||0)+(hcTotal['待續約']||0);
   const hcHealthPct = hcAll > 0 ? (hcHealthy/hcAll*100).toFixed(1) : 0;
   html+=`<div style="font-size:12px;color:var(--muted);margin-top:8px;display:flex;gap:16px;flex-wrap:wrap">
     <span style="color:var(--green)">正常 ${hcTotal['正常']||0}</span>
+    <span style="color:var(--blue)">待續約 ${hcTotal['待續約']||0}</span>
     <span style="color:var(--orange)">觀察 ${hcTotal['觀察']||0}</span>
     <span style="color:var(--orange)">警示 ${hcTotal['警示']||0}</span>
     <span style="color:var(--red)">危險 ${hcTotal['危險']||0}</span>
@@ -714,9 +715,9 @@ function showContractDetail(companyKey){
   const c=_groupData.companies[companyKey];
   const ct=c.contract; const detail=ct.detail||[];
   const hc=ct.healthCounts||{};
-  const buckets=['正常','觀察','警示','危險','黑死'];
-  const htClass={'正常':'ht-normal','觀察':'ht-watch','警示':'ht-warning','危險':'ht-danger','黑死':'ht-black'};
-  const htLabel={'正常':'🟢 健康','觀察':'🟡 觀察','警示':'🟠 警示','危險':'🔴 危險','黑死':'⚫ 黑死'};
+  const buckets=['正常','觀察','警示','危險','黑死','待續約'];
+  const htClass={'正常':'ht-normal','觀察':'ht-watch','警示':'ht-warning','危險':'ht-danger','黑死':'ht-black','待續約':'ht-pending'};
+  const htLabel={'正常':'正常','觀察':'觀察','警示':'警示','危險':'危險','黑死':'黑死','待續約':'待續約'};
 
   let h=`<div class="modal-title"><span class="dot" style="background:${c.color};width:12px;height:12px"></span>${c.name} — 合約客戶明細</div>`;
   h+=`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">`;
@@ -735,14 +736,17 @@ function showContractDetail(companyKey){
     h+=`<div class="tbl-wrap"><table class="tbl"><tr><th>#</th><th>健康度</th><th>客戶</th><th>沖帳方式</th><th>合約總額</th><th>張數</th><th>餘額</th><th>餘額%</th><th>月消耗</th><th>最後票期</th><th>預期</th></tr>`;
     items.forEach((d,i)=>{
       const brColor = d.balRatio >= 90 ? 'color:var(--red)' : d.balRatio >= 70 ? 'color:var(--orange)' : '';
-      const htColor = htClass[d.health] ? `class="${htClass[d.health]}"` : '';
-      h+=`<tr><td>${i+1}</td><td ${htColor}>${htLabel[d.health]||d.health}</td><td>${d.name}</td><td>${d.paymentMethod||'—'}</td>
+      let dueColor = '';
+      if(d.dueLevel === 3) dueColor = 'color:#a78bfa'; // purple
+      else if(d.dueLevel === 2) dueColor = 'color:var(--red)'; // red
+      else if(d.dueLevel === 1) dueColor = 'color:var(--orange)'; // yellow
+      h+=`<tr><td>${i+1}</td><td class="${htClass[d.health]||''}">${htLabel[d.health]||d.health}</td><td>${d.name}</td><td>${d.paymentMethod||'—'}</td>
         <td class="r">${fmtW(d.totalContract)}</td><td class="r">${d.qty||1}</td>
         <td class="r" style="${brColor};font-weight:700">${fmtW(d.balance)}</td>
         <td class="r" style="${brColor}">${d.balRatio}%</td>
         <td class="r">${d.consumption>0?fmtW(d.consumption):'—'}</td>
         <td style="font-size:11px">${d.lastDue||'—'}</td>
-        <td style="font-size:11px;color:var(--muted)">${d.dueText||'—'}</td></tr>`;
+        <td style="font-size:11px;${dueColor}">${d.dueText||'—'}</td></tr>`;
     });
     h+=`</table></div>`;
   });
