@@ -10,6 +10,7 @@ require_once __DIR__ . '/config.php';
   <title>集團月報</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23c29d66'/%3E%3Ctext x='32' y='46' font-family='Arial,sans-serif' font-size='40' font-weight='900' fill='%230a0a0a' text-anchor='middle'%3EG%3C/text%3E%3C/svg%3E">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <style>
     :root{--bg:#0a0a0a;--paper:#111;--grid:rgba(194,157,102,.28);--line:rgba(255,255,255,.10);--text:#f6f1e6;--muted:#a9a39a;--accent:#c29d66;--gold:#f0cb84;--blue:#60a5fa;--green:#22c55e;--orange:#f59e0b;--red:#ef4444;--purple:#a78bfa;--co-sb:#ff2a85;--co-ad:#10b981;--co-xy:#38bdf8}
     *{box-sizing:border-box}
@@ -380,7 +381,8 @@ function renderAll(d){
   html+=`</div></div>`;
 
   // === 5. 合約客戶狀況 ===
-  html+=`<div class="section"><div class="section-title">📋 合約客戶狀況</div><div class="co3">`;
+  html+=`<div class="section"><div class="section-title" style="display:flex;justify-content:space-between;align-items:center"><span>📋 合約客戶狀況</span><button class="detail-btn" onclick="exportContractJpg()">🖼 輸出 JPG</button></div>
+  <div id="contract-section"><div class="co3">`;
   CO_KEYS.forEach(k=>{
     const c=cos[k]; const ct=c.contract;
     const hc=ct.healthCounts||{};
@@ -420,7 +422,7 @@ function renderAll(d){
     <span style="color:var(--orange)">警示 ${hcTotal['警示']||0}</span>
     <span style="color:#888">掛點 ${hcTotal['掛點']||0}</span>
     <span style="color:var(--gold);font-weight:700">健康度 ${hcHealthPct}%</span>
-  </div>`;
+  </div></div>`;
 
   // 重覆合約客戶
   if(d.overlapContracts && d.overlapContracts.length>0){
@@ -905,6 +907,26 @@ function saveReport(coKey) {
       btn.disabled = false;
       btn.textContent = originalText;
     });
+}
+
+function exportContractJpg() {
+  const el = document.getElementById('contract-section');
+  if (!el) return;
+  const btn = document.querySelector('[onclick="exportContractJpg()"]');
+  const orig = btn.textContent;
+  btn.textContent = '⏳ 產生中...';
+  btn.disabled = true;
+  html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#111', logging: false }).then(canvas => {
+    const link = document.createElement('a');
+    link.download = '合約客戶狀況.jpg';
+    link.href = canvas.toDataURL('image/jpeg', 0.95);
+    link.click();
+    btn.textContent = orig;
+    btn.disabled = false;
+  }).catch(() => {
+    btn.textContent = orig;
+    btn.disabled = false;
+  });
 }
 
 window.onload=function(){loadCacheInfoGroup();loadReport();};
