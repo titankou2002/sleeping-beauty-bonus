@@ -1695,7 +1695,7 @@ trait ReportTrait
                 $dueMonths = $dueDays !== null ? round(abs($dueDays) / 30, 1) : null;
 
                 // === 健康分級 ===
-                if ($totalContract == 0 || $bal <= 0) {
+                if ($bal <= 0) {
                     $bucket = '待續約';
                 } elseif ($dueDays === null || $dueDays >= 0) {
                     $bucket = $balRatio > 0.9 ? '觀察' : '正常';

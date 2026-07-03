@@ -108,7 +108,7 @@ trait RepTrait
                     $qty = $cQty !== -1 ? max((int)$this->getVal($row, $cQty), 1) : 1;
                     $totalContract = $contractAmt * $qty;
                     $bal = $balanceColIdx >= 0 ? $this->optFloat($this->getVal($row, $balanceColIdx)) : null;
-                    $balRatio = $totalContract > 0 ? ($bal / $totalContract) : null;
+                    $balRatio = $totalContract > 0 ? ($bal / $totalContract) : 1;
                     $due = $this->parseDate($this->getVal($row, $cExpiry));
                     $dueDays = $due ? (int)(new DateTime())->diff($due)->format('%r%a') : null;
                     $dueText = '';
@@ -128,7 +128,7 @@ trait RepTrait
                     }
                     // Health classification (same as ReportTrait)
                     $bucket = '';
-                    if ($totalContract == 0 || ($bal !== null && $bal <= 0)) {
+                    if ($bal !== null && $bal <= 0) {
                         $bucket = '待續約';
                     } elseif ($dueDays === null || $dueDays >= 0) {
                         $bucket = $balRatio !== null && $balRatio > 0.9 ? '觀察' : '正常';
