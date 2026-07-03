@@ -64,6 +64,26 @@ trait CustomerTrait
         $todayMD = $now->format('m-d');
         $areaMap = $this->getSalesRepAreaMap();
 
+        // 從業務分區工作表建立客戶→區域對應
+        $customerAreaMap = [];
+        try {
+            $areaRows = $this->gs->readSheet('業務分區');
+            if (count($areaRows) >= 2) {
+                $ah = $areaRows[0];
+                $idxCustA = $this->findHeader($ah, ['客戶','客戶名稱']);
+                $idxAreaA = $this->findHeader($ah, ['區域','地區']);
+                if ($idxCustA !== -1 && $idxAreaA !== -1) {
+                    for ($i = 1; $i < count($areaRows); $i++) {
+                        $cn = trim($this->getVal($areaRows[$i], $idxCustA));
+                        $ar = trim($this->getVal($areaRows[$i], $idxAreaA));
+                        if ($cn !== '' && $ar !== '') {
+                            $customerAreaMap[$this->displayCustomerName($cn)] = $ar;
+                        }
+                    }
+                }
+            }
+        } catch (Exception $e) {}
+
         $customers = [];
         $productTypeAmounts = ['sleeper'=>0, 'normal'=>0, 'discontinued'=>0];
         $seriesAmounts = [];
@@ -349,12 +369,13 @@ trait CustomerTrait
                     arsort($counts);
                     return array_key_first($counts);
                 })($c['salesRepCounts']),
-                'area' => (function ($counts) use ($areaMap) {
+                'area' => (function ($counts, $custName) use ($areaMap, $customerAreaMap) {
+                    if (isset($customerAreaMap[$custName])) return $customerAreaMap[$custName];
                     if (empty($counts)) return '未分配';
                     arsort($counts);
                     $rep = array_key_first($counts);
                     return $areaMap[$rep] ?? '未分配';
-                })($c['salesRepCounts']),
+                })($c['salesRepCounts'], $name),
                 'contractHealth' => $c['contractHealth'],
                 'contractExpiry' => $c['contractExpiry'],
                 'contractBalance' => $c['contractBalance'] !== null ? round($c['contractBalance']) : null,
