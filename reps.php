@@ -283,8 +283,23 @@ function openRepDetail(name) {
   var content = document.getElementById('rep-detail-content');
   var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">';
   html += '<div><span style="font-size:22px;font-weight:800">' + rep.name + '</span>';
-  html += '<span style="font-size:13px;color:var(--text2);margin-left:10px">' + (rep.area || '') + ' \u00B7 ' + rep.customerCount + ' \u5BB6\u5BA2\u6236 \u00B7 \u7E3D\u696D\u7E3E ' + fmtNum(rep.totalAmount) + '</span></div>';
-  html += '<span class="mono" style="font-size:15px;font-weight:700">' + fmtPct(rep.avgYoy) + '</span></div>';
+  html += '<span style="font-size:13px;color:var(--text2);margin-left:10px">' + (rep.area || '') + ' \u00B7 ' + rep.customerCount + ' \u5BB6\u5BA2\u6236 \u00B7 \u7E3D\u696D\u7E3E ' + fmtNum(rep.totalAmount) + '</span>';
+  // \u7B49\u7D1A\u5206\u5E03
+  if (rep.gradeDist) {
+    var gradeColors = {'\u7279':'#ff2a85','A':'var(--green)','B':'var(--blue)','C':'var(--text2)'};
+    Object.keys(rep.gradeDist).filter(function(g){return g!=='\u7121';}).forEach(function(g) {
+      html += '<span style="margin-left:6px;background:' + (gradeColors[g]||'var(--text2)') + '20;color:' + (gradeColors[g]||'var(--text2)') + ';border:1px solid ' + (gradeColors[g]||'var(--text2)') + '40;border-radius:4px;padding:1px 7px;font-size:11px;font-weight:800">' + g + '\xD7' + rep.gradeDist[g] + '</span>';
+    });
+  }
+  html += '</div>';
+  // \u6574\u9AD4\u9054\u6210\u7387
+  var achHtml = '<span class="mono" style="font-size:15px;font-weight:700">YOY ' + fmtPct(rep.avgYoy) + '</span>';
+  if (rep.overallAchieve != null) {
+    var achColor = rep.overallAchieve >= 100 ? 'var(--green)' : rep.overallAchieve >= 70 ? 'var(--gold)' : 'var(--red)';
+    achHtml += '<span style="margin-left:12px;font-size:13px;font-weight:700;color:' + achColor + '">\u9054\u6210\u7387 ' + rep.overallAchieve + '%</span>';
+    achHtml += '<div style="margin-top:4px;background:var(--border);border-radius:4px;height:5px;width:120px"><div style="width:' + Math.min(rep.overallAchieve,100) + '%;background:' + achColor + ';border-radius:4px;height:5px"></div></div>';
+  }
+  html += achHtml + '</div>';
 
   // Sort bar
   html += '<div class="sort-bar" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;padding:6px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)">';
@@ -377,12 +392,26 @@ function renderCustomers(index) {
     var lastNote = (c.notes && c.notes.length > 0) ? c.notes[0].note : '';
 
     html += '<div class="cust-card">';
+    var gradeColors = {'特':'#ff2a85','A':'var(--green)','B':'var(--blue)','C':'var(--text2)'};
     html += '<div class="cc-header">';
     html += '<span class="cc-name">' + c.name + '</span>';
+    if (c.grade) html += '<span style="background:' + (gradeColors[c.grade]||'var(--text2)') + '20;color:' + (gradeColors[c.grade]||'var(--text2)') + ';border:1px solid ' + (gradeColors[c.grade]||'var(--text2)') + '40;border-radius:4px;padding:1px 7px;font-size:11px;font-weight:800;margin-left:4px">' + c.grade + '</span>';
     var HEALTH_LBL = {growth:'成長',decline:'退步',normal:'正常',warning:'注意',dormant:'休眠',no_sales:'無銷售'};
     html += '<span class="health-badge ' + c.health + '">' + (HEALTH_LBL[c.health] || c.health) + '</span>';
     if (contractHealth) html += '<span class="health-badge ' + contractHealth + '">' + contractHealth + '</span>';
     html += '</div>';
+    // 目標達成進度條
+    if (c.target) {
+      var tachPct = Math.min(Math.round(c.thisYearAmount / c.target * 100), 100);
+      var tachColor = tachPct >= 100 ? 'var(--green)' : tachPct >= 70 ? 'var(--gold)' : 'var(--red)';
+      html += '<div style="margin:4px 0 6px">' +
+        '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text2);margin-bottom:2px">' +
+          '<span>目標 ' + fmtNum(c.target) + (c.contrib ? '　貢獻 ' + c.contrib : '') + '</span>' +
+          '<span style="color:' + tachColor + ';font-weight:700">' + tachPct + '%</span>' +
+        '</div>' +
+        '<div style="background:var(--border);border-radius:3px;height:4px"><div style="width:' + tachPct + '%;background:' + tachColor + ';border-radius:3px;height:4px"></div></div>' +
+      '</div>';
+    }
     html += '<div class="cc-body">';
     html += '<div class="cc-stats">';
     html += '<div class="cc-stat"><div class="cs-label">\u4ECA\u5E74\u696D\u7E3E</div><div class="cs-value">' + fmtNum(c.thisYearAmount) + '</div></div>';

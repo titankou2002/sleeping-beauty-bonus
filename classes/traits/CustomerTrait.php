@@ -64,16 +64,22 @@ trait CustomerTrait
         $todayMD = $now->format('m-d');
         $areaMap = $this->getSalesRepAreaMap();
 
-        // 從業務分區工作表建立客戶→區域、客戶→業務對應
+        // 從業務分區工作表建立客戶→區域、業務、等級、目標、貢獻度對應
         $customerAreaMap = [];
-        $customerRepMap = [];
+        $customerRepMap  = [];
+        $customerGradeMap  = [];
+        $customerTargetMap = [];
+        $customerContribMap = [];
         try {
             $areaRows = $this->gs->readSheet('業務分區');
             if (count($areaRows) >= 2) {
                 $ah = $areaRows[0];
-                $idxCustA = $this->findHeader($ah, ['客戶','客戶名稱']);
-                $idxAreaA = $this->findHeader($ah, ['區域','地區']);
-                $idxRepA  = $this->findHeader($ah, ['負責業務','業務','業務員']);
+                $idxCustA   = $this->findHeader($ah, ['客戶','客戶名稱']);
+                $idxAreaA   = $this->findHeader($ah, ['區域','地區']);
+                $idxRepA    = $this->findHeader($ah, ['負責業務','業務','業務員']);
+                $idxGradeA  = $this->findHeader($ah, ['等級','級別']);
+                $idxTargetA = $this->findHeader($ah, ['目標']);
+                $idxContribA= $this->findHeader($ah, ['貢獻度']);
                 if ($idxCustA !== -1) {
                     for ($i = 1; $i < count($areaRows); $i++) {
                         $cn = trim($this->getVal($areaRows[$i], $idxCustA));
@@ -86,6 +92,18 @@ trait CustomerTrait
                         if ($idxRepA !== -1) {
                             $rp = trim($this->getVal($areaRows[$i], $idxRepA));
                             if ($rp !== '') $customerRepMap[$key] = self::$salesMerge[$rp] ?? $rp;
+                        }
+                        if ($idxGradeA !== -1) {
+                            $gr = trim($this->getVal($areaRows[$i], $idxGradeA));
+                            if ($gr !== '') $customerGradeMap[$key] = $gr;
+                        }
+                        if ($idxTargetA !== -1) {
+                            $tg = $this->optFloat($this->getVal($areaRows[$i], $idxTargetA));
+                            if ($tg > 0) $customerTargetMap[$key] = $tg * 10000;
+                        }
+                        if ($idxContribA !== -1) {
+                            $ct = trim($this->getVal($areaRows[$i], $idxContribA));
+                            if ($ct !== '') $customerContribMap[$key] = $ct;
                         }
                     }
                 }
@@ -385,6 +403,9 @@ trait CustomerTrait
                     $rep = array_key_first($counts);
                     return $areaMap[$rep] ?? '未分配';
                 })($c['salesRepCounts'], $name),
+                'grade'   => $customerGradeMap[$name] ?? null,
+                'target'  => $customerTargetMap[$name] ?? null,
+                'contrib' => $customerContribMap[$name] ?? null,
                 'contractHealth' => $c['contractHealth'],
                 'contractExpiry' => $c['contractExpiry'],
                 'contractBalance' => $c['contractBalance'] !== null ? round($c['contractBalance']) : null,

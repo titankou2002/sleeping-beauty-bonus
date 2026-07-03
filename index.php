@@ -2067,10 +2067,24 @@ function renderCustomerCard(c) {
     yoyText = '0%'; yoyColor = 'var(--text2)';
   }
   var nameEsc = String(c.name).replace(/'/g, "\\'");
+  var gradeColors = {'特':'#ff2a85','A':'var(--green)','B':'var(--blue)','C':'var(--text2)'};
+  var gradeHtml = c.grade ? '<span style="background:' + (gradeColors[c.grade]||'var(--text2)') + '20;color:' + (gradeColors[c.grade]||'var(--text2)') + ';border:1px solid ' + (gradeColors[c.grade]||'var(--text2)') + '40;border-radius:4px;padding:1px 7px;font-size:11px;font-weight:800;margin-left:6px">' + c.grade + '</span>' : '';
+  var targetHtml = '';
+  if (c.target) {
+    var achPct = Math.round(c.thisYearAmount / c.target * 100);
+    var achColor = achPct >= 100 ? 'var(--green)' : achPct >= 70 ? 'var(--gold)' : 'var(--red)';
+    targetHtml = '<div style="margin-top:8px">' +
+      '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:3px">' +
+        '<span>年度目標達成率</span><span style="color:' + achColor + ';font-weight:800">' + achPct + '%' + (c.contrib ? '　貢獻度 ' + c.contrib : '') + '</span>' +
+      '</div>' +
+      '<div style="background:var(--border);border-radius:4px;height:6px"><div style="width:' + Math.min(achPct,100) + '%;background:' + achColor + ';border-radius:4px;height:6px"></div></div>' +
+      '<div style="font-size:11px;color:var(--text2);margin-top:2px">目標 ' + fmt(c.target) + '　實績 ' + fmt(c.thisYearAmount) + '</div>' +
+    '</div>';
+  }
   return '<div class="product-card" style="grid-template-columns:1fr;cursor:pointer" onclick="toggleCustomerExpand(' + idx + ', \'' + nameEsc + '\')">' +
     '<div class="prod-info">' +
       '<div class="prod-summary-row">' +
-        '<div class="prod-summary-main"><div class="prod-title">' + c.name + '</div></div>' +
+        '<div class="prod-summary-main"><div class="prod-title">' + c.name + gradeHtml + '</div></div>' +
         '<div class="prod-summary-stats">' +
           '<div class="prod-stat"><div class="ps-label">今年業績</div><div class="ps-value">' + fmt(c.thisYearAmount) + '</div></div>' +
           '<div class="prod-stat"><div class="ps-label">YOY</div><div class="ps-value" style="color:' + yoyColor + '">' + yoyText + '</div></div>' +
@@ -2079,6 +2093,7 @@ function renderCustomerCard(c) {
           '<div class="prod-stat"><div class="ps-label">平均毛利率</div><div class="ps-value" style="color:' + (c.avgMarginPct === null ? 'var(--text2)' : (c.avgMarginPct < 15 ? 'var(--red)' : 'var(--text1)')) + '">' + (c.avgMarginPct === null ? '—' : c.avgMarginPct + '%') + '</div></div>' +
         '</div>' +
       '</div>' +
+      targetHtml +
       '<div class="action-badge" style="background:' + info.color + '15;border:1px solid ' + info.color + '30;color:' + info.color + ';padding:4px 8px;border-radius:6px;font-size:11px;font-weight:800;display:inline-block;margin-top:6px">' + info.label + '</div>' +
       '<div style="margin-top:8px;font-size:11px;font-weight:800;color:var(--text2)">📊 業績表現</div>' +
       renderYoyBar(c) +

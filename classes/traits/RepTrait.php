@@ -12,6 +12,31 @@ trait RepTrait
         $areaMap = $this->getSalesRepAreaMap();
         $seriesMap = $this->getSeriesMap();
 
+        // 從業務分區讀取客戶等級、目標、貢獻度
+        $custGradeMap = []; $custTargetMap = []; $custContribMap = []; $custRepMapFromSheet = [];
+        try {
+            $areaRows = $this->gs->readSheet('業務分區');
+            if (count($areaRows) >= 2) {
+                $ah = $areaRows[0];
+                $idxCN  = $this->findHeader($ah, ['客戶','客戶名稱']);
+                $idxGr  = $this->findHeader($ah, ['等級','級別']);
+                $idxTg  = $this->findHeader($ah, ['目標']);
+                $idxCo  = $this->findHeader($ah, ['貢獻度']);
+                $idxRpS = $this->findHeader($ah, ['負責業務','業務','業務員']);
+                if ($idxCN !== -1) {
+                    for ($i = 1; $i < count($areaRows); $i++) {
+                        $cn = trim($this->getVal($areaRows[$i], $idxCN));
+                        if ($cn === '') continue;
+                        $key = $this->displayCustomerName($cn);
+                        if ($idxGr !== -1)  { $g = trim($this->getVal($areaRows[$i], $idxGr));  if ($g !== '') $custGradeMap[$key] = $g; }
+                        if ($idxTg !== -1)  { $t = $this->optFloat($this->getVal($areaRows[$i], $idxTg)); if ($t > 0) $custTargetMap[$key] = $t * 10000; }
+                        if ($idxCo !== -1)  { $c = trim($this->getVal($areaRows[$i], $idxCo));  if ($c !== '') $custContribMap[$key] = $c; }
+                        if ($idxRpS !== -1) { $r = trim($this->getVal($areaRows[$i], $idxRpS)); if ($r !== '') $custRepMapFromSheet[$key] = self::$salesMerge[$r] ?? $r; }
+                    }
+                }
+            }
+        } catch (Exception $e) {}
+
         $cacheRows = $this->gs->readSheet(CACHE_SHEET);
         $custMonthly = [];
         $custSeries = [];
@@ -290,12 +315,18 @@ trait RepTrait
             $notes = $noteData[$k] ?? [];
             usort($notes, function ($a, $b) { return strcmp($b['date'] ?? '', $a['date'] ?? ''); });
 
+            $custTarget = $custTargetMap[$cust] ?? null;
+            $targetAchieve = ($custTarget > 0) ? round($tyAmt / $custTarget * 100, 1) : null;
             $reps[$rep]['customers'][] = [
                 'name' => $cust, 'health' => $health,
                 'totalAmount' => round($custTotal[$cust] ?? 0),
                 'thisYearAmount' => round($tyAmt), 'lastYearAmount' => round($lyFullAmt),
                 'lastYearSamePeriod' => round($lySamePeriodAmt),
                 'achieveRate' => $achieveRate,
+                'grade' => $custGradeMap[$cust] ?? null,
+                'target' => $custTarget,
+                'targetAchieve' => $targetAchieve,
+                'contrib' => $custContribMap[$cust] ?? null,
                 'yoyPct' => $yoyPct, 'saleCount' => $custCount[$cust] ?? 0,
                 'lastOrderDate' => $lod, 'contract' => $contract,
                 'monthlyTrend' => $monthlyTrend, 'seriesTrend' => $seriesTrend,
@@ -308,6 +339,18 @@ trait RepTrait
             usort($rep['customers'], function ($a, $b) { return $b['totalAmount'] - $a['totalAmount']; });
             $yoyVals = array_filter(array_column($rep['customers'], 'yoyPct'), function ($v) { return $v !== 0; });
             $rep['avgYoy'] = count($yoyVals) > 0 ? round(array_sum($yoyVals) / count($yoyVals), 1) : 0;
+            // 整體達成率
+            $totalTarget = array_sum(array_filter(array_column($rep['customers'], 'target')));
+            $totalActual = array_sum(array_column($rep['customers'], 'thisYearAmount'));
+            $rep['totalTarget'] = $totalTarget > 0 ? round($totalTarget) : null;
+            $rep['overallAchieve'] = ($totalTarget > 0) ? round($totalActual / $totalTarget * 100, 1) : null;
+            // 等級分布
+            $gradeDist = [];
+            foreach ($rep['customers'] as $cc) {
+                $g = $cc['grade'] ?? '無';
+                $gradeDist[$g] = ($gradeDist[$g] ?? 0) + 1;
+            }
+            $rep['gradeDist'] = $gradeDist;
         }
         unset($rep);
 
