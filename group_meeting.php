@@ -266,7 +266,7 @@ function renderAll(d){
 
   // === 2. 各公司比較 ===
   html+=`<div class="section"><div class="section-title">📑 各公司比較</div>
-    <div class="tabs"><button class="tab active" onclick="switchTab(this,'cmp-month')">當月</button><button class="tab" onclick="switchTab(this,'cmp-ytd')">當年累計</button><button class="tab" onclick="switchTab(this,'cmp-quarter')">季比較</button></div>`;
+    <div class="tabs"><button class="tab active" onclick="switchTab(this,'cmp-month')">當月</button><button class="tab" onclick="switchTab(this,'cmp-ytd')">當年累計</button><button class="tab" onclick="switchTab(this,'cmp-quarter')">季比較</button><button class="tab" onclick="switchTab(this,'cmp-monthly')">逐月比較</button></div>`;
 
   // 當月
   html+=`<div id="cmp-month" class="tab-pane"><div class="co3">`;
@@ -309,6 +309,49 @@ function renderAll(d){
       <div class="v1">${q.current.label}: ${fmtW(q.current.amount)}</div>
       <div class="s1">${q.prev.label}: ${fmtW(q.prev.amount)} ${fmtYoy(qqChg)}</div>
       <div class="mt"><span>去年 ${q.lastYear.label}: ${fmtW(q.lastYear.amount)} ${fmtYoy(qqYoy)}</span></div></div>`;
+  });
+  html+=`</div></div>`;
+
+  // 逐月比較 — 三家各自 1-12 月三年對照
+  html+=`<div id="cmp-monthly" class="tab-pane" style="display:none">
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:20px;margin-top:12px">`;
+  CO_KEYS.forEach(k=>{
+    const c=cos[k];
+    const hist=c.monthlyHistory||[];
+    const yrs=hist.map(r=>r.year).sort((a,b)=>a-b);
+    const y0=yrs[0], y1=yrs[1], y2=yrs[2];
+    const ym2={}; hist.forEach(r=>{ym2[r.year]=r;});
+    let totals={};
+    yrs.forEach(yr=>{totals[yr]=ym2[yr]?.total||0;});
+    const yoy=totals[y1]>0?((totals[y2]-totals[y1])/totals[y1]*100):0;
+    html+=`<div style="background:rgba(255,255,255,.02);border:1px solid ${c.color}30;border-radius:8px;overflow:hidden">
+      <div style="background:${c.color}15;color:${c.color};font-weight:800;padding:10px 14px;font-size:14px;border-bottom:1px solid ${c.color}30;display:flex;justify-content:space-between;align-items:center">
+        <span>${c.name}</span><span style="font-size:11px;font-weight:400">YOY ${yoy>0?'+':''}${yoy.toFixed(1)}%</span>
+      </div>
+      <div class="tbl-wrap"><table class="tbl" style="font-size:12px">
+        <tr><th>月</th><th class="r">${y0||''}</th><th class="r">${y1||''}</th><th class="r" style="color:${c.color}">${y2||''}</th><th class="r">YOY</th></tr>`;
+    for(let mo=1;mo<=12;mo++){
+      const v0=ym2[y0]?.months?.[mo-1]?.amount||0;
+      const v1=ym2[y1]?.months?.[mo-1]?.amount||0;
+      const v2=ym2[y2]?.months?.[mo-1]?.amount||0;
+      const myoy=v1>0?((v2-v1)/v1*100):null;
+      const isCur=mo===m;
+      html+=`<tr style="${isCur?`border-left:3px solid ${c.color};background:${c.color}08`:''};>
+        <td>${mo}月</td>
+        <td class="r" style="color:var(--muted)">${v0>0?fmtW(v0):'—'}</td>
+        <td class="r" style="color:var(--muted)">${v1>0?fmtW(v1):'—'}</td>
+        <td class="r" style="color:${c.color};font-weight:${isCur?700:400}">${v2>0?fmtW(v2):'—'}</td>
+        <td class="r">${myoy!==null?`<span class="${myoy>0?'up':'dn'}">${myoy>0?'+':''}${myoy.toFixed(0)}%</span>`:'—'}</td>
+      </tr>`;
+    }
+    html+=`<tr style="border-top:1px solid var(--line);font-weight:700">
+      <td>合計</td>
+      <td class="r" style="color:var(--muted)">${fmtW(totals[y0]||0)}</td>
+      <td class="r" style="color:var(--muted)">${fmtW(totals[y1]||0)}</td>
+      <td class="r" style="color:${c.color}">${fmtW(totals[y2]||0)}</td>
+      <td class="r"><span class="${yoy>0?'up':'dn'}">${yoy>0?'+':''}${yoy.toFixed(1)}%</span></td>
+    </tr>`;
+    html+=`</table></div></div>`;
   });
   html+=`</div></div></div>`;
 
@@ -517,45 +560,33 @@ function renderAll(d){
   }
 
   // === 8. 前二十大客戶 ===
-  html+=`<div class="section"><div class="section-title">🏆 集團前二十大客戶</div><div class="tbl-wrap"><table class="tbl">
-    <tr><th>#</th><th>客戶</th><th class="r">高雅瓷</th><th class="r">安帝嘉</th><th class="r">喜悅納</th><th class="r">合計</th><th class="r">去年同期</th><th class="r">YOY</th><th>AI 示警</th></tr>`;
-  d.top20.forEach((c,i)=>{
-    const sb=c.companies.sleepingBeauty; const ad=c.companies.andyga; const xy=c.companies.xiyena;
-    const yoyStr=c.isNew?'<span class="up">新客</span>':fmtYoy(c.yoy);
-    let alertHtml='';
-    c.alerts.forEach(a=>{
-      if(a==='衰退警告')alertHtml+=`<span class="badge-alert badge-danger">⚠ 衰退</span>`;
-      else if(a==='急升')alertHtml+=`<span class="badge-alert badge-surge">↑ 急升</span>`;
-      else if(a==='新客')alertHtml+=`<span class="badge-alert badge-new">✦ 新進</span>`;
-      else if(a==='流失')alertHtml+=`<span class="badge-alert badge-danger">⚠ 流失</span>`;
-    });
-    html+=`<tr><td>${i+1}</td><td>${c.name}</td>
-      <td class="r">${sb?fmtW(sb.curMonth):'—'}</td>
-      <td class="r">${ad?fmtW(ad.curMonth):'—'}</td>
-      <td class="r">${xy?fmtW(xy.curMonth):'—'}</td>
-      <td class="r" style="font-weight:700">${fmtW(c.totalMonth)}</td>
-      <td class="r">${fmtW(c.totalPrevMonth)}</td>
-      <td class="r">${yoyStr}</td>
-      <td>${alertHtml}</td></tr>`;
-  });
-  html+=`</table></div></div>`;
-
-  // === 9. 跨公司客戶 ===
-  if(d.crossCompany && d.crossCompany.length>0){
-    html+=`<div class="section"><div class="section-title">🔗 跨公司客戶（在 2 家以上消費）</div><div class="tbl-wrap"><table class="tbl">
-      <tr><th>客戶</th><th>涵蓋公司</th><th class="r">集團佔比</th><th class="r">合計營收</th></tr>`;
-    d.crossCompany.forEach(c=>{
-      const pills = Object.keys(c.companies).map(k => {
-        const coSales = cos[k].kpis ? cos[k].kpis.sales : 0;
-        const custCoSales = c.companies[k].curMonth || 0;
-        const share = coSales > 0 ? (custCoSales / coSales * 100).toFixed(1) : '0.0';
-        return `<span class="pill ${CO_PILL[k]}" title="${CO_LABELS[k]}實銷: ${fmtW(custCoSales)}">${CO_LABELS[k]} ${fmtW(custCoSales).replace(/\s/g, '')} (${share}%)</span>`;
-      }).join('');
-      const groupShare = g.kpis.sales > 0 ? (c.totalMonth / g.kpis.sales * 100).toFixed(2) : '0.00';
-      html+=`<tr><td>${c.name}</td><td>${pills}</td><td class="r">${groupShare}%</td><td class="r" style="font-weight:700">${fmtW(c.totalMonth)}</td></tr>`;
-    });
-    html+=`</table></div></div>`;
-  }
+  window._top20Data = (d.top20||[]).slice();
+  const CO_COLORS_MAP = {sleepingBeauty:'#ff2a85', andyga:'#10b981', xiyena:'#38bdf8'};
+  html+=`<div class="section"><div class="section-title">🏆 集團前二十大客戶</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <span style="font-size:12px;color:var(--muted);line-height:28px">排序：</span>
+      <button class="top20-sort-btn detail-btn active" data-sort="month" onclick="renderTop20('month')">當月業績</button>
+      <button class="top20-sort-btn detail-btn" data-sort="ytd" onclick="renderTop20('ytd')">年度累計</button>
+      <button class="top20-sort-btn detail-btn" data-sort="yoy_desc" onclick="renderTop20('yoy_desc')">成長最高</button>
+      <button class="top20-sort-btn detail-btn" data-sort="yoy_asc" onclick="renderTop20('yoy_asc')">衰退最多</button>
+      <button class="top20-sort-btn detail-btn" data-sort="alert" onclick="renderTop20('alert')">AI 示警優先</button>
+    </div>
+    <div class="tbl-wrap"><table class="tbl">
+    <tr>
+      <th style="width:28px">#</th><th>客戶</th>
+      <th class="r" style="color:#ff2a85;font-size:11px">高雅瓷<br>當月</th>
+      <th class="r" style="color:#10b981;font-size:11px">安帝嘉<br>當月</th>
+      <th class="r" style="color:#38bdf8;font-size:11px">喜悅納<br>當月</th>
+      <th class="r">當月合計</th>
+      <th class="r" style="color:#ff2a85;font-size:11px">高雅瓷<br>累計</th>
+      <th class="r" style="color:#10b981;font-size:11px">安帝嘉<br>累計</th>
+      <th class="r" style="color:#38bdf8;font-size:11px">喜悅納<br>累計</th>
+      <th class="r">年度累計</th>
+      <th class="r">YOY</th>
+      <th>AI 示警</th>
+    </tr>
+    <tbody id="top20-tbody"></tbody>
+    </table></div></div>`;
 
   // === 10. 品牌銷售比較 ===
   html+=`<div class="section"><div class="section-title">🏷️ 品牌銷售比較</div>
@@ -673,7 +704,55 @@ function renderAll(d){
   </div>`;
 
   document.getElementById('content').innerHTML=html;
+  renderTop20('month');
   renderCharts(d);
+}
+
+function renderTop20(sortKey){
+  const data = window._top20Data || [];
+  const CO_CM = {sleepingBeauty:'#ff2a85', andyga:'#10b981', xiyena:'#38bdf8'};
+  const ALERT_ORDER = {'衰退警告':0,'流失':1,'急升':2,'新客':3};
+  const ALERT_LBL = {'衰退警告':'衰退','流失':'流失','急升':'急升','新客':'新客'};
+  const ALERT_CLS = {'衰退警告':'badge-danger','流失':'badge-danger','急升':'badge-surge','新客':'badge-new'};
+  const sorted = data.slice().sort((a,b)=>{
+    if(sortKey==='month')    return b.totalMonth - a.totalMonth;
+    if(sortKey==='ytd')      return (b.totalYtd||0) - (a.totalYtd||0);
+    if(sortKey==='yoy_desc') return (b.yoy??-9999) - (a.yoy??-9999);
+    if(sortKey==='yoy_asc')  return (a.yoy??9999) - (b.yoy??9999);
+    if(sortKey==='alert')    return (b.alerts.length - a.alerts.length) || (b.totalMonth - a.totalMonth);
+    return b.totalMonth - a.totalMonth;
+  });
+  let rows='';
+  sorted.forEach((c,i)=>{
+    const yoyStr = c.isNew ? '<span class="badge-new" style="font-size:11px;padding:2px 6px">新客</span>' : fmtYoy(c.yoy);
+    let alertHtml='';
+    c.alerts.slice().sort((x,y)=>(ALERT_ORDER[x]??9)-(ALERT_ORDER[y]??9)).forEach(a=>{
+      alertHtml+=`<span class="badge-alert ${ALERT_CLS[a]||'badge-warn'}">${ALERT_LBL[a]||a}</span>`;
+    });
+    const coMonth = ['sleepingBeauty','andyga','xiyena'].map(k=>{
+      const v=(c.companies[k]||{}).curMonth||0;
+      return `<td class="r" style="color:${CO_CM[k]};font-size:12px">${v>0?fmtW(v):'—'}</td>`;
+    }).join('');
+    const coYtd = ['sleepingBeauty','andyga','xiyena'].map(k=>{
+      const v=(c.companies[k]||{}).ytd||0;
+      return `<td class="r" style="color:${CO_CM[k]};font-size:12px">${v>0?fmtW(v):'—'}</td>`;
+    }).join('');
+    rows+=`<tr>
+      <td style="color:var(--muted);font-size:12px">${i+1}</td>
+      <td style="font-weight:600">${c.name}</td>
+      ${coMonth}
+      <td class="r" style="font-weight:700">${fmtW(c.totalMonth)}</td>
+      ${coYtd}
+      <td class="r" style="font-weight:700">${c.totalYtd>0?fmtW(c.totalYtd):'—'}</td>
+      <td class="r">${yoyStr}</td>
+      <td>${alertHtml}</td>
+    </tr>`;
+  });
+  const tbody = document.getElementById('top20-tbody');
+  if(tbody) tbody.innerHTML = rows;
+  document.querySelectorAll('.top20-sort-btn').forEach(btn=>{
+    btn.classList.toggle('active', btn.dataset.sort===sortKey);
+  });
 }
 
 function switchTab(btn, id){

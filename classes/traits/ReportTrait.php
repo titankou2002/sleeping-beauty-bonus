@@ -2355,6 +2355,8 @@ trait ReportTrait
                 'companies' => $data['companies'],
                 'totalMonth' => round($data['totalMonth']),
                 'totalPrevMonth' => round($data['totalPrevMonth']),
+                'totalYtd' => round($data['totalYtd']),
+                'totalYtdPrev' => round($data['totalYtdPrev']),
                 'yoy' => $yoy === 999 ? null : $yoy,
                 'isNew' => $yoy === 999,
                 'alerts' => $alerts,
