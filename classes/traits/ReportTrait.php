@@ -1860,6 +1860,146 @@ trait ReportTrait
         }
     }
 
+    private function getCompanySeriesRanks($ssId, $year, $month)
+    {
+        try {
+            $gsClient = $this->getClient($ssId);
+            $cacheRows = $gsClient->readSheet(CACHE_SHEET);
+            if (count($cacheRows) < 2) return [];
+            $h = $cacheRows[0];
+            $idxYear = $this->findHeader($h, ['年度']);
+            $idxMonth = $this->findHeader($h, ['月份']);
+            $idxSku = $this->findHeader($h, ['產品編號', '編號']);
+            $idxAmt = $this->findHeader($h, ['銷售金額']);
+            $idxPing = $this->findHeader($h, ['銷售坪數']);
+            $idxCust = $this->findHeader($h, ['客戶名稱']);
+            if ($idxYear === -1 || $idxAmt === -1 || $idxSku === -1) return [];
+
+            $priceData = $gsClient->readSheet(PRICE_SHEET);
+            $profiles = [];
+            if (count($priceData) >= 2) {
+                $pH = $priceData[0];
+                $pCode = $this->findHeader($pH, ['編號','產品編號']);
+                $pSeries = $this->findHeader($pH, ['系列','英文系列']);
+                $pSeriesCn = $this->findHeader($pH, ['中文系列','系列中文','中文名稱']);
+                $pBrand = $this->findHeader($pH, ['廠牌','品牌']);
+                $pProduct = $this->findHeader($pH, ['原廠品名','產品名稱','品名']);
+                $pSize = $this->findHeader($pH, ['尺寸(cm)','尺寸']);
+                $pImage = $this->findHeader($pH, ['單片連結網址','單片圖','圖片網址']);
+                for ($i = 1; $i < count($priceData); $i++) {
+                    $sku = $this->cleanSku($this->getVal($priceData[$i], $pCode));
+                    if (!$sku) continue;
+                    $profiles[$sku] = [
+                        'series' => $pSeries !== -1 ? trim($this->getVal($priceData[$i], $pSeries)) : '',
+                        'seriesCn' => $pSeriesCn !== -1 ? trim($this->getVal($priceData[$i], $pSeriesCn)) : '',
+                        'brand' => $pBrand !== -1 ? $this->normalizeBrand($this->getVal($priceData[$i], $pBrand)) : '',
+                        'productName' => $pProduct !== -1 ? trim($this->getVal($priceData[$i], $pProduct)) : '',
+                        'size' => $pSize !== -1 ? $this->normalizeSizeLabel($this->getVal($priceData[$i], $pSize)) : '',
+                        'imageUrl' => $pImage !== -1 ? trim($this->getVal($priceData[$i], $pImage)) : '',
+                    ];
+                }
+            }
+
+            $seriesMap = [];
+            for ($i = 1; $i < count($cacheRows); $i++) {
+                $row = $cacheRows[$i];
+                $ry = (int)$this->getVal($row, $idxYear);
+                $rm = (int)$this->getVal($row, $idxMonth);
+                if ($ry !== $year || $rm !== $month) continue;
+                $sku = $this->cleanSku($this->getVal($row, $idxSku));
+                if (!$sku) continue;
+                $amt = $this->optFloat($this->getVal($row, $idxAmt));
+                $ping = $idxPing !== -1 ? $this->optFloat($this->getVal($row, $idxPing)) : 0;
+                $cust = $idxCust !== -1 ? $this->displayCustomerName($this->getVal($row, $idxCust)) : '';
+                $p = $profiles[$sku] ?? [];
+                $seriesKey = ($p['seriesCn'] ?? '') ?: ($p['series'] ?? '') ?: '未分類';
+                if (!isset($seriesMap[$seriesKey])) {
+                    $seriesMap[$seriesKey] = [
+                        'seriesCn' => $p['seriesCn'] ?? '',
+                        'series' => $p['series'] ?? '',
+                        'brand' => $p['brand'] ?? '',
+                        'totalPings' => 0, 'totalAmount' => 0,
+                        'items' => []
+                    ];
+                }
+                $seriesMap[$seriesKey]['totalPings'] += $ping;
+                $seriesMap[$seriesKey]['totalAmount'] += $amt;
+                if (!isset($seriesMap[$seriesKey]['items'][$sku])) {
+                    $seriesMap[$seriesKey]['items'][$sku] = [
+                        'sku' => $sku,
+                        'name' => trim(($p['productName'] ?? '') . ' ' . ($p['size'] ?? '')),
+                        'pings' => 0, 'amount' => 0,
+                        'imageUrl' => $p['imageUrl'] ?? '',
+                        'customers' => []
+                    ];
+                }
+                $seriesMap[$seriesKey]['items'][$sku]['pings'] += $ping;
+                $seriesMap[$seriesKey]['items'][$sku]['amount'] += $amt;
+                if ($cust && $cust !== '未知客戶') {
+                    if (!isset($seriesMap[$seriesKey]['items'][$sku]['customers'][$cust])) {
+                        $seriesMap[$seriesKey]['items'][$sku]['customers'][$cust] = ['name' => $cust, 'amount' => 0, 'pings' => 0];
+                    }
+                    $seriesMap[$seriesKey]['items'][$sku]['customers'][$cust]['amount'] += $amt;
+                    $seriesMap[$seriesKey]['items'][$sku]['customers'][$cust]['pings'] += $ping;
+                }
+            }
+
+            $totalAmt = array_sum(array_column($seriesMap, 'totalAmount'));
+            foreach ($seriesMap as &$s) {
+                $s['sharePct'] = $totalAmt > 0 ? round($s['totalAmount'] / $totalAmt * 100, 1) : 0;
+                $s['items'] = array_values($s['items']);
+                foreach ($s['items'] as &$item) {
+                    $item['customers'] = array_values($item['customers']);
+                    usort($item['customers'], function ($a, $b) { return $b['amount'] <=> $a['amount']; });
+                }
+                usort($s['items'], function ($a, $b) { return $b['pings'] <=> $a['pings']; });
+            }
+            usort($seriesMap, function ($a, $b) { return $b['totalPings'] <=> $a['totalPings']; });
+            return array_slice(array_values($seriesMap), 0, 12);
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    private function getCompanyMonthlyHistory($ssId, $year)
+    {
+        try {
+            $gsClient = $this->getClient($ssId);
+            $cacheRows = $gsClient->readSheet(CACHE_SHEET);
+            if (count($cacheRows) < 2) return [];
+            $h = $cacheRows[0];
+            $idxYear = $this->findHeader($h, ['年度']);
+            $idxMonth = $this->findHeader($h, ['月份']);
+            $idxAmt = $this->findHeader($h, ['銷售金額']);
+            if ($idxYear === -1 || $idxMonth === -1 || $idxAmt === -1) return [];
+
+            $months = [];
+            for ($y = $year - 2; $y <= $year; $y++) {
+                $months[$y] = array_fill(1, 12, 0);
+            }
+            for ($i = 1; $i < count($cacheRows); $i++) {
+                $row = $cacheRows[$i];
+                $ry = (int)$this->getVal($row, $idxYear);
+                $rm = (int)$this->getVal($row, $idxMonth);
+                if ($ry < $year - 2 || $ry > $year) continue;
+                $amt = $this->optFloat($this->getVal($row, $idxAmt));
+                $months[$ry][$rm] += $amt;
+            }
+
+            $result = [];
+            foreach ($months as $y => $mData) {
+            $result[] = [
+                'year' => $y,
+                'months' => array_map(function ($v, $m) { return ['month' => $m, 'amount' => round($v)]; }, $mData, array_keys($mData)),
+                'total' => round(array_sum($mData)),
+            ];
+            }
+            return $result;
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
     private function getCompanyQuarterStats($ssId, $year, $month)
     {
         try {
@@ -2079,6 +2219,58 @@ trait ReportTrait
             $allInventory[$key] = $this->getCompanyInventoryBreakdown($info['id']);
         }
 
+        // Get series ranking per company
+        $allSeriesRanks = [];
+        foreach ($companyIds as $key => $info) {
+            $allSeriesRanks[$key] = $this->getCompanySeriesRanks($info['id'], $year, $month);
+        }
+
+        // Get 3-year monthly history
+        $allMonthlyHistory = [];
+        foreach ($companyIds as $key => $info) {
+            $allMonthlyHistory[$key] = $this->getCompanyMonthlyHistory($info['id'], $year);
+        }
+
+        $groupThreeYear = [];
+        foreach ($companyIds as $key => $info) {
+            foreach ($allMonthlyHistory[$key] as $yrData) {
+                $y = $yrData['year'];
+                if (!isset($groupThreeYear[$y])) {
+                    $groupThreeYear[$y] = ['year' => $y, 'months' => array_fill(1, 12, 0)];
+                }
+                foreach ($yrData['months'] as $m) {
+                    $groupThreeYear[$y]['months'][$m['month']] += $m['amount'];
+                }
+            }
+        }
+        ksort($groupThreeYear);
+        foreach ($groupThreeYear as $y => &$yr) {
+            $yr['total'] = round(array_sum($yr['months']));
+            $yr['months'] = array_map(function ($v, $m) { return ['month' => $m, 'amount' => round($v)]; }, $yr['months'], array_keys($yr['months']));
+        }
+        unset($yr);
+        $groupThreeYear = array_values($groupThreeYear);
+
+        $groupSeriesRanks = [];
+        foreach ($companyIds as $key => $info) {
+            foreach ($allSeriesRanks[$key] as $s) {
+                $sk = ($s['seriesCn'] ?: $s['series']) ?: '未分類';
+                if (!isset($groupSeriesRanks[$sk])) {
+                    $groupSeriesRanks[$sk] = $s + ['companies' => [$info['name']], 'items' => []];
+                } else {
+                    $groupSeriesRanks[$sk]['totalPings'] += $s['totalPings'];
+                    $groupSeriesRanks[$sk]['totalAmount'] += $s['totalAmount'];
+                    $groupSeriesRanks[$sk]['companies'][] = $info['name'];
+                }
+            }
+        }
+        $gTotalAmt = array_sum(array_column($groupSeriesRanks, 'totalAmount'));
+        foreach ($groupSeriesRanks as &$s) {
+            $s['sharePct'] = $gTotalAmt > 0 ? round($s['totalAmount'] / $gTotalAmt * 100, 1) : 0;
+        }
+        usort($groupSeriesRanks, function ($a, $b) { return $b['totalPings'] <=> $a['totalPings']; });
+        $groupSeriesRanks = array_slice(array_values($groupSeriesRanks), 0, 12);
+
         $groupKpis = ['sales' => 0, 'salesYoyBase' => 0, 'pings' => 0, 'ytdSales' => 0, 'ytdPrevSales' => 0];
         $groupMonthlySales = array_fill(1, 12, 0);
         foreach ($companyIds as $key => $info) {
@@ -2231,6 +2423,8 @@ trait ReportTrait
                 'monthlySales' => $bs['success'] ? $bs['monthlySales'] : null,
                 'products' => $allProducts[$key],
                 'topProducts' => $topProds,
+                'seriesRanking' => $allSeriesRanks[$key] ?? [],
+                'monthlyHistory' => $allMonthlyHistory[$key] ?? [],
                 'contract' => [
                     'active' => $ct['active'],
                     'monthlyTarget' => $ct['monthlyTarget'],
@@ -2273,6 +2467,8 @@ trait ReportTrait
                     'kpis' => $groupKpis,
                     'monthlySales' => array_values($groupMonthlySales),
                     'contractTotal' => $contractTotal,
+                    'threeYear' => $groupThreeYear,
+                    'seriesRanking' => $groupSeriesRanks,
                 ],
                 'companies' => $companyData,
                 'top20' => $top20,
