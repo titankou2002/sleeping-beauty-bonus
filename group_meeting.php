@@ -711,30 +711,14 @@ function renderCharts(d){
   const ctx2=document.getElementById('shareChart').getContext('2d');
   charts.push(new Chart(ctx2,{type:'doughnut',data:{labels:shareLabels,datasets:[{data:vals,backgroundColor:CO_KEYS.map(k=>CO_COLORS[k]),borderWidth:1,borderColor:'#111'}]},options:{responsive:true,maintainAspectRatio:false,cutout:'55%',plugins:{legend:{position:'right',labels:{color:'#f6f1e6',font:{weight:'bold'}}},tooltip:{callbacks:{label:c=>{const v=c.parsed||0;return` ${c.label}: ${v} 萬`}}}}}}));
 
-  // Category pings chart — stacked 零售 + 專案
+  // Category pings chart (by 產品種類)
   const CAT_LABELS = ['石紋磚','小品磚','木紋磚','筷子磚','六角磚','大理石磚','水磨石'];
   const ctx3=document.getElementById('catPingChart').getContext('2d');
-  const catDatasets = [];
-  CO_KEYS.forEach(k=>{
-    const baseColor = CO_COLORS[k];
-    const projectColor = baseColor + '66'; // semi-transparent for project
-    catDatasets.push({
-      label: CO_LABELS[k]+' 零售',
-      data: CAT_LABELS.map(cat=>Math.round(((cos[k].products.byCategoryRetail||{})[cat]||{pings:0}).pings*10)/10),
-      backgroundColor: baseColor,
-      stack: k
-    });
-    catDatasets.push({
-      label: CO_LABELS[k]+' 專案',
-      data: CAT_LABELS.map(cat=>Math.round(((cos[k].products.byCategoryProject||{})[cat]||{pings:0}).pings*10)/10),
-      backgroundColor: projectColor,
-      stack: k,
-      borderWidth: 1,
-      borderColor: baseColor,
-      borderDash: [4,2]
-    });
-  });
-  charts.push(new Chart(ctx3,{type:'bar',data:{labels:CAT_LABELS,datasets:catDatasets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#f6f1e6',font:{size:11},filter:item=>item.text.includes('零售')||item.text.includes('專案')}},tooltip:{callbacks:{title:t=>`${t[0].label}`,label:c=>`${c.dataset.label}: ${c.raw} 坪`}}},scales:{x:{grid:{display:false},ticks:{color:'#a9a39a',font:{size:11}}},y:{stacked:false,grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#a9a39a',callback:v=>v+'坪'}}}}}));
+  charts.push(new Chart(ctx3,{type:'bar',data:{labels:CAT_LABELS,datasets:CO_KEYS.map(k=>({
+    label:CO_LABELS[k],
+    data:CAT_LABELS.map(cat=>Math.round(((cos[k].products.byCategory||{})[cat]||{pings:0}).pings*10)/10),
+    backgroundColor:CO_COLORS[k]
+  }))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#f6f1e6',font:{weight:'bold'}}}},scales:{x:{grid:{display:false},ticks:{color:'#a9a39a',font:{size:11}}},y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#a9a39a',callback:v=>v+'坪'}}}}}));
 
   // 主力尺寸比較 chart
   const SIZE_GROUPS = [
