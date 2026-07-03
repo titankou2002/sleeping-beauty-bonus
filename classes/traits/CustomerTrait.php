@@ -65,6 +65,7 @@ trait CustomerTrait
         $areaMap = $this->getSalesRepAreaMap();
 
         // 從業務分區工作表建立客戶→區域、業務、等級、目標、貢獻度對應
+        // 工作表有多個業務區塊，每塊各有表頭行，遇到表頭就重新解析欄位索引
         $customerAreaMap = [];
         $customerRepMap  = [];
         $customerGradeMap  = [];
@@ -72,38 +73,45 @@ trait CustomerTrait
         $customerContribMap = [];
         try {
             $areaRows = $this->gs->readSheet('業務分區');
-            if (count($areaRows) >= 2) {
-                $ah = $areaRows[0];
-                $idxCustA   = $this->findHeader($ah, ['客戶','客戶名稱']);
-                $idxAreaA   = $this->findHeader($ah, ['區域','地區']);
-                $idxRepA    = $this->findHeader($ah, ['負責業務','業務','業務員']);
-                $idxGradeA  = $this->findHeader($ah, ['等級','級別']);
-                $idxTargetA = $this->findHeader($ah, ['目標']);
-                $idxContribA= $this->findHeader($ah, ['貢獻度']);
-                if ($idxCustA !== -1) {
-                    for ($i = 1; $i < count($areaRows); $i++) {
-                        $cn = trim($this->getVal($areaRows[$i], $idxCustA));
-                        if ($cn === '') continue;
-                        $key = $this->displayCustomerName($cn);
-                        if ($idxAreaA !== -1) {
-                            $ar = trim($this->getVal($areaRows[$i], $idxAreaA));
-                            if ($ar !== '') $customerAreaMap[$key] = $ar;
-                        }
-                        if ($idxRepA !== -1) {
-                            $rp = trim($this->getVal($areaRows[$i], $idxRepA));
-                            if ($rp !== '') $customerRepMap[$key] = self::$salesMerge[$rp] ?? $rp;
-                        }
-                        if ($idxGradeA !== -1) {
-                            $gr = trim($this->getVal($areaRows[$i], $idxGradeA));
-                            if ($gr !== '') $customerGradeMap[$key] = $gr;
-                        }
-                        if ($idxTargetA !== -1) {
-                            $tg = $this->optFloat($this->getVal($areaRows[$i], $idxTargetA));
-                            if ($tg > 0) $customerTargetMap[$key] = $tg * 10000;
-                        }
-                        if ($idxContribA !== -1) {
-                            $ct = trim($this->getVal($areaRows[$i], $idxContribA));
-                            if ($ct !== '') $customerContribMap[$key] = $ct;
+            $idxCustA = $idxAreaA = $idxRepA = $idxGradeA = $idxTargetA = $idxContribA = -1;
+            $headerKeywords = ['客戶','客戶名稱'];
+            for ($i = 0; $i < count($areaRows); $i++) {
+                $row = $areaRows[$i];
+                // 偵測表頭行（第一欄或任一欄含「客戶」）
+                $firstCell = trim($this->getVal($row, 0));
+                if (in_array($firstCell, $headerKeywords)) {
+                    $idxCustA   = $this->findHeader($row, ['客戶','客戶名稱']);
+                    $idxAreaA   = $this->findHeader($row, ['區域','地區']);
+                    $idxRepA    = $this->findHeader($row, ['負責業務','業務','業務員']);
+                    $idxGradeA  = $this->findHeader($row, ['等級','級別']);
+                    $idxTargetA = $this->findHeader($row, ['目標']);
+                    $idxContribA= $this->findHeader($row, ['貢獻度']);
+                    continue;
+                }
+                if ($idxCustA === -1) continue;
+                $cn = trim($this->getVal($row, $idxCustA));
+                if ($cn === '' || $cn === '客戶' || $cn === '客戶名稱') continue;
+                $key = $this->displayCustomerName($cn);
+                if ($key === '未知客戶') continue;
+                if ($idxAreaA !== -1) {
+                    $ar = trim($this->getVal($row, $idxAreaA));
+                    if ($ar !== '') $customerAreaMap[$key] = $ar;
+                }
+                if ($idxRepA !== -1) {
+                    $rp = trim($this->getVal($row, $idxRepA));
+                    if ($rp !== '') $customerRepMap[$key] = self::$salesMerge[$rp] ?? $rp;
+                }
+                if ($idxGradeA !== -1) {
+                    $gr = trim($this->getVal($row, $idxGradeA));
+                    if ($gr !== '') $customerGradeMap[$key] = $gr;
+                }
+                if ($idxTargetA !== -1) {
+                    $tg = $this->optFloat($this->getVal($row, $idxTargetA));
+                    if ($tg > 0) $customerTargetMap[$key] = $tg * 10000;
+                }
+                if ($idxContribA !== -1) {
+                    $ct = trim($this->getVal($row, $idxContribA));
+                    if ($ct !== '') $customerContribMap[$key] = $ct;
                         }
                     }
                 }
