@@ -336,7 +336,8 @@ function renderAll(d){
       const v2=ym2[y2]?.months?.[mo-1]?.amount||0;
       const myoy=v1>0?((v2-v1)/v1*100):null;
       const isCur=mo===m;
-      html+=`<tr style="${isCur?`border-left:3px solid ${c.color};background:${c.color}08`:''};>
+      const trSt=isCur?'border-left:3px solid '+c.color+';background:'+c.color+'18':'';
+      html+=`<tr style="${trSt}">
         <td>${mo}月</td>
         <td class="r" style="color:var(--muted)">${v0>0?fmtW(v0):'—'}</td>
         <td class="r" style="color:var(--muted)">${v1>0?fmtW(v1):'—'}</td>
