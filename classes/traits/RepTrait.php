@@ -12,8 +12,9 @@ trait RepTrait
         $areaMap = $this->getSalesRepAreaMap();
         $seriesMap = $this->getSeriesMap();
 
-        // 從業務分區讀取客戶等級、目標、貢獻度
-        $custGradeMap = []; $custTargetMap = []; $custContribMap = []; $custRepMapFromSheet = [];
+        // 從業務分區讀取客戶等級、目標、貢獻度、區域、負責業務
+        $custGradeMap = []; $custTargetMap = []; $custContribMap = []; $custRepMapFromSheet = []; $custAreaMap = [];
+        $repAreaCount = []; // 業務→[區域→次數]
         try {
             $areaRows = $this->gs->readSheet('業務分區');
             if (count($areaRows) >= 2) {
@@ -23,6 +24,7 @@ trait RepTrait
                 $idxTg  = $this->findHeader($ah, ['目標']);
                 $idxCo  = $this->findHeader($ah, ['貢獻度']);
                 $idxRpS = $this->findHeader($ah, ['負責業務','業務','業務員']);
+                $idxArS = $this->findHeader($ah, ['區域','地區']);
                 if ($idxCN !== -1) {
                     for ($i = 1; $i < count($areaRows); $i++) {
                         $cn = trim($this->getVal($areaRows[$i], $idxCN));
@@ -30,12 +32,17 @@ trait RepTrait
                         $key = $this->displayCustomerName($cn);
                         if ($idxGr !== -1)  { $g = trim($this->getVal($areaRows[$i], $idxGr));  if ($g !== '') $custGradeMap[$key] = $g; }
                         if ($idxTg !== -1)  { $t = $this->optFloat($this->getVal($areaRows[$i], $idxTg)); if ($t > 0) $custTargetMap[$key] = $t * 10000; }
-                        if ($idxCo !== -1)  { $c = trim($this->getVal($areaRows[$i], $idxCo));  if ($c !== '') $custContribMap[$key] = $c; }
-                        if ($idxRpS !== -1) { $r = trim($this->getVal($areaRows[$i], $idxRpS)); if ($r !== '') $custRepMapFromSheet[$key] = self::$salesMerge[$r] ?? $r; }
+                        if ($idxCo !== -1)  { $co = trim($this->getVal($areaRows[$i], $idxCo)); if ($co !== '') $custContribMap[$key] = $co; }
+                        $repName = '';
+                        if ($idxRpS !== -1) { $r = trim($this->getVal($areaRows[$i], $idxRpS)); if ($r !== '') { $repName = self::$salesMerge[$r] ?? $r; $custRepMapFromSheet[$key] = $repName; } }
+                        if ($idxArS !== -1) { $ar = trim($this->getVal($areaRows[$i], $idxArS)); if ($ar !== '') { $custAreaMap[$key] = $ar; if ($repName !== '') $repAreaCount[$repName][$ar] = ($repAreaCount[$repName][$ar] ?? 0) + 1; } }
                     }
                 }
             }
         } catch (Exception $e) {}
+        // 每個業務取最多客戶的區域
+        $repAreaMap = [];
+        foreach ($repAreaCount as $rn => $arCounts) { arsort($arCounts); $repAreaMap[$rn] = array_key_first($arCounts); }
 
         $cacheRows = $this->gs->readSheet(CACHE_SHEET);
         $custMonthly = [];
@@ -234,7 +241,7 @@ trait RepTrait
             $rep = $custMainRep[$cust] ?? '未分配';
             if (!isset($reps[$rep])) {
                 $reps[$rep] = [
-                    'name' => $rep, 'area' => $areaMap[$rep] ?? '',
+                    'name' => $rep, 'area' => $repAreaMap[$rep] ?? $areaMap[$rep] ?? '',
                     'customerCount' => 0, 'totalAmount' => 0,
                     'totalThisYear' => 0, 'totalLastYear' => 0, 'avgYoy' => null
                 ];
