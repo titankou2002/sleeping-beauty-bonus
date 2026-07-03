@@ -215,7 +215,7 @@ trait RepTrait
                 ];
             }
             $reps[$rep]['customerCount']++;
-            $tyAmt = array_sum($custMonthly[$cust][$thisYear] ?? []);
+            $tyAmtRaw = array_sum($custMonthly[$cust][$thisYear] ?? []);
             $lyFullAmt = array_sum($custMonthly[$cust][$lastYear] ?? []);
             $currentMonth = (int)$now->format('n');
             $lySamePeriodAmt = 0;
@@ -224,7 +224,7 @@ trait RepTrait
             }
             $weight = 1.0;
             if (mb_strpos($cust, '漢樺') !== false) $weight = 1/3;
-            $tyAmt *= $weight;
+            $tyAmt = $tyAmtRaw * $weight;
             $lyFullAmt *= $weight;
             $lySamePeriodAmt *= $weight;
             $reps[$rep]['totalAmount'] += $custTotal[$cust] ?? 0;
