@@ -481,10 +481,10 @@ function renderAll(d){
   // === 7. 熱銷系列分析 ===
   const sr = g.seriesRanking || [];
   if (sr.length > 0) {
-    html+=`<div class="section"><div class="section-title">🏆 熱銷系列分析（前${Math.min(sr.length,12)}大）</div>
+    html+=`<div class="section"><div class="section-title">🏆 熱銷系列分析（前${Math.min(sr.length,10)}大）</div>
       <div style="font-size:12px;color:var(--muted);margin:-8px 0 12px">點系列名稱看 SKU 明細</div>
       <div style="display:flex;flex-direction:column;gap:6px">`;
-    sr.forEach((s, si) => {
+    sr.slice(0, 10).forEach((s, si) => {
       const pctShare = s.sharePct || 0;
       html+=`<details style="background:rgba(255,255,255,.02);border:1px solid var(--line);border-radius:6px;overflow:hidden">
         <summary style="cursor:pointer;padding:10px 14px;display:flex;align-items:center;gap:12px;font-size:13px;font-weight:700">

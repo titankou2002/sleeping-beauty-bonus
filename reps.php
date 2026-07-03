@@ -307,6 +307,7 @@ function openRepDetail(name) {
   html += '<div class="cust-grid" id="cust-grid-' + index + '">';
   // Will be populated by renderCustomers
   html += '</div>';
+  html += '<div id="contract-area-' + index + '"></div>';
   content.innerHTML = html;
 
   renderCustomers(index);
@@ -378,7 +379,8 @@ function renderCustomers(index) {
     html += '<div class="cust-card">';
     html += '<div class="cc-header">';
     html += '<span class="cc-name">' + c.name + '</span>';
-    html += '<span class="health-badge ' + c.health + '">' + c.health + '</span>';
+    var HEALTH_LBL = {growth:'成長',decline:'退步',normal:'正常',warning:'注意',dormant:'休眠',no_sales:'無銷售'};
+    html += '<span class="health-badge ' + c.health + '">' + (HEALTH_LBL[c.health] || c.health) + '</span>';
     if (contractHealth) html += '<span class="health-badge ' + contractHealth + '">' + contractHealth + '</span>';
     html += '</div>';
     html += '<div class="cc-body">';
@@ -444,6 +446,46 @@ function renderCustomers(index) {
 
   var grid = document.getElementById('cust-grid-' + index);
   if (grid) { grid.innerHTML = html; }
+
+  // 合約分析專區
+  var contractCusts = rep.customers.filter(function(c) { return c.contract && c.contract.totalContract; });
+  var contractArea = document.getElementById('contract-area-' + index);
+  if (contractArea) {
+    if (contractCusts.length === 0) {
+      contractArea.innerHTML = '';
+    } else {
+      var HEALTH_ORDER = {'正常':0,'觀察':1,'警示':2,'掛點':3,'待續約':4};
+      var chHtml = '<div style="font-size:14px;font-weight:800;color:var(--gold);margin:20px 0 10px;padding-top:14px;border-top:1px solid var(--border)">📋 合約分析（' + contractCusts.length + ' 家客戶）</div>';
+      chHtml += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+      chHtml += '<thead><tr style="border-bottom:1px solid var(--border)">';
+      var ctHeaders = ['客戶','健康度','合約總額','餘額','餘額%','月消耗估算','到期'];
+      ctHeaders.forEach(function(h) { chHtml += '<th style="padding:7px 10px;text-align:left;color:var(--text2);font-weight:600;white-space:nowrap">' + h + '</th>'; });
+      chHtml += '</tr></thead><tbody>';
+      var sorted = contractCusts.slice().sort(function(a,b) {
+        var ha = HEALTH_ORDER[a.contract.health] != null ? HEALTH_ORDER[a.contract.health] : 99;
+        var hb = HEALTH_ORDER[b.contract.health] != null ? HEALTH_ORDER[b.contract.health] : 99;
+        return ha !== hb ? ha - hb : b.thisYearAmount - a.thisYearAmount;
+      });
+      sorted.forEach(function(c, ci) {
+        var ct = c.contract;
+        var hlth = ct.health || '—';
+        var hlthClass = {'正常':'health-badge 正常','觀察':'health-badge 觀察','警示':'health-badge 警示','掛點':'health-badge 掛點','待續約':'health-badge 待續約'}[hlth] || 'health-badge';
+        var bg = ci % 2 === 0 ? 'rgba(255,255,255,0.01)' : 'transparent';
+        chHtml += '<tr style="border-bottom:1px solid rgba(255,255,255,0.04);background:' + bg + '">';
+        chHtml += '<td style="padding:7px 10px;font-weight:600">' + c.name + '</td>';
+        chHtml += '<td style="padding:7px 10px"><span class="' + hlthClass + '">' + hlth + '</span></td>';
+        chHtml += '<td style="padding:7px 10px;font-variant-numeric:tabular-nums">' + fmtNum(ct.totalContract) + '</td>';
+        chHtml += '<td style="padding:7px 10px;font-variant-numeric:tabular-nums">' + (ct.balance != null ? fmtNum(ct.balance) : '—') + '</td>';
+        chHtml += '<td style="padding:7px 10px">' + (ct.balRatio != null ? ct.balRatio + '%' : '—') + '</td>';
+        var monthly = ct.monthlyConsume != null ? fmtNum(ct.monthlyConsume) : '—';
+        chHtml += '<td style="padding:7px 10px">' + monthly + '</td>';
+        chHtml += '<td style="padding:7px 10px;font-size:11px;color:var(--text2)">' + (ct.dueText || '—') + '</td>';
+        chHtml += '</tr>';
+      });
+      chHtml += '</tbody></table></div>';
+      contractArea.innerHTML = chHtml;
+    }
+  }
 
   // Render charts after DOM update
   setTimeout(function() {
