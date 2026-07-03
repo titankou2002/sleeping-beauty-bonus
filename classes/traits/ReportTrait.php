@@ -1551,13 +1551,14 @@ trait ReportTrait
 
             $h = $cacheRows[0];
             $idx = [
-                'year' => $this->findHeader($h, ['年度']),
-                'month' => $this->findHeader($h, ['月份']),
-                'sku' => $this->findHeader($h, ['產品編號', '編號']),
-                'amount' => $this->findHeader($h, ['銷售金額']),
-                'pings' => $this->findHeader($h, ['銷售坪數']),
+                'year'    => $this->findHeader($h, ['年度']),
+                'month'   => $this->findHeader($h, ['月份']),
+                'sku'     => $this->findHeader($h, ['產品編號', '編號']),
+                'amount'  => $this->findHeader($h, ['銷售金額']),
+                'pings'   => $this->findHeader($h, ['銷售坪數']),
+                'project' => $this->findHeader($h, ['專案名稱']),
             ];
-            if ($idx['year'] === -1 || $idx['amount'] === -1) return ['bySize' => [], 'byBrand' => [], 'byCategory' => []];
+            if ($idx['year'] === -1 || $idx['amount'] === -1) return ['bySize' => [], 'byBrand' => [], 'byCategory' => [], 'byCategoryRetail' => [], 'byCategoryProject' => []];
 
             $priceData = $gsClient->readSheet(PRICE_SHEET);
             $metaMap = [];
@@ -1581,6 +1582,8 @@ trait ReportTrait
             $bySize = [];
             $byBrand = [];
             $byCategory = [];
+            $byCategoryRetail = [];
+            $byCategoryProject = [];
             for ($i = 1; $i < count($cacheRows); $i++) {
                 $row = $cacheRows[$i];
                 $rowYear = (int)$this->getVal($row, $idx['year']);
@@ -1590,6 +1593,8 @@ trait ReportTrait
                 $amount = $this->optFloat($this->getVal($row, $idx['amount']));
                 $pings = $idx['pings'] !== -1 ? $this->optFloat($this->getVal($row, $idx['pings'])) : 0;
                 $sku = $idx['sku'] !== -1 ? $this->cleanSku($this->getVal($row, $idx['sku'])) : '';
+                $projectName = $idx['project'] !== -1 ? trim($this->getVal($row, $idx['project'])) : '';
+                $isProject = $projectName !== '';
                 $meta = $metaMap[$sku] ?? ['size' => '未標尺寸', 'brand' => '未知', 'category' => '未分類'];
 
                 $size = $meta['size'] ?: '未標尺寸';
@@ -1607,13 +1612,23 @@ trait ReportTrait
                 if (!isset($byCategory[$cat])) $byCategory[$cat] = ['amount' => 0, 'pings' => 0];
                 $byCategory[$cat]['amount'] += $amount;
                 $byCategory[$cat]['pings'] += $pings;
+
+                if ($isProject) {
+                    if (!isset($byCategoryProject[$cat])) $byCategoryProject[$cat] = ['amount' => 0, 'pings' => 0];
+                    $byCategoryProject[$cat]['amount'] += $amount;
+                    $byCategoryProject[$cat]['pings'] += $pings;
+                } else {
+                    if (!isset($byCategoryRetail[$cat])) $byCategoryRetail[$cat] = ['amount' => 0, 'pings' => 0];
+                    $byCategoryRetail[$cat]['amount'] += $amount;
+                    $byCategoryRetail[$cat]['pings'] += $pings;
+                }
             }
 
             arsort($bySize);
             arsort($byBrand);
             arsort($byCategory);
 
-            return ['bySize' => $bySize, 'byBrand' => $byBrand, 'byCategory' => $byCategory];
+            return ['bySize' => $bySize, 'byBrand' => $byBrand, 'byCategory' => $byCategory, 'byCategoryRetail' => $byCategoryRetail, 'byCategoryProject' => $byCategoryProject];
         } catch (Exception $e) {
             return ['bySize' => [], 'byBrand' => [], 'byCategory' => []];
         }

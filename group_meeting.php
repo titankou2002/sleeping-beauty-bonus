@@ -345,36 +345,43 @@ function renderAll(d){
   });
   html+=`</div></div>`;
 
-  // === 4.3. 熱銷系列分析 ===
-  const sr = g.seriesRanking || [];
-  if (sr.length > 0) {
-    html+=`<div class="section"><div class="section-title">🏆 熱銷系列分析（前${Math.min(sr.length,10)}大）</div>
-      <div style="font-size:12px;color:var(--muted);margin:-8px 0 12px">點系列名稱看 SKU 明細</div>
-      <div style="display:flex;flex-direction:column;gap:6px">`;
-    sr.slice(0, 10).forEach((s, si) => {
-      const pctShare = s.sharePct || 0;
-      html+=`<details style="background:rgba(255,255,255,.02);border:1px solid var(--line);border-radius:6px;overflow:hidden">
-        <summary style="cursor:pointer;padding:10px 14px;display:flex;align-items:center;gap:12px;font-size:13px;font-weight:700">
-          <span style="width:24px;height:24px;border-radius:50%;background:rgba(194,157,102,.15);color:var(--gold);display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0">${si+1}</span>
-          <span style="flex:1">${escapeHtml(s.seriesCn || s.series || '未分類')}</span>
-          <span style="font-size:11px;color:var(--muted)">${s.brand || ''}</span>
-          <span style="font-size:12px;color:var(--muted)">${s.totalPings?.toFixed(0)||0} 坪 · ${fmtW(s.totalAmount)} · ${pctShare}%</span>
-          ${(s.companies||[]).map(k => `<span style="font-size:10px;padding:1px 6px;border-radius:3px;background:rgba(255,255,255,.06)">${k}</span>`).join('')}
+  // === 4.3. 熱銷系列分析（三家各自前10）===
+  html+=`<div class="section"><div class="section-title">🏆 熱銷系列分析（各公司前10大）</div>
+    <div style="font-size:12px;color:var(--muted);margin:-8px 0 16px">點系列名稱看 SKU 明細，再點 SKU 看客戶銷售明細</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px">`;
+  CO_KEYS.forEach(k=>{
+    const c=cos[k];
+    const sr=c.seriesRanking||[];
+    const totalAmt=sr.reduce((s,r)=>s+(r.totalAmount||0),0);
+    html+=`<div style="background:rgba(255,255,255,.02);border:1px solid ${c.color}30;border-radius:8px;overflow:hidden">
+      <div style="background:${c.color}15;color:${c.color};font-weight:800;text-align:center;padding:10px;font-size:14px;border-bottom:1px solid ${c.color}30">${c.name}</div>
+      <div style="display:flex;flex-direction:column;gap:0">`;
+    sr.slice(0,10).forEach((s,si)=>{
+      const pct=totalAmt>0?((s.totalAmount||0)/totalAmt*100).toFixed(1):0;
+      html+=`<details style="border-bottom:1px solid rgba(255,255,255,.04)">
+        <summary style="cursor:pointer;padding:8px 12px;display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;list-style:none">
+          <span style="width:20px;height:20px;border-radius:50%;background:${c.color}20;color:${c.color};display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0">${si+1}</span>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(s.seriesCn||s.series||'未分類')}</span>
+          <span style="font-size:10px;color:var(--muted);white-space:nowrap">${(s.totalPings||0).toFixed(0)}坪 · ${pct}%</span>
+          <span style="font-size:10px;color:${c.color}">▾</span>
         </summary>
-        <div style="padding:0 14px 10px">`;
-      (s.items||[]).forEach(item => {
-        html+=`<details style="margin:4px 0;background:rgba(255,255,255,.02);border-radius:4px;overflow:hidden">
-          <summary style="cursor:pointer;padding:6px 10px;display:flex;align-items:center;gap:8px;font-size:12px">
+        <div style="padding:4px 12px 8px;background:rgba(0,0,0,.15)">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px">${s.brand||''} · ${fmtW(s.totalAmount)}</div>`;
+      (s.items||[]).forEach(item=>{
+        html+=`<details style="margin:2px 0">
+          <summary style="cursor:pointer;padding:4px 6px;font-size:11px;display:flex;gap:6px;list-style:none;background:rgba(255,255,255,.03);border-radius:3px">
             <span style="flex:1">${escapeHtml(item.sku)}</span>
-            <span style="color:var(--muted)">${item.pings?.toFixed(0)||0} 坪 · ${fmtW(item.amount)}</span>
+            <span style="color:var(--muted)">${(item.pings||0).toFixed(0)}坪</span><span style="color:${c.color}">▾</span>
           </summary>
-          <div style="padding:2px 10px 6px">${(item.customers||[]).map(c => `<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0;border-top:1px solid var(--line)"><span>${escapeHtml(c.name)}</span><span style="color:var(--muted)">${c.pings?.toFixed(0)||0} 坪 · ${fmtW(c.amount)} · ${(c.sharePct||0).toFixed(1)}%</span></div>`).join('')}</div>
+          <div style="padding:2px 6px 4px">${(item.customers||[]).map(cu=>`<div style="display:flex;justify-content:space-between;font-size:10px;padding:2px 0;border-top:1px solid rgba(255,255,255,.04)"><span>${escapeHtml(cu.name)}</span><span style="color:var(--muted)">${(cu.pings||0).toFixed(0)}坪 · ${fmtW(cu.amount)}</span></div>`).join('')||'<div style="font-size:10px;color:var(--muted)">無客戶明細</div>'}</div>
         </details>`;
       });
       html+=`</div></details>`;
     });
+    if(sr.length===0) html+=`<div style="padding:20px;text-align:center;color:var(--muted);font-size:12px">無系列資料</div>`;
     html+=`</div></div>`;
-  }
+  });
+  html+=`</div></div>`;
 
   // === 4.5. 熱銷產品比較 ===
   html+=`<div class="section"><div class="section-title">🏆 熱銷產品比較（前十大）</div><div class="co3">`;
@@ -704,16 +711,32 @@ function renderCharts(d){
   const ctx2=document.getElementById('shareChart').getContext('2d');
   charts.push(new Chart(ctx2,{type:'doughnut',data:{labels:shareLabels,datasets:[{data:vals,backgroundColor:CO_KEYS.map(k=>CO_COLORS[k]),borderWidth:1,borderColor:'#111'}]},options:{responsive:true,maintainAspectRatio:false,cutout:'55%',plugins:{legend:{position:'right',labels:{color:'#f6f1e6',font:{weight:'bold'}}},tooltip:{callbacks:{label:c=>{const v=c.parsed||0;return` ${c.label}: ${v} 萬`}}}}}}));
 
-  // Category pings chart (by 產品種類)
+  // Category pings chart — stacked 零售 + 專案
   const CAT_LABELS = ['石紋磚','小品磚','木紋磚','筷子磚','六角磚','大理石磚','水磨石'];
   const ctx3=document.getElementById('catPingChart').getContext('2d');
-  charts.push(new Chart(ctx3,{type:'bar',data:{labels:CAT_LABELS,datasets:CO_KEYS.map(k=>({
-    label:CO_LABELS[k],
-    data:CAT_LABELS.map(cat=>Math.round(((cos[k].products.byCategory||{})[cat]||{pings:0}).pings*10)/10),
-    backgroundColor:CO_COLORS[k]
-  }))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#f6f1e6',font:{weight:'bold'}}}},scales:{x:{grid:{display:false},ticks:{color:'#a9a39a',font:{size:11}}},y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#a9a39a',callback:v=>v+'坪'}}}}}));
+  const catDatasets = [];
+  CO_KEYS.forEach(k=>{
+    const baseColor = CO_COLORS[k];
+    const projectColor = baseColor + '66'; // semi-transparent for project
+    catDatasets.push({
+      label: CO_LABELS[k]+' 零售',
+      data: CAT_LABELS.map(cat=>Math.round(((cos[k].products.byCategoryRetail||{})[cat]||{pings:0}).pings*10)/10),
+      backgroundColor: baseColor,
+      stack: k
+    });
+    catDatasets.push({
+      label: CO_LABELS[k]+' 專案',
+      data: CAT_LABELS.map(cat=>Math.round(((cos[k].products.byCategoryProject||{})[cat]||{pings:0}).pings*10)/10),
+      backgroundColor: projectColor,
+      stack: k,
+      borderWidth: 1,
+      borderColor: baseColor,
+      borderDash: [4,2]
+    });
+  });
+  charts.push(new Chart(ctx3,{type:'bar',data:{labels:CAT_LABELS,datasets:catDatasets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#f6f1e6',font:{size:11},filter:item=>item.text.includes('零售')||item.text.includes('專案')}},tooltip:{callbacks:{title:t=>`${t[0].label}`,label:c=>`${c.dataset.label}: ${c.raw} 坪`}}},scales:{x:{grid:{display:false},ticks:{color:'#a9a39a',font:{size:11}}},y:{stacked:false,grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#a9a39a',callback:v=>v+'坪'}}}}}));
 
-  // 主力尺寸比較 table
+  // 主力尺寸比較 chart
   const SIZE_GROUPS = [
     {label:'60X120', keys:['60X120']},
     {label:'30X60',  keys:['30X60']},
@@ -723,29 +746,27 @@ function renderCharts(d){
   (function(){
     const tbl = document.getElementById('size-cmp-tbl');
     if (!tbl) return;
-    let t = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">';
-    t += '<thead><tr style="border-bottom:1px solid var(--line)">';
-    t += '<th style="padding:8px 10px;text-align:left;color:var(--muted)">尺寸</th>';
-    CO_KEYS.forEach(k=>{
-      t+=`<th style="padding:8px 10px;text-align:right;color:${CO_COLORS[k]}">${CO_LABELS[k]} 金額</th>`;
-      t+=`<th style="padding:8px 10px;text-align:right;color:${CO_COLORS[k]}">${CO_LABELS[k]} 坪數</th>`;
-    });
-    t += '</tr></thead><tbody>';
-    SIZE_GROUPS.forEach((g,gi)=>{
-      const bg = gi%2===0 ? 'rgba(255,255,255,.01)' : 'transparent';
-      t += `<tr style="border-bottom:1px solid rgba(255,255,255,.04);background:${bg}">`;
-      t += `<td style="padding:8px 10px;font-weight:700">${g.label}</td>`;
-      CO_KEYS.forEach(k=>{
-        const bySz = cos[k].products.bySize||{};
-        const amt = g.keys.reduce((s,sz)=>s+((bySz[sz]||{}).amount||0),0);
-        const pings = g.keys.reduce((s,sz)=>s+((bySz[sz]||{}).pings||0),0);
-        t+=`<td style="padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums">${amt>0?fmtW(amt):'—'}</td>`;
-        t+=`<td style="padding:8px 10px;text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)">${pings>0?Math.round(pings*10)/10+'坪':'—'}</td>`;
-      });
-      t += '</tr>';
-    });
-    t += '</tbody></table></div>';
-    tbl.innerHTML = t;
+    // Build two canvases: pings chart + amount chart
+    tbl.innerHTML = `<div style="display:flex;gap:16px;flex-wrap:wrap">
+      <div style="flex:1;min-width:300px"><div style="font-size:12px;color:var(--muted);margin-bottom:6px">坪數</div><div style="height:200px"><canvas id="sizePingChart2"></canvas></div></div>
+      <div style="flex:1;min-width:300px"><div style="font-size:12px;color:var(--muted);margin-bottom:6px">金額（萬元）</div><div style="height:200px"><canvas id="sizeAmtChart2"></canvas></div></div>
+    </div>`;
+    const sizeLabels = SIZE_GROUPS.map(g=>g.label);
+    const sizePingDatasets = CO_KEYS.map(k=>({
+      label: CO_LABELS[k],
+      data: SIZE_GROUPS.map(g=>{ const bySz=cos[k].products.bySize||{}; return Math.round(g.keys.reduce((s,sz)=>s+((bySz[sz]||{}).pings||0),0)*10)/10; }),
+      backgroundColor: CO_COLORS[k]
+    }));
+    const sizeAmtDatasets = CO_KEYS.map(k=>({
+      label: CO_LABELS[k],
+      data: SIZE_GROUPS.map(g=>{ const bySz=cos[k].products.bySize||{}; return Math.round(g.keys.reduce((s,sz)=>s+((bySz[sz]||{}).amount||0),0)/10000); }),
+      backgroundColor: CO_COLORS[k]
+    }));
+    const barOpts = (unit)=>({responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#f6f1e6',font:{size:11}}}},scales:{x:{grid:{display:false},ticks:{color:'#a9a39a',font:{size:11}}},y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#a9a39a',callback:v=>v+unit}}}});
+    const c1 = document.getElementById('sizePingChart2');
+    const c2 = document.getElementById('sizeAmtChart2');
+    if(c1) charts.push(new Chart(c1.getContext('2d'),{type:'bar',data:{labels:sizeLabels,datasets:sizePingDatasets},options:barOpts('坪')}));
+    if(c2) charts.push(new Chart(c2.getContext('2d'),{type:'bar',data:{labels:sizeLabels,datasets:sizeAmtDatasets},options:barOpts('萬')}));
   })();
 
   // Contract chart
