@@ -536,29 +536,6 @@ function renderAll(d){
   }
   html+=`</div>`;
 
-  // === 6. 近三年月銷比較 ===
-  const ty = g.threeYear || [];
-  if (ty.length >= 3) {
-    const ym = {}; ty.forEach(r => { ym[r.year] = r; });
-    const y3 = d.year - 2, y4 = d.year - 1, y5 = d.year;
-    const cols = ['#a78bfa','#60a5fa','#f0cb84'];
-    const mnths = Array.from({length: m}, (_,i) => i+1);
-    const maxV = Math.max(1, ...mnths.flatMap(mo => [ym[y3]?.months?.[mo-1]?.amount||0, ym[y4]?.months?.[mo-1]?.amount||0, ym[y5]?.months?.[mo-1]?.amount||0]));
-    html+=`<div class="section"><div class="section-title">📊 近三年月銷比較</div>
-      <div style="display:flex;gap:24px;flex-wrap:wrap">
-        <div style="flex:1;min-width:300px"><div class="tbl-wrap"><table class="tbl"><tr><th>月份</th><th>${y3}</th><th>${y4}</th><th>平均</th><th>${y5}</th><th>差額</th><th>成長%</th></tr>
-          ${mnths.map(mo => { const v3=ym[y3]?.months?.[mo-1]?.amount||0; const v4=ym[y4]?.months?.[mo-1]?.amount||0; const v5=ym[y5]?.months?.[mo-1]?.amount||0; const avg=(v3+v4)/2; const d=v5-avg; const gp=avg>0?(d/avg*100):0; return `<tr><td>${mo}月</td><td class="r">${fmtW(v3)}</td><td class="r">${fmtW(v4)}</td><td class="r">${fmtW(avg)}</td><td class="r">${fmtW(v5)}</td><td class="r"><span class="${gp>0?'up':gp<0?'dn':''}">${fmtW(Math.abs(d))}</span></td><td class="r"><span class="${gp>0?'up':gp<0?'dn':''}">${gp.toFixed(1)}%</span></td></tr>`; }).join('')}
-        </table></div></div>
-        <div style="flex:1;min-width:250px">
-          <div style="display:flex;gap:8px;margin-bottom:12px">${[y3,y4,y5].map((y,i)=>`<span style="font-size:12px;color:${cols[i]}">■ ${y}</span>`).join('')}</div>
-          <div style="display:flex;gap:6px;align-items:flex-end;height:140px;padding:8px 0">
-            ${mnths.map(mo => { const v3=ym[y3]?.months?.[mo-1]?.amount||0; const v4=ym[y4]?.months?.[mo-1]?.amount||0; const v5=ym[y5]?.months?.[mo-1]?.amount||0; const gp=((v3+v4)/2)>0?((v5-(v3+v4)/2)/((v3+v4)/2)*100):0; return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px"><div style="display:flex;gap:2px;align-items:flex-end;flex:1"><div style="width:8px;height:${Math.max(4,Math.round(v3/maxV*100))}%;background:${cols[0]};border-radius:2px 2px 0 0"></div><div style="width:8px;height:${Math.max(4,Math.round(v4/maxV*100))}%;background:${cols[1]};border-radius:2px 2px 0 0"></div><div style="width:8px;height:${Math.max(4,Math.round(v5/maxV*100))}%;background:${cols[2]};border-radius:2px 2px 0 0"></div></div><div style="font-size:9px;color:var(--muted)">${mo}月</div><div style="font-size:8px;color:${gp>0?'var(--green)':'var(--red)'}">${gp>0?'+':''}${gp.toFixed(0)}%</div></div>`; }).join('')}
-          </div>
-        </div>
-      </div>
-      <div style="display:flex;gap:16px;margin-top:12px">${[y3,y4,y5].map((y,i)=>`<div style="flex:1;text-align:center;padding:12px;background:rgba(255,255,255,.03);border-radius:6px;border:1px solid var(--line)"><div style="font-size:12px;color:var(--muted)">${y}</div><div style="font-size:18px;font-weight:800;color:${cols[i]}">${fmtW(ym[y]?.total||0)}</div><div style="font-size:11px;color:var(--muted)">年度總額</div></div>`).join('')}</div></div>`;
-  }
-
   // === 8. 前二十大客戶 ===
   window._top20Data = (d.top20||[]).slice();
   const CO_COLORS_MAP = {sleepingBeauty:'#ff2a85', andyga:'#10b981', xiyena:'#38bdf8'};
@@ -719,7 +696,10 @@ function renderTop20(sortKey){
     if(sortKey==='ytd')      return (b.totalYtd||0) - (a.totalYtd||0);
     if(sortKey==='yoy_desc') return (b.yoy??-9999) - (a.yoy??-9999);
     if(sortKey==='yoy_asc')  return (a.yoy??9999) - (b.yoy??9999);
-    if(sortKey==='alert')    return (b.alerts.length - a.alerts.length) || (b.totalMonth - a.totalMonth);
+    if(sortKey==='alert'){
+      const pri = c => { if(c.alerts.includes('衰退警告')||c.alerts.includes('流失')) return 0; if(c.alerts.includes('急升')) return 1; if(c.alerts.includes('新客')) return 2; return 3; };
+      return pri(a)-pri(b) || b.totalMonth-a.totalMonth;
+    }
     return b.totalMonth - a.totalMonth;
   });
   let rows='';
