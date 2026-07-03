@@ -100,6 +100,8 @@ trait RepTrait
                     $row = $cr[$i];
                     $cust = $this->displayCustomerName(trim($this->getVal($row, $cCust)));
                     if ($cust === '') continue;
+                    $skipLabels = ['正常','觀察','警示','掛點','待續約','嚴重','沖完','未續約','合計','小計'];
+                    if (in_array($cust, $skipLabels)) continue;
                     $healthRaw = $cHealth !== -1 ? trim($this->getVal($row, $cHealth)) : '';
                     if (mb_strpos($healthRaw, '沖完') !== false || mb_strpos($healthRaw, '未續約') !== false) continue;
                     $contractAmt = $cContractAmt !== -1 ? $this->optFloat($this->getVal($row, $cContractAmt)) : 0;
