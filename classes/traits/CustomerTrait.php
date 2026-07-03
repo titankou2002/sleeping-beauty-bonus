@@ -64,20 +64,28 @@ trait CustomerTrait
         $todayMD = $now->format('m-d');
         $areaMap = $this->getSalesRepAreaMap();
 
-        // 從業務分區工作表建立客戶→區域對應
+        // 從業務分區工作表建立客戶→區域、客戶→業務對應
         $customerAreaMap = [];
+        $customerRepMap = [];
         try {
             $areaRows = $this->gs->readSheet('業務分區');
             if (count($areaRows) >= 2) {
                 $ah = $areaRows[0];
                 $idxCustA = $this->findHeader($ah, ['客戶','客戶名稱']);
                 $idxAreaA = $this->findHeader($ah, ['區域','地區']);
-                if ($idxCustA !== -1 && $idxAreaA !== -1) {
+                $idxRepA  = $this->findHeader($ah, ['負責業務','業務','業務員']);
+                if ($idxCustA !== -1) {
                     for ($i = 1; $i < count($areaRows); $i++) {
                         $cn = trim($this->getVal($areaRows[$i], $idxCustA));
-                        $ar = trim($this->getVal($areaRows[$i], $idxAreaA));
-                        if ($cn !== '' && $ar !== '') {
-                            $customerAreaMap[$this->displayCustomerName($cn)] = $ar;
+                        if ($cn === '') continue;
+                        $key = $this->displayCustomerName($cn);
+                        if ($idxAreaA !== -1) {
+                            $ar = trim($this->getVal($areaRows[$i], $idxAreaA));
+                            if ($ar !== '') $customerAreaMap[$key] = $ar;
+                        }
+                        if ($idxRepA !== -1) {
+                            $rp = trim($this->getVal($areaRows[$i], $idxRepA));
+                            if ($rp !== '') $customerRepMap[$key] = self::$salesMerge[$rp] ?? $rp;
                         }
                     }
                 }
@@ -364,11 +372,12 @@ trait CustomerTrait
                 'lastNoteDate' => $c['lastNoteDate'],
                 'health' => $health,
                 'catCounts' => $c['catCounts'],
-                'salesRep' => (function ($counts) {
+                'salesRep' => (function ($counts, $custName) use ($customerRepMap) {
+                    if (isset($customerRepMap[$custName])) return $customerRepMap[$custName];
                     if (empty($counts)) return '未分配';
                     arsort($counts);
                     return array_key_first($counts);
-                })($c['salesRepCounts']),
+                })($c['salesRepCounts'], $name),
                 'area' => (function ($counts, $custName) use ($areaMap, $customerAreaMap) {
                     if (isset($customerAreaMap[$custName])) return $customerAreaMap[$custName];
                     if (empty($counts)) return '未分配';
