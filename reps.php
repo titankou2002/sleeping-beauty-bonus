@@ -96,6 +96,11 @@ tr.selected td { background: var(--gold-soft); }
 .health-badge.dormant { background: rgba(100,100,100,0.15); color: #aaa; }
 .health-badge.normal { background: rgba(96,165,250,0.15); color: #60a5fa; }
 .health-badge.no_sales { background: rgba(100,100,100,0.15); color: #666; }
+.health-badge.\u6B63\u5E38 { background: rgba(34,197,94,0.15); color: #22c55e; }
+.health-badge.\u89C0\u5BDF { background: rgba(245,158,11,0.15); color: #f59e0b; }
+.health-badge.\u8B66\u793A { background: rgba(239,68,68,0.2); color: #ef4444; }
+.health-badge.\u639B\u9EDE { background: rgba(0,0,0,0.3); color: #888; }
+.health-badge.\u5F85\u7E8C\u7D04 { background: rgba(96,165,250,0.15); color: #60a5fa; }
 
 .cust-grid {
   display: grid; gap: 14px;
@@ -285,10 +290,13 @@ function openRepDetail(name) {
   html += '<div class="sort-bar" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;padding:6px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)">';
   html += '<span style="font-size:11px;color:var(--text2);font-weight:600;margin-right:4px;align-self:center">\u6392\u5E8F:</span>';
   var sortOpts = [
-    {key:'thisYearAmount', label:'\u4ECA\u5E74\u696D\u7E3E'},
+    {key:'thisYearAmount', label:'今年業績'},
     {key:'yoyPct', label:'YOY'},
-    {key:'lastOrderDate', label:'\u6700\u5F8C\u4E0B\u55AE'},
-    {key:'visitCount', label:'\u5230\u8A2A\u6B21\u6578'}
+    {key:'lastOrderDate', label:'最後下單'},
+    {key:'visitCount', label:'到訪次數'},
+    {key:'contractHealth', label:'合約健康'},
+    {key:'contractBalance', label:'合約餘額'},
+    {key:'contractDue', label:'合約到期'}
   ];
   sortOpts.forEach(function(o) {
     var active = (rep._sortField === o.key);
@@ -330,6 +338,22 @@ function renderCustomers(index) {
     });
   } else if (field === 'visitCount') {
     custs.sort(function(a,b){ return rep._sortAsc ? (a.visits||[]).length - (b.visits||[]).length : (b.visits||[]).length - (a.visits||[]).length; });
+  } else if (field === 'contractHealth') {
+    var hl = {'正常':0,'觀察':1,'警示':2,'掛點':3,'待續約':4};
+    custs.sort(function(a,b){
+      var ha = hl[(a.contract||{}).health]||99, hb = hl[(b.contract||{}).health]||99;
+      return rep._sortAsc ? ha - hb : hb - ha;
+    });
+  } else if (field === 'contractBalance') {
+    custs.sort(function(a,b){
+      var ba = (a.contract||{}).balance||0, bb = (b.contract||{}).balance||0;
+      return rep._sortAsc ? ba - bb : bb - ba;
+    });
+  } else if (field === 'contractDue') {
+    custs.sort(function(a,b){
+      var da = (a.contract||{}).dueLevel||0, db = (b.contract||{}).dueLevel||0;
+      return rep._sortAsc ? da - db : db - da;
+    });
   } else {
     custs.sort(function(a,b){ return b.totalAmount - a.totalAmount; });
   }
@@ -338,10 +362,14 @@ function renderCustomers(index) {
   custs.forEach(function(c, ci) {
     var yoyClass = c.yoyPct > 0 ? 'green' : (c.yoyPct < 0 ? 'red' : '');
     var contractStr = '-';
-    if (c.contract && c.contract.balance !== null) {
-      var bal = c.contract.balance;
-      var ratio = c.totalAmount > 0 ? (c.totalAmount / bal * 100).toFixed(1) : 0;
-      contractStr = '\u7C3D\u7D04 ' + fmtNum(bal) + ' \u00B7 \u9054\u6210 ' + ratio + '%';
+    var contractHealth = '';
+    if (c.contract) {
+      var ct = c.contract;
+      contractHealth = ct.health || '';
+      if (ct.totalContract) {
+        var dueInfo = ct.dueText ? ' · ' + ct.dueText : '';
+        contractStr = '合約 ' + fmtNum(ct.totalContract) + ' · 餘額 ' + (ct.balance != null ? fmtNum(ct.balance) : '-') + (ct.balRatio != null ? ' (' + ct.balRatio + '%)' : '') + dueInfo;
+      }
     }
     var lod = c.lastOrderDate || '-';
     var lastVisit = (c.visits && c.visits.length > 0) ? c.visits[0].date : '-';
@@ -351,15 +379,19 @@ function renderCustomers(index) {
     html += '<div class="cc-header">';
     html += '<span class="cc-name">' + c.name + '</span>';
     html += '<span class="health-badge ' + c.health + '">' + c.health + '</span>';
+    if (contractHealth) html += '<span class="health-badge ' + contractHealth + '">' + contractHealth + '</span>';
     html += '</div>';
     html += '<div class="cc-body">';
     html += '<div class="cc-stats">';
     html += '<div class="cc-stat"><div class="cs-label">\u4ECA\u5E74\u696D\u7E3E</div><div class="cs-value">' + fmtNum(c.thisYearAmount) + '</div></div>';
-    html += '<div class="cc-stat"><div class="cs-label">\u53BB\u5E74\u696D\u7E3E</div><div class="cs-value">' + fmtNum(c.lastYearAmount) + '</div></div>';
+    html += '<div class="cc-stat"><div class="cs-label">\u53BB\u5E74\u540C\u671F</div><div class="cs-value">' + fmtNum(c.lastYearSamePeriod != null ? c.lastYearSamePeriod : c.lastYearAmount) + '</div></div>';
+    html += '<div class="cc-stat"><div class="cs-label">\u53BB\u5E74\u6574\u5E74</div><div class="cs-value">' + fmtNum(c.lastYearAmount) + '</div></div>';
     html += '<div class="cc-stat"><div class="cs-label">YOY</div><div class="cs-value ' + yoyClass + '">' + fmtPct(c.yoyPct) + '</div></div>';
     html += '<div class="cc-stat"><div class="cs-label">\u4EA4\u6613\u6B21\u6578</div><div class="cs-value">' + c.saleCount + '</div></div>';
+    if (c.achieveRate != null) html += '<div class="cc-stat"><div class="cs-label">\u9054\u6210\u7387</div><div class="cs-value">' + fmtPct(c.achieveRate) + '</div></div>';
     html += '<div class="cc-stat"><div class="cs-label">\u6700\u5F8C\u4E0B\u55AE</div><div class="cs-value mono" style="font-size:12px">' + lod + '</div></div>';
     html += '<div class="cc-stat"><div class="cs-label">\u6700\u5F8C\u62DC\u8A2A</div><div class="cs-value mono" style="font-size:12px">' + lastVisit + '</div></div>';
+    if (contractStr !== '-') html += '<div class="cc-stat" style="grid-column:1/-1"><div class="cs-label" style="color:var(--gold)">\u5408\u7D04\u72C0\u6CC1</div><div class="cs-value mono" style="font-size:12px;color:var(--text2)">' + contractStr + '</div></div>';
     html += '</div>';
 
     // Monthly trend chart placeholder

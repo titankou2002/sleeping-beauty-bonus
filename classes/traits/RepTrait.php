@@ -79,17 +79,74 @@ trait RepTrait
                 $h = $cr[0];
                 $cHealth = $this->findHeader($h, ['健康度']);
                 $cCust = $this->findHeader($h, ['客戶']);
+                $cContractAmt = $this->findHeader($h, ['合約內容']);
+                $cQty = $this->findHeader($h, ['張數']);
                 $cExpiry = $this->findHeader($h, ['最後一張票期']);
                 $cSales = $this->findHeader($h, ['業務']);
-                $cBal = $cSales > 0 ? $cSales - 1 : -1;
+                $cPrepay = $this->findHeader($h, ['預收金額']);
+                // Dynamic balance column
+                $balanceColIdx = -1;
+                $balanceColDate = '';
+                foreach ($h as $i => $col) {
+                    $c = trim((string)$col);
+                    if (mb_strpos($c, '餘額') !== false) {
+                        $balanceColIdx = $i;
+                        if (preg_match('/(\d{2,4})[\/年](\d{1,2})月/u', $c, $m)) {
+                            $balanceColDate = $m[0];
+                        }
+                    }
+                }
                 for ($i = 2; $i < count($cr); $i++) {
                     $row = $cr[$i];
                     $cust = $this->displayCustomerName(trim($this->getVal($row, $cCust)));
                     if ($cust === '') continue;
+                    $healthRaw = $cHealth !== -1 ? trim($this->getVal($row, $cHealth)) : '';
+                    if (mb_strpos($healthRaw, '沖完') !== false || mb_strpos($healthRaw, '未續約') !== false) continue;
+                    $contractAmt = $cContractAmt !== -1 ? $this->optFloat($this->getVal($row, $cContractAmt)) : 0;
+                    $qty = $cQty !== -1 ? max((int)$this->getVal($row, $cQty), 1) : 1;
+                    $totalContract = $contractAmt * $qty;
+                    $bal = $balanceColIdx >= 0 ? $this->optFloat($this->getVal($row, $balanceColIdx)) : null;
+                    $balRatio = $totalContract > 0 ? ($bal / $totalContract) : null;
+                    $due = $this->parseDate($this->getVal($row, $cExpiry));
+                    $dueDays = $due ? (int)(new DateTime())->diff($due)->format('%r%a') : null;
+                    $dueText = '';
+                    $dueLevel = 0;
+                    if ($dueDays !== null) {
+                        if ($dueDays < 0) {
+                            $m = round(abs($dueDays) / 30, 1);
+                            $dueText = '逾期 ' . $m . ' 個月';
+                            if (abs($dueDays) >= 300) $dueLevel = 3;
+                            elseif (abs($dueDays) >= 180) $dueLevel = 2;
+                            elseif (abs($dueDays) >= 90) $dueLevel = 1;
+                        } elseif ($dueDays > 0) {
+                            $dueText = round($dueDays / 30, 1) . ' 個月後到期';
+                        } else {
+                            $dueText = '今天到期';
+                        }
+                    }
+                    // Health classification (same as ReportTrait)
+                    $bucket = '';
+                    if ($totalContract == 0 || ($bal !== null && $bal <= 0)) {
+                        $bucket = '待續約';
+                    } elseif ($dueDays === null || $dueDays >= 0) {
+                        $bucket = $balRatio !== null && $balRatio > 0.9 ? '觀察' : '正常';
+                    } else {
+                        $od = abs($dueDays);
+                        if ($od >= 730) $bucket = '掛點';
+                        elseif ($od >= 365) $bucket = '警示';
+                        elseif ($od >= 180) $bucket = ($balRatio !== null && $balRatio > 0.5) ? '警示' : '觀察';
+                        else $bucket = ($balRatio !== null && $balRatio > 0.4) ? '觀察' : '正常';
+                    }
                     $contractData[$cust] = [
-                        'health' => $cHealth !== -1 ? trim($this->getVal($row, $cHealth)) : null,
+                        'health' => $bucket ?: ($healthRaw ?: null),
+                        'healthRaw' => $healthRaw ?: null,
+                        'totalContract' => round($totalContract),
+                        'balance' => $bal !== null ? round($bal) : null,
+                        'balRatio' => $balRatio !== null ? round($balRatio * 100, 1) : null,
                         'expiry' => $cExpiry !== -1 ? trim($this->getVal($row, $cExpiry)) : null,
-                        'balance' => $cBal >= 0 ? $this->optFloat($this->getVal($row, $cBal)) : null,
+                        'dueText' => $dueText,
+                        'dueLevel' => $dueLevel,
+                        'balDate' => $balanceColDate,
                     ];
                 }
             }
@@ -157,19 +214,26 @@ trait RepTrait
             }
             $reps[$rep]['customerCount']++;
             $tyAmt = array_sum($custMonthly[$cust][$thisYear] ?? []);
-            $lyAmt = array_sum($custMonthly[$cust][$lastYear] ?? []);
+            $lyFullAmt = array_sum($custMonthly[$cust][$lastYear] ?? []);
+            $currentMonth = (int)$now->format('n');
+            $lySamePeriodAmt = 0;
+            for ($m = 1; $m <= $currentMonth; $m++) {
+                $lySamePeriodAmt += $custMonthly[$cust][$lastYear][$m] ?? 0;
+            }
             $weight = 1.0;
             if (mb_strpos($cust, '漢樺') !== false) $weight = 1/3;
             $tyAmt *= $weight;
-            $lyAmt *= $weight;
+            $lyFullAmt *= $weight;
+            $lySamePeriodAmt *= $weight;
             $reps[$rep]['totalAmount'] += $custTotal[$cust] ?? 0;
             $reps[$rep]['totalThisYear'] += $tyAmt;
-            $reps[$rep]['totalLastYear'] += $lyAmt;
+            $reps[$rep]['totalLastYear'] += $lySamePeriodAmt;
 
-            $yoyPct = $lyAmt > 0 ? round(($tyAmt - $lyAmt) / $lyAmt * 100, 1) : ($tyAmt > 0 ? 100 : 0);
+            $yoyPct = $lySamePeriodAmt > 0 ? round(($tyAmt - $lySamePeriodAmt) / $lySamePeriodAmt * 100, 1) : ($tyAmt > 0 ? 100 : 0);
+            $achieveRate = $lyFullAmt > 0 ? round($tyAmt / $lyFullAmt * 100, 1) : 0;
             if ($yoyPct >= 10) $health = 'growth';
             elseif ($yoyPct <= -30) $health = 'decline';
-            elseif ($tyAmt == 0 && $lyAmt == 0) $health = 'no_sales';
+            elseif ($tyAmt == 0 && $lyFullAmt == 0 && $lySamePeriodAmt == 0) $health = 'no_sales';
             else $health = 'normal';
 
             $monthlyTrend = [];
@@ -227,7 +291,9 @@ trait RepTrait
             $reps[$rep]['customers'][] = [
                 'name' => $cust, 'health' => $health,
                 'totalAmount' => round($custTotal[$cust] ?? 0),
-                'thisYearAmount' => round($tyAmt), 'lastYearAmount' => round($lyAmt),
+                'thisYearAmount' => round($tyAmt), 'lastYearAmount' => round($lyFullAmt),
+                'lastYearSamePeriod' => round($lySamePeriodAmt),
+                'achieveRate' => $achieveRate,
                 'yoyPct' => $yoyPct, 'saleCount' => $custCount[$cust] ?? 0,
                 'lastOrderDate' => $lod, 'contract' => $contract,
                 'monthlyTrend' => $monthlyTrend, 'seriesTrend' => $seriesTrend,

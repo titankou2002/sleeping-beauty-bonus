@@ -455,7 +455,61 @@ function renderAll(d){
   }
   html+=`</div>`;
 
-  // === 6. 前二十大客戶 ===
+  // === 6. 近三年月銷比較 ===
+  const ty = g.threeYear || [];
+  if (ty.length >= 3) {
+    const ym = {}; ty.forEach(r => { ym[r.year] = r; });
+    const y3 = d.year - 2, y4 = d.year - 1, y5 = d.year;
+    const cols = ['#a78bfa','#60a5fa','#f0cb84'];
+    const mnths = Array.from({length: m}, (_,i) => i+1);
+    const maxV = Math.max(1, ...mnths.flatMap(mo => [ym[y3]?.months?.[mo-1]?.amount||0, ym[y4]?.months?.[mo-1]?.amount||0, ym[y5]?.months?.[mo-1]?.amount||0]));
+    html+=`<div class="section"><div class="section-title">📊 近三年月銷比較</div>
+      <div style="display:flex;gap:24px;flex-wrap:wrap">
+        <div style="flex:1;min-width:300px"><div class="tbl-wrap"><table class="tbl"><tr><th>月份</th><th>${y3}</th><th>${y4}</th><th>平均</th><th>${y5}</th><th>差額</th><th>成長%</th></tr>
+          ${mnths.map(mo => { const v3=ym[y3]?.months?.[mo-1]?.amount||0; const v4=ym[y4]?.months?.[mo-1]?.amount||0; const v5=ym[y5]?.months?.[mo-1]?.amount||0; const avg=(v3+v4)/2; const d=v5-avg; const gp=avg>0?(d/avg*100):0; return `<tr><td>${mo}月</td><td class="r">${fmtW(v3)}</td><td class="r">${fmtW(v4)}</td><td class="r">${fmtW(avg)}</td><td class="r">${fmtW(v5)}</td><td class="r"><span class="${gp>0?'up':gp<0?'dn':''}">${fmtW(Math.abs(d))}</span></td><td class="r"><span class="${gp>0?'up':gp<0?'dn':''}">${gp.toFixed(1)}%</span></td></tr>`; }).join('')}
+        </table></div></div>
+        <div style="flex:1;min-width:250px">
+          <div style="display:flex;gap:8px;margin-bottom:12px">${[y3,y4,y5].map((y,i)=>`<span style="font-size:12px;color:${cols[i]}">■ ${y}</span>`).join('')}</div>
+          <div style="display:flex;gap:6px;align-items:flex-end;height:140px;padding:8px 0">
+            ${mnths.map(mo => { const v3=ym[y3]?.months?.[mo-1]?.amount||0; const v4=ym[y4]?.months?.[mo-1]?.amount||0; const v5=ym[y5]?.months?.[mo-1]?.amount||0; const gp=((v3+v4)/2)>0?((v5-(v3+v4)/2)/((v3+v4)/2)*100):0; return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px"><div style="display:flex;gap:2px;align-items:flex-end;flex:1"><div style="width:8px;height:${Math.max(4,Math.round(v3/maxV*100))}%;background:${cols[0]};border-radius:2px 2px 0 0"></div><div style="width:8px;height:${Math.max(4,Math.round(v4/maxV*100))}%;background:${cols[1]};border-radius:2px 2px 0 0"></div><div style="width:8px;height:${Math.max(4,Math.round(v5/maxV*100))}%;background:${cols[2]};border-radius:2px 2px 0 0"></div></div><div style="font-size:9px;color:var(--muted)">${mo}月</div><div style="font-size:8px;color:${gp>0?'var(--green)':'var(--red)'}">${gp>0?'+':''}${gp.toFixed(0)}%</div></div>`; }).join('')}
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:16px;margin-top:12px">${[y3,y4,y5].map((y,i)=>`<div style="flex:1;text-align:center;padding:12px;background:rgba(255,255,255,.03);border-radius:6px;border:1px solid var(--line)"><div style="font-size:12px;color:var(--muted)">${y}</div><div style="font-size:18px;font-weight:800;color:${cols[i]}">${fmtW(ym[y]?.total||0)}</div><div style="font-size:11px;color:var(--muted)">年度總額</div></div>`).join('')}</div></div>`;
+  }
+
+  // === 7. 熱銷系列分析 ===
+  const sr = g.seriesRanking || [];
+  if (sr.length > 0) {
+    html+=`<div class="section"><div class="section-title">🏆 熱銷系列分析（前${Math.min(sr.length,12)}大）</div>
+      <div style="font-size:12px;color:var(--muted);margin:-8px 0 12px">點系列名稱看 SKU 明細</div>
+      <div style="display:flex;flex-direction:column;gap:6px">`;
+    sr.forEach((s, si) => {
+      const pctShare = s.sharePct || 0;
+      html+=`<details style="background:rgba(255,255,255,.02);border:1px solid var(--line);border-radius:6px;overflow:hidden">
+        <summary style="cursor:pointer;padding:10px 14px;display:flex;align-items:center;gap:12px;font-size:13px;font-weight:700">
+          <span style="width:24px;height:24px;border-radius:50%;background:rgba(194,157,102,.15);color:var(--gold);display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0">${si+1}</span>
+          <span style="flex:1">${escapeHtml(s.seriesCn || s.series || '未分類')}</span>
+          <span style="font-size:11px;color:var(--muted)">${s.brand || ''}</span>
+          <span style="font-size:12px;color:var(--muted)">${s.totalPings?.toFixed(0)||0} 坪 · ${fmtW(s.totalAmount)} · ${pctShare}%</span>
+          ${(s.companies||[]).map(k => `<span style="font-size:10px;padding:1px 6px;border-radius:3px;background:rgba(255,255,255,.06)">${k}</span>`).join('')}
+        </summary>
+        <div style="padding:0 14px 10px">`;
+      (s.items||[]).forEach(item => {
+        html+=`<details style="margin:4px 0;background:rgba(255,255,255,.02);border-radius:4px;overflow:hidden">
+          <summary style="cursor:pointer;padding:6px 10px;display:flex;align-items:center;gap:8px;font-size:12px">
+            <span style="flex:1">${escapeHtml(item.sku)}</span>
+            <span style="color:var(--muted)">${item.pings?.toFixed(0)||0} 坪 · ${fmtW(item.amount)}</span>
+          </summary>
+          <div style="padding:2px 10px 6px">${(item.customers||[]).map(c => `<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0;border-top:1px solid var(--line)"><span>${escapeHtml(c.name)}</span><span style="color:var(--muted)">${c.pings?.toFixed(0)||0} 坪 · ${fmtW(c.amount)} · ${(c.sharePct||0).toFixed(1)}%</span></div>`).join('')}</div>
+        </details>`;
+      });
+      html+=`</div></details>`;
+    });
+    html+=`</div></div>`;
+  }
+
+  // === 8. 前二十大客戶 ===
   html+=`<div class="section"><div class="section-title">🏆 集團前二十大客戶</div><div class="tbl-wrap"><table class="tbl">
     <tr><th>#</th><th>客戶</th><th class="r">高雅瓷</th><th class="r">安帝嘉</th><th class="r">喜悅納</th><th class="r">合計</th><th class="r">去年同期</th><th class="r">YOY</th><th>AI 示警</th></tr>`;
   d.top20.forEach((c,i)=>{
@@ -479,7 +533,7 @@ function renderAll(d){
   });
   html+=`</table></div></div>`;
 
-  // === 7. 跨公司客戶 ===
+  // === 9. 跨公司客戶 ===
   if(d.crossCompany && d.crossCompany.length>0){
     html+=`<div class="section"><div class="section-title">🔗 跨公司客戶（在 2 家以上消費）</div><div class="tbl-wrap"><table class="tbl">
       <tr><th>客戶</th><th>涵蓋公司</th><th class="r">集團佔比</th><th class="r">合計營收</th></tr>`;
@@ -496,11 +550,11 @@ function renderAll(d){
     html+=`</table></div></div>`;
   }
 
-  // === 8. 品牌銷售比較 ===
+  // === 10. 品牌銷售比較 ===
   html+=`<div class="section"><div class="section-title">🏷️ 品牌銷售比較</div>
     <div class="chart-wrap" style="height:320px"><canvas id="brandChart"></canvas></div></div>`;
 
-  // === 9. AI 綜合警示 ===
+  // === 11. AI 綜合警示 ===
   if(d.alerts && d.alerts.length>0){
     html+=`<div class="section"><div class="section-title">⚠️ AI 綜合警示</div>`;
     d.alerts.forEach(a=>{
@@ -510,7 +564,7 @@ function renderAll(d){
     html+=`</div>`;
   }
 
-  // === 10. 庫存比較 ===
+  // === 12. 庫存比較 ===
   html+=`<div class="section"><div class="section-title">📦 庫存比較</div>`;
   // 集團庫存加總
   const invTypes=[{key:'normal',label:'正常品',color:'var(--green)'},{key:'sleeper',label:'睡美人',color:'var(--orange)'},{key:'discontinued',label:'不續辦',color:'var(--red)'}];
@@ -551,7 +605,7 @@ function renderAll(d){
   html+=`<div class="chart-wrap" style="height:260px;margin-top:16px"><canvas id="invChart"></canvas></div>`;
   html+=`</div>`;
 
-  // === 11. 主管報告 ===
+  // === 13. 主管報告 ===
   html+=`<div class="section" id="mgr-report-section"><div class="section-title">📝 主管報告</div>
     <div class="tabs">
       <button class="tab active" onclick="switchTab(this,'mgr-sb')">高雅瓷</button>
