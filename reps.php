@@ -194,6 +194,8 @@ tr.selected td { background: var(--gold-soft); }
               <th style="text-align:right">今年業績</th>
               <th style="text-align:right">去年業績</th>
               <th style="text-align:right">平均 YOY</th>
+              <th style="text-align:right">達成率</th>
+              <th style="text-align:left">等級分布</th>
             </tr>
           </thead>
           <tbody id="rep-table-body"></tbody>
@@ -265,6 +267,20 @@ function renderRepTable(reps) {
       + '<td class="mono" style="text-align:right">' + fmtNum(r.totalThisYear) + '</td>'
       + '<td class="mono" style="text-align:right">' + fmtNum(r.totalLastYear) + '</td>'
       + '<td class="mono ' + yoyClass + '" style="text-align:right;font-weight:700">' + yoyStr + '</td>'
+      + (function() {
+          if (r.overallAchieve == null) return '<td style="text-align:right;color:var(--text2)">—</td>';
+          var ac = r.overallAchieve >= 100 ? 'var(--green)' : r.overallAchieve >= 70 ? 'var(--gold)' : 'var(--red)';
+          return '<td class="mono" style="text-align:right;font-weight:700;color:' + ac + '">' + r.overallAchieve + '%</td>';
+        })()
+      + (function() {
+          if (!r.gradeDist) return '<td></td>';
+          var gc = {'特':'#ff2a85','A':'var(--green)','B':'var(--blue)','C':'var(--text2)'};
+          var s = '';
+          ['特','A','B','C'].forEach(function(g) {
+            if (r.gradeDist[g]) s += '<span style="background:' + (gc[g]) + '20;color:' + gc[g] + ';border-radius:3px;padding:0 5px;font-size:11px;font-weight:700;margin-right:3px">' + g + '\xD7' + r.gradeDist[g] + '</span>';
+          });
+          return '<td>' + s + '</td>';
+        })()
       + '</tr>';
   });
 }
