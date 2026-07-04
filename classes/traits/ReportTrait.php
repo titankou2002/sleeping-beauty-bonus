@@ -770,8 +770,14 @@ trait ReportTrait
 
     public function getMeetingReport($year, $month)
     {
-        $year = (int)$year;
-        $month = (int)$month;
+        try { return $this->_getMeetingReportInner((int)$year, (int)$month); }
+        catch (\Throwable $e) {
+            $frames = array_map(fn($f) => basename($f['file'] ?? '?') . ':' . ($f['line'] ?? '?'), array_slice(array_filter($e->getTrace(), fn($f) => isset($f['file'])), 0, 6));
+            throw new \Exception($e->getMessage() . ' | ' . basename($e->getFile()) . ':' . $e->getLine() . ' | ' . implode(' > ', $frames));
+        }
+    }
+    private function _getMeetingReportInner($year, $month)
+    {
         if ($month < 1 || $month > 12) $month = (int)date('n');
 
         $strategyRes = $this->getStrategyReport($year, $month, 'month');
