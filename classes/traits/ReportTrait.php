@@ -239,7 +239,7 @@ trait ReportTrait
             if ($bucketName === null) continue;
 
             $sku = $this->cleanSku($this->getVal($row, $idx['code']));
-            $profile = isset($productProfiles[$sku]) ? $productProfiles[$sku] : null;
+            $profile = $productProfiles[$sku] ?? [];
             $customer = $this->displayCustomerName($this->getVal($row, $idx['customer']));
             $project = trim($idx['project'] !== -1 ? $this->getVal($row, $idx['project']) : '');
             $hasProject = $project !== '';
@@ -249,7 +249,7 @@ trait ReportTrait
             $pings = $idx['pings'] !== -1 ? $this->optFloat($this->getVal($row, $idx['pings'])) : 0;
             $txCount = $idx['count'] !== -1 ? (int)$this->getVal($row, $idx['count']) : 0;
             $productName = trim($this->getVal($row, $idx['productName']));
-            $series = $profile ? trim($profile['seriesCn'] ?: $profile['series']) : (isset($metaMap[$sku]) ? trim($metaMap[$sku]['series']) : '');
+            $series = !empty($profile) ? trim(($profile['seriesCn'] ?? '') ?: ($profile['series'] ?? '')) : (isset($metaMap[$sku]) ? trim($metaMap[$sku]['series']) : '');
             if ($series === '') $series = '未分類';
 
             if (!isset($buckets[$bucketName]['sales'][$sales])) $buckets[$bucketName]['sales'][$sales] = ['name' => $sales, 'amount' => 0, 'pings' => 0, 'count' => 0];
@@ -834,7 +834,7 @@ trait ReportTrait
             $amount = $this->optFloat($this->getVal($row, $idx['amount']));
             $pings = $this->optFloat($this->getVal($row, $idx['pings']));
             $txCount = (int)$this->getVal($row, $idx['count']);
-            $profile = isset($profiles[$sku]) ? $profiles[$sku] : null;
+            $profile = $profiles[$sku] ?? [];
 
             if ($rowYear === $year) $monthTotals[$rowMonth]['current'] += $amount;
             if ($rowYear === ($year - 1)) $monthTotals[$rowMonth]['previous'] += $amount;
