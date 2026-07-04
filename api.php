@@ -103,7 +103,8 @@ try {
                 $res = $svc->getMeetingReport($year, $month);
                 echo json_encode($res);
             } catch (Exception $e) {
-                echo json_encode(['success' => false, 'msg' => 'meeting-report 錯誤: ' . $e->getMessage() . ' [' . basename($e->getFile()) . ':' . $e->getLine() . ']', 'file' => $e->getFile(), 'line' => $e->getLine()]);
+                $trace = array_map(function($f){ return basename($f['file'] ?? '?') . ':' . ($f['line'] ?? '?'); }, array_filter($e->getTrace(), fn($f) => isset($f['file'])));
+                echo json_encode(['success' => false, 'msg' => 'meeting-report 錯誤: ' . $e->getMessage() . ' [' . basename($e->getFile()) . ':' . $e->getLine() . '] trace=' . implode(' > ', array_slice($trace, 0, 5))]);
             }
             break;
 
