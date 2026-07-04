@@ -1094,7 +1094,7 @@
     <div class="topbar">
       <div class="title-wrap">
         <div class="brand-logo">T</div>
-        <h1>高雅瓷月報表</h1>
+        <h1>高雅瓷月報表 <span style="font-size:12px;font-weight:400;color:var(--muted);letter-spacing:0">v<?= date('ymd.Hi', filemtime(__FILE__)) ?></span></h1>
       </div>
       <div class="controls">
         <select id="year"></select>
