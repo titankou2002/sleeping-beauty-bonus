@@ -385,6 +385,19 @@ class SleeperService
         return -1;
     }
 
+    // 模糊前綴查找：先精確，再嘗試 map 的 key 為 $key 前綴（或反向）
+    private function fuzzyLookup(array $map, string $key)
+    {
+        if (isset($map[$key])) return $map[$key];
+        foreach ($map as $k => $v) {
+            if (mb_strlen($k) >= 2 && mb_strpos($key, $k) === 0) return $v;
+        }
+        foreach ($map as $k => $v) {
+            if (mb_strlen($key) >= 2 && mb_strpos($k, $key) === 0) return $v;
+        }
+        return null;
+    }
+
     private function getVal($row, $idx)
     {
         return isset($row[$idx]) ? $row[$idx] : '';

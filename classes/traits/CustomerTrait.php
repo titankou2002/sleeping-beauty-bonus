@@ -392,21 +392,23 @@ trait CustomerTrait
                 'health' => $health,
                 'catCounts' => $c['catCounts'],
                 'salesRep' => (function ($counts, $custName) use ($customerRepMap) {
-                    if (isset($customerRepMap[$custName])) return $customerRepMap[$custName];
+                    $v = $this->fuzzyLookup($customerRepMap, $custName);
+                    if ($v !== null) return $v;
                     if (empty($counts)) return '未分配';
                     arsort($counts);
                     return array_key_first($counts);
-                })($c['salesRepCounts'], $name),
+                })->call($this, $c['salesRepCounts'], $name),
                 'area' => (function ($counts, $custName) use ($areaMap, $customerAreaMap) {
-                    if (isset($customerAreaMap[$custName])) return $customerAreaMap[$custName];
+                    $v = $this->fuzzyLookup($customerAreaMap, $custName);
+                    if ($v !== null) return $v;
                     if (empty($counts)) return '未分配';
                     arsort($counts);
                     $rep = array_key_first($counts);
                     return $areaMap[$rep] ?? '未分配';
-                })($c['salesRepCounts'], $name),
-                'grade'   => $customerGradeMap[$name] ?? null,
-                'target'  => $customerTargetMap[$name] ?? null,
-                'contrib' => $customerContribMap[$name] ?? null,
+                })->call($this, $c['salesRepCounts'], $name),
+                'grade'   => $this->fuzzyLookup($customerGradeMap, $name),
+                'target'  => $this->fuzzyLookup($customerTargetMap, $name),
+                'contrib' => $this->fuzzyLookup($customerContribMap, $name),
                 'contractHealth' => $c['contractHealth'],
                 'contractExpiry' => $c['contractExpiry'],
                 'contractBalance' => $c['contractBalance'] !== null ? round($c['contractBalance']) : null,
