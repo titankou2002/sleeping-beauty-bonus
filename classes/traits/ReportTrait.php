@@ -971,7 +971,7 @@ trait ReportTrait
                 $topProducts[$sku] = [
                     'sku' => $sku,
                     'name' => trim($profile['productName'] ?? ''),
-                    'series' => trim($profile['seriesCn'] ?: ($profile['series'] ?? '')),
+                    'series' => trim(($profile['seriesCn'] ?? '') ?: ($profile['series'] ?? '')),
                     'category' => $category,
                     'size' => $size,
                     'imageUrl' => $profile['imageUrl'] ?? '',
@@ -1845,7 +1845,7 @@ trait ReportTrait
                 $pings = $idx['pings'] !== -1 ? $this->optFloat($this->getVal($row, $idx['pings'])) : 0;
                 $txCount = $idx['count'] !== -1 ? (int)$this->getVal($row, $idx['count']) : 0;
                 
-                $profile = $profiles[$sku] ?? null;
+                $profile = $profiles[$sku] ?? [];
 
                 if (!isset($topProducts[$sku])) {
                     $topProducts[$sku] = [
