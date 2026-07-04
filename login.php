@@ -66,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      font-size: 32px;
+      font-size: 22px;
       font-weight: 900;
       margin-bottom: 20px;
     }
@@ -142,8 +142,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 <body>
   <div class="login-card">
-    <div class="logo">G</div>
-    <h1>高雅集團戰情室</h1>
+    <div class="logo">AW</div>
+    <h1>全集團戰情室</h1>
     <p class="desc">請輸入密碼以存取戰情系統</p>
     
     <?php if ($error): ?>
