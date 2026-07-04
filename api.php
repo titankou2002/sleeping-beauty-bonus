@@ -103,7 +103,7 @@ try {
                 $res = $svc->getMeetingReport($year, $month);
                 echo json_encode($res);
             } catch (Exception $e) {
-                echo json_encode(['success' => false, 'msg' => 'meeting-report 錯誤: ' . $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
+                echo json_encode(['success' => false, 'msg' => 'meeting-report 錯誤: ' . $e->getMessage() . ' [' . basename($e->getFile()) . ':' . $e->getLine() . ']', 'file' => $e->getFile(), 'line' => $e->getLine()]);
             }
             break;
 
