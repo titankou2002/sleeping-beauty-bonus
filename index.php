@@ -570,9 +570,9 @@ input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-colo
           <button class="tab-btn" id="tab-reports" onclick="switchTab('reports')">銷售報表</button>
           <button class="tab-btn" id="tab-bonus" onclick="switchTab('bonus')">睡美人銷售</button>
           <button class="tab-btn" id="tab-customers" onclick="switchTab('customers')">客戶分析</button>
-          <button class="tab-btn" id="tab-analysis" onclick="switchTab('analysis')">新品分析 <span style="font-size:10px;color:var(--text2);margin-left:4px;cursor:pointer;text-decoration:underline" onclick="event.stopPropagation();window.open('analysis.php','_blank')">新視窗</span></button>
-          <button class="tab-btn" id="tab-reps" onclick="switchTab('reps')">業務分析 <span style="font-size:10px;color:var(--text2);margin-left:4px;cursor:pointer;text-decoration:underline" onclick="event.stopPropagation();window.open('reps.php','_blank')">新視窗</span></button>
-          <button class="tab-btn" id="tab-mgr" onclick="switchTab('mgr')">主管報告 <span style="font-size:10px;color:var(--text2);margin-left:4px;cursor:pointer;text-decoration:underline" onclick="event.stopPropagation();window.open('group_meeting.php','_blank')">新視窗</span></button>
+          <button class="tab-btn" id="tab-analysis" onclick="switchTab('analysis')">新品分析</button>
+          <button class="tab-btn" id="tab-reps" onclick="switchTab('reps')">業務分析</button>
+          <button class="tab-btn" id="tab-mgr" onclick="switchTab('mgr')">主管報告</button>
         </div>
       </div>
     </header>

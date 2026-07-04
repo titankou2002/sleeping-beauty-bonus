@@ -22,13 +22,18 @@ trait DataTrait
                 $idxRep = $this->findHeader($h, ['業務', '業務名稱', '負責業務']);
                 $idxArea = $this->findHeader($h, ['區域', '地區']);
                 if ($idxRep !== -1 && $idxArea !== -1) {
+                    $counts = [];
                     for ($i = 1; $i < count($rows); $i++) {
                         $rep = trim($this->getVal($rows[$i], $idxRep));
                         $area = trim($this->getVal($rows[$i], $idxArea));
                         if ($rep !== '' && $area !== '') {
                             $rep = self::$salesMerge[$rep] ?? $rep;
-                            $this->areaMap[$rep] = $area;
+                            $counts[$rep][$area] = ($counts[$rep][$area] ?? 0) + 1;
                         }
+                    }
+                    foreach ($counts as $rep => $areaCounts) {
+                        arsort($areaCounts);
+                        $this->areaMap[$rep] = array_key_first($areaCounts);
                     }
                 }
             }
