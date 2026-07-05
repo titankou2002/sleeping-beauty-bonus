@@ -42,3 +42,4 @@ jobs:
             .github/**
             src/**
           delete: false
+          dangerous-clean-slate: true
