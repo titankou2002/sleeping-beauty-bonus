@@ -45,4 +45,4 @@ jobs:
 
       - name: Clear OPcache
         run: |
-          curl -s "https://bigt.cc/sleeping-beauty/clear-cache.php?token=${{ secrets.CACHE_CLEAR_TOKEN }}"
+          curl -s "https://bigt.cc/sleeping-beauty/clear-cache.php?token=be4109677a907a4e5fab34f9bf302fb2"
