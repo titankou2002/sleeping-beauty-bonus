@@ -42,4 +42,7 @@ jobs:
             .github/**
             src/**
           delete: false
-          dangerous-clean-slate: true
+
+      - name: Clear OPcache
+        run: |
+          curl -s "https://bigt.cc/sleeping-beauty/clear-cache.php?token=${{ secrets.CACHE_CLEAR_TOKEN }}"
