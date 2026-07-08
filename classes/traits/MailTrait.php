@@ -3,17 +3,18 @@
 trait MailTrait
 {
 
-    public function sendDailyPerformanceReport($recipients, $fromEmail = '')
+    public function sendDailyPerformanceReport($recipients, $fromEmail = '', $type = 'group')
     {
         $today = new DateTime('today');
         $todayStr = $today->format('Y/m/d');
         $monthStart = new DateTime($today->format('Y-m-01'));
 
-        $companies = [
+        $allCompanies = [
             ['key' => 'main', 'name' => '高雅瓷', 'ssId' => SS_ID_MAIN, 'color' => '#c29d66'],
             ['key' => 'andyga', 'name' => '安帝嘉', 'ssId' => SS_ID_ANDYGA, 'color' => '#0284c7'],
             ['key' => 'xiyena', 'name' => '喜悅納', 'ssId' => SS_ID_XIYENA, 'color' => '#0284c7'],
         ];
+        $companies = $type === 'main' ? array_slice($allCompanies, 0, 1) : $allCompanies;
 
         $allHtml = '';
         $grandTodayTotal = 0;
@@ -165,16 +166,17 @@ trait MailTrait
             $sections[] = $secHtml;
         }
 
+        $title = $type === 'main' ? '高雅瓷每日戰報' : '集團每日戰報';
         $allHtml = '<div style="font-family:-apple-system,\'PingFang TC\',sans-serif;max-width:720px;margin:0 auto;color:#333;">';
-        $allHtml .= '<h2 style="color:#c29d66;border-bottom:3px solid #c29d66;padding-bottom:8px;">集團每日戰報 ' . $todayStr . '</h2>';
+        $allHtml .= '<h2 style="color:#c29d66;border-bottom:3px solid #c29d66;padding-bottom:8px;">' . $title . ' ' . $todayStr . '</h2>';
         $allHtml .= '<div style="display:flex;gap:20px;margin-bottom:20px;padding:12px 16px;background:#f8fafc;border-radius:8px;">';
         $allHtml .= '<div><span style="font-size:12px;color:#64748b;">集團今日</span><br><span style="font-size:20px;font-weight:800;color:' . ($grandTodayTotal > 0 ? '#059669' : '#94a3b8') . ';">' . $this->fmtW($grandTodayTotal) . '</span></div>';
         $allHtml .= '<div><span style="font-size:12px;color:#64748b;">集團本月</span><br><span style="font-size:20px;font-weight:800;color:#2563eb;">' . $this->fmtW($grandMonthTotal) . '</span></div>';
         $allHtml .= '</div>';
         $allHtml .= implode('', $sections);
-        $allHtml .= '<p style="font-size:12px;color:#94a3b8;margin-top:20px;">睡美人戰情室 AI 系統自動發送</p></div>';
+        $allHtml .= '<p style="font-size:12px;color:#94a3b8;margin-top:20px;">' . ($type === 'main' ? '高雅瓷' : '睡美人戰情室') . ' AI 系統自動發送</p></div>';
 
-        $subject = '集團每日戰報 ' . $todayStr . ' | 銷貨' . $this->fmtW($grandTodayTotal) . ' 月累' . $this->fmtW($grandMonthTotal);
+        $subject = $title . ' ' . $todayStr . ' | 銷貨' . $this->fmtW($grandTodayTotal) . ' 月累' . $this->fmtW($grandMonthTotal);
         $headers = [
             'MIME-Version: 1.0',
             'Content-type: text/html; charset=utf-8',

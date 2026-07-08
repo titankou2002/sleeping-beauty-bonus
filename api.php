@@ -490,7 +490,8 @@ try {
             }
             $to = $_GET['to'] ?: DAILY_EMAIL_TO;
             $from = $_GET['from'] ?: DAILY_EMAIL_FROM;
-            $res = $svc->sendDailyPerformanceReport($to, $from);
+            $type = $_GET['type'] ?? 'group';
+            $res = $svc->sendDailyPerformanceReport($to, $from, $type);
             echo json_encode($res, JSON_UNESCAPED_UNICODE);
             break;
 
