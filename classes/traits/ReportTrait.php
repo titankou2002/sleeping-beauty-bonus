@@ -170,6 +170,31 @@ trait ReportTrait
     public function getStrategyReport($year, $period = null, $mode = 'month')
     {
         if ($period === null || $period === 0) $period = (int)date('n');
+
+        // Auto-rebuild cache if requested month has no data
+        $rebuildFlag = sys_get_temp_dir() . '/sb_srebuilt_' . $year . '_' . $period;
+        if (!file_exists($rebuildFlag) || filemtime($rebuildFlag) < time() - 21600) {
+            $tmpRows = $this->gs->readSheet(CACHE_SHEET);
+            if (count($tmpRows) >= 2) {
+                $h = $tmpRows[0];
+                $yIdx = $this->findHeader($h, ['年度']);
+                $mIdx = $this->findHeader($h, ['月份']);
+                if ($yIdx !== -1 && $mIdx !== -1) {
+                    $hasMonth = false;
+                    for ($i = 1; $i < count($tmpRows); $i++) {
+                        if ((int)$tmpRows[$i][$yIdx] === $year && (int)$tmpRows[$i][$mIdx] === $period) {
+                            $hasMonth = true;
+                            break;
+                        }
+                    }
+                    if (!$hasMonth) {
+                        $this->rebuildSalesYearCache([$year]);
+                    }
+                }
+            }
+            @touch($rebuildFlag);
+        }
+
         $meta = $this->getStrategyPeriodMeta($mode, (int)$year, (int)$period);
         $prevMeta = $this->getPreviousStrategyPeriodMeta($meta);
         $yoyMeta = $this->getYoyStrategyPeriodMeta($meta);
@@ -779,6 +804,30 @@ trait ReportTrait
     private function _getMeetingReportInner($year, $month)
     {
         if ($month < 1 || $month > 12) $month = (int)date('n');
+
+        // Auto-rebuild cache if requested month has no data
+        $rebuildFlag = sys_get_temp_dir() . '/sb_mrebuilt_' . $year . '_' . $month;
+        if (!file_exists($rebuildFlag) || filemtime($rebuildFlag) < time() - 21600) {
+            $tmpRows = $this->gs->readSheet(CACHE_SHEET);
+            if (count($tmpRows) >= 2) {
+                $h = $tmpRows[0];
+                $yIdx = $this->findHeader($h, ['年度']);
+                $mIdx = $this->findHeader($h, ['月份']);
+                if ($yIdx !== -1 && $mIdx !== -1) {
+                    $hasMonth = false;
+                    for ($i = 1; $i < count($tmpRows); $i++) {
+                        if ((int)$tmpRows[$i][$yIdx] === $year && (int)$tmpRows[$i][$mIdx] === $month) {
+                            $hasMonth = true;
+                            break;
+                        }
+                    }
+                    if (!$hasMonth) {
+                        $this->rebuildSalesYearCache([$year]);
+                    }
+                }
+            }
+            @touch($rebuildFlag);
+        }
 
         $strategyRes = $this->getStrategyReport($year, $month, 'month');
         if (!$strategyRes['success']) return $strategyRes;
