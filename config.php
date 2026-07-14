@@ -32,6 +32,12 @@ define('GROUP_REPORT_CACHE_VER', 2);
 define('DAILY_EMAIL_TO', getenv('DAILY_EMAIL_TO') ?: 'titankou2002@gmail.com,sb780910@gmail.com,ghosts0125@gmail.com,panus081231@gmail.com,lynnloveshumi@gmail.com');
 define('DAILY_EMAIL_FROM', getenv('DAILY_EMAIL_FROM') ?: 'titankou2002@gmail.com');
 
+// Telegram Bot 設定
+define('TG_BOT_TOKEN', getenv('TG_BOT_TOKEN') ?: '8665549878:AAH3_HiXF6rZAbiGfs3buIkIYW8-i4a5tMM');
+define('TG_CHAT_BOSS', '1094832646');
+define('TG_CHAT_PRIVATE', '-5427186213');
+define('TG_CHAT_BULLETIN', '-5042638784');
+
 // 戰情室存取密碼
 define('ACCESS_PASSWORD', '9593');
 

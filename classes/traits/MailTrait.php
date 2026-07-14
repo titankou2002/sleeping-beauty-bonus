@@ -43,6 +43,13 @@ trait MailTrait
         ];
 
         $ok = mail($recipients, $subject, $html, implode("\r\n", $headers));
+
+        if ($ok && $type !== 'main') {
+            $telegramText = $this->_buildTelegramSummary($allData, $grandToday, $grandMonth, $grandYtd, $todayStr);
+            $this->_sendTelegramMessage(TG_CHAT_BOSS, $telegramText);
+            $this->_sendTelegramMessage(TG_CHAT_PRIVATE, $telegramText);
+        }
+
         return ['success' => $ok, 'todayTotal' => $grandToday, 'monthTotal' => $grandMonth, 'subject' => $subject];
     }
 
@@ -378,5 +385,68 @@ trait MailTrait
 
         $h .= '</div></div>';
         return $h;
+    }
+
+    private function _sendTelegramMessage($chatId, $text)
+    {
+        $url = 'https://api.telegram.org/bot' . TG_BOT_TOKEN . '/sendMessage';
+        $payload = [
+            'chat_id' => $chatId,
+            'text' => $text,
+            'parse_mode' => 'HTML',
+            'disable_web_page_preview' => true,
+        ];
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST => true,
+            CURLOPT_TIMEOUT => 15,
+            CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+            CURLOPT_POSTFIELDS => json_encode($payload),
+        ]);
+        $resp = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        return $httpCode === 200;
+    }
+
+    private function _buildTelegramSummary($allData, $grandToday, $grandMonth, $grandYtd, $todayStr)
+    {
+        $lines = [];
+        $lines[] = '<b>📊 集團業績彙報 — ' . $todayStr . '</b>';
+        $lines[] = '';
+        $lines[] = '集團今日：<b>' . $this->fmtW($grandToday) . '</b>  本月：<b>' . $this->fmtW($grandMonth) . '</b>  YTD：<b>' . $this->fmtW($grandYtd) . '</b>';
+        $lines[] = '';
+
+        $emoji = ['高雅瓷' => '🟤', '安帝嘉' => '🟢', '喜悅納' => '🔵'];
+        foreach ($allData as $d) {
+            $co = $d['co'];
+            $e = $emoji[$co['name']] ?? '●';
+            $lines[] = $e . ' <b>' . $co['name'] . '</b>';
+            $lines[] = '  今日 ' . $this->fmtW($d['todayTotal']) . '  本月 ' . $this->fmtW($d['monthTotal']) . '  YTD ' . $this->fmtW($d['ytdTotal']);
+            if ($d['lyMonthTotal'] > 0) {
+                $mYoy = ($d['monthTotal'] - $d['lyMonthTotal']) / $d['lyMonthTotal'] * 100;
+                $yYoy = ($d['ytdTotal'] - $d['lyYtdTotal']) / $d['lyYtdTotal'] * 100;
+                $lines[] = '  月YOY ' . $this->_tgYoy($mYoy) . '  YTD YOY ' . $this->_tgYoy($yYoy);
+            }
+            $topSeries = array_slice($d['seriesRanking'], 0, 5);
+            if (count($topSeries) > 0) {
+                $lines[] = '  🏆 熱銷 Top 5：';
+                foreach ($topSeries as $sr) {
+                    $lines[] = '    ' . $sr['series'] . ' ' . number_format($sr['pings'], 1) . '坪 ' . $sr['pct'] . '%';
+                }
+            }
+            $lines[] = '';
+        }
+
+        $lines[] = '<a href="https://bigt.cc/sleeping-beauty/group_meeting.php">🔗 看完整集團月報</a>';
+        return implode("\n", $lines);
+    }
+
+    private function _tgYoy($pct)
+    {
+        if ($pct > 0) return '🟢 +' . number_format($pct, 1) . '%';
+        if ($pct < 0) return '🔴 ' . number_format($pct, 1) . '%';
+        return '⚪ 0.0%';
     }
 }
