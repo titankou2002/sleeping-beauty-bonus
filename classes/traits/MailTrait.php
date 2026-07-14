@@ -1,182 +1,40 @@
 <?php
-// ====== MailTrait ======
 trait MailTrait
 {
-
     public function sendDailyPerformanceReport($recipients, $fromEmail = '', $type = 'group')
     {
         $today = new DateTime('today');
         $todayStr = $today->format('Y/m/d');
         $monthStart = new DateTime($today->format('Y-m-01'));
+        $yearStart = new DateTime($today->format('Y-01-01'));
+        $lyToday = (new DateTime('today'))->modify('-1 year');
+        $lyMonthStart = (new DateTime($today->format('Y-m-01')))->modify('-1 year');
+        $lyYearStart = (new DateTime($today->format('Y-01-01')))->modify('-1 year');
 
         $allCompanies = [
             ['key' => 'main', 'name' => '高雅瓷', 'ssId' => SS_ID_MAIN, 'color' => '#c29d66'],
-            ['key' => 'andyga', 'name' => '安帝嘉', 'ssId' => SS_ID_ANDYGA, 'color' => '#0284c7'],
-            ['key' => 'xiyena', 'name' => '喜悅納', 'ssId' => SS_ID_XIYENA, 'color' => '#0284c7'],
+            ['key' => 'andyga', 'name' => '安帝嘉', 'ssId' => SS_ID_ANDYGA, 'color' => '#10b981'],
+            ['key' => 'xiyena', 'name' => '喜悅納', 'ssId' => SS_ID_XIYENA, 'color' => '#38bdf8'],
         ];
         $companies = $type === 'main' ? array_slice($allCompanies, 0, 1) : $allCompanies;
 
-        $allHtml = '';
-        $grandTodayTotal = 0;
-        $grandMonthTotal = 0;
-        $sections = [];
+        $allData = [];
+        $grandToday = 0;
+        $grandMonth = 0;
+        $grandYtd = 0;
 
         foreach ($companies as $co) {
-            try {
-                $gs = $this->getClient($co['ssId']);
-                $salesRows = $gs->readSheet(SALES_SHEET);
-            } catch (Exception $e) {
-                $salesRows = [];
-            }
-            $todayItems = [];
-            $monthItems = [];
-
-            if (count($salesRows) > 1) {
-                $h = $salesRows[0];
-                $idx = [
-                    'date' => $this->findHeader($h, ['單據日期','銷貨日期','日期']),
-                    'cust' => $this->findHeader($h, ['客戶名稱','客戶']),
-                    'custCode' => $this->findHeader($h, ['客戶編號','客戶代碼','代碼']),
-                    'sales' => $this->findHeader($h, ['負責業務','業務','業務員','負責人']),
-                    'amt' => $this->findHeader($h, ['金額','銷額','銷售金額','成交金額','小計','總計']),
-                    'code' => $this->findHeader($h, ['產品編號','編號','品號','品碼','序號']),
-                    'qty' => $this->findHeader($h, ['數量','片數']),
-                    'note' => $this->findHeader($h, ['備註','說明'])
-                ];
-                $profileMap = $this->getProductProfileMap();
-
-                for ($i = 1; $i < count($salesRows); $i++) {
-                    $row = $salesRows[$i];
-                    $d = $this->parseDate($this->getVal($row, $idx['date']));
-                    if (!$d) continue;
-                    $amt = $this->optFloat($this->getVal($row, $idx['amt']));
-                    if ($amt <= 0) continue;
-                    $custName = trim($this->getVal($row, $idx['cust']));
-                    $custCode = trim($this->getVal($row, $idx['custCode']));
-                    $note = trim($this->getVal($row, $idx['note']));
-                    if ($this->isSampleRow($custCode, $custName, $note, $amt)) continue;
-                    $code = $this->cleanSku($this->getVal($row, $idx['code']));
-                    if ($code === '') continue;
-                    $salesName = $this->normalizeSalesRep($this->getVal($row, $idx['sales']));
-                    $profile = $profileMap[$code] ?? null;
-                    $seriesCn = $profile ? (trim($profile['seriesCn'] ?: $profile['series']) ?: '') : '';
-                    $qty = $this->optFloat($this->getVal($row, $idx['qty']));
-                    $item = ['cust' => $custName, 'salesName' => $salesName, 'amt' => $amt, 'code' => $code, 'seriesCn' => $seriesCn, 'qty' => $qty, 'd' => $d];
-                    if ($d >= $today) $todayItems[] = $item;
-                    if ($d >= $monthStart) $monthItems[] = $item;
-                }
-            }
-
-            $todayTotal = array_sum(array_column($todayItems, 'amt'));
-            $monthTotal = array_sum(array_column($monthItems, 'amt'));
-            $grandTodayTotal += $todayTotal;
-            $grandMonthTotal += $monthTotal;
-
-            $lastTxDate = null;
-            foreach ($monthItems as $item) {
-                if (!$lastTxDate || $item['d'] > $lastTxDate) $lastTxDate = $item['d'];
-            }
-            $displayItems = count($todayItems) > 0 ? $todayItems : [];
-            $displayLabel = '當日';
-            if (count($todayItems) === 0 && $lastTxDate) {
-                $displayItems = array_values(array_filter($monthItems, function ($item) use ($lastTxDate) {
-                    return $item['d'] == $lastTxDate;
-                }));
-                $displayLabel = $lastTxDate->format('m/d') . ' 交易';
-            }
-
-            $custMap = [];
-            $custItems = [];
-            foreach ($displayItems as $item) {
-                $shortName = $this->displayCustomerName($item['cust']);
-                $custMap[$shortName] = ($custMap[$shortName] ?? 0) + $item['amt'];
-                if (!isset($custItems[$shortName])) $custItems[$shortName] = [];
-                $custItems[$shortName][] = $item;
-            }
-            arsort($custMap);
-            $sortedCust = array_slice($custMap, 0, 10);
-            $custTotalAmt = max(1, array_sum($custMap));
-
-            $salesTodayMap = [];
-            $salesMonthMap = [];
-            foreach ($todayItems as $item) {
-                $salesTodayMap[$item['salesName']] = ($salesTodayMap[$item['salesName']] ?? 0) + $item['amt'];
-            }
-            foreach ($monthItems as $item) {
-                $salesMonthMap[$item['salesName']] = ($salesMonthMap[$item['salesName']] ?? 0) + $item['amt'];
-            }
-            $allSales = array_unique(array_merge(array_keys($salesTodayMap), array_keys($salesMonthMap)));
-            $sortedSales = [];
-            foreach ($allSales as $name) {
-                $sortedSales[] = ['name' => $name, 'today' => $salesTodayMap[$name] ?? 0, 'month' => $salesMonthMap[$name] ?? 0];
-            }
-            usort($sortedSales, function ($a, $b) { return $b['today'] - $a['today']; });
-            $salesTodayTotalAmt = max(1, array_sum($salesTodayMap));
-
-            $seriesMap = [];
-            foreach ($displayItems as $item) {
-                $s = $item['seriesCn'] ?: '其他';
-                $seriesMap[$s] = ($seriesMap[$s] ?? 0) + $item['amt'];
-            }
-            arsort($seriesMap);
-            $sortedSeries = array_slice($seriesMap, 0, 5);
-
-            $secHtml = '<div style="margin-bottom:24px">';
-            $secHtml .= '<h3 style="color:' . $co['color'] . ';border-bottom:2px solid ' . $co['color'] . ';padding-bottom:6px;">' . $co['name'] . '</h3>';
-            $todayColor = $todayTotal === 0 ? '#94a3b8' : '#059669';
-            $lastTxNote = ($todayTotal === 0 && $lastTxDate) ? '（最後交易日：' . $lastTxDate->format('Y/m/d') . '）' : '';
-            $secHtml .= '<div style="display:flex;gap:20px;margin-bottom:12px">';
-            $secHtml .= '<div style="font-size:16px;font-weight:700;color:' . $todayColor . ';">今日銷貨：' . $this->fmtW($todayTotal) . $lastTxNote . '</div>';
-            $secHtml .= '<div style="font-size:16px;font-weight:700;color:#2563eb;">當月累計：' . $this->fmtW($monthTotal) . '</div></div>';
-
-            if (count($sortedCust) > 0) {
-                $secHtml .= '<div style="font-size:13px;font-weight:600;margin:8px 0 4px">客戶排行（' . $displayLabel . '）</div>';
-                $secHtml .= '<table style="width:100%;border-collapse:collapse;font-size:12px;"><tr style="background:#1e293b;color:white;"><th style="padding:4px 8px;text-align:left">客戶</th><th style="padding:4px 8px;text-align:right">金額</th><th style="padding:4px 8px;text-align:right">佔比</th><th style="padding:4px 8px">明細</th></tr>';
-                foreach ($sortedCust as $name => $amt) {
-                    $items = $custItems[$name] ?? [];
-                    $detailParts = [];
-                    foreach ($items as $item) {
-                        $detailParts[] = ($item['seriesCn'] ?: '') . ' ' . $item['code'] . ' ' . round($item['qty']) . '片';
-                    }
-                    $detail = implode('<br>', $detailParts);
-                    $secHtml .= '<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:4px 8px">' . $name . '</td><td style="padding:4px 8px;text-align:right">' . $this->fmtW($amt) . '</td><td style="padding:4px 8px;text-align:right">' . round($amt / $custTotalAmt * 100) . '%</td><td style="padding:4px 8px;font-size:11px;color:#64748b;">' . $detail . '</td></tr>';
-                }
-                $secHtml .= '</table>';
-            }
-
-            if (count($sortedSales) > 0) {
-                $secHtml .= '<div style="font-size:13px;font-weight:600;margin:8px 0 4px">業務統計</div>';
-                $secHtml .= '<table style="width:100%;border-collapse:collapse;font-size:12px;"><tr style="background:#1e293b;color:white;"><th style="padding:4px 8px;text-align:left">業務</th><th style="padding:4px 8px;text-align:right">當日</th><th style="padding:4px 8px;text-align:right">佔比</th><th style="padding:4px 8px;text-align:right">當月</th><th style="padding:4px 8px;text-align:right">佔比</th></tr>';
-                foreach ($sortedSales as $r) {
-                    $secHtml .= '<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:4px 8px">' . $r['name'] . '</td><td style="padding:4px 8px;text-align:right">' . $this->fmtW($r['today']) . '</td><td style="padding:4px 8px;text-align:right">' . round($r['today'] / $salesTodayTotalAmt * 100) . '%</td><td style="padding:4px 8px;text-align:right">' . $this->fmtW($r['month']) . '</td><td style="padding:4px 8px;text-align:right">' . round($monthTotal > 0 ? $r['month'] / $monthTotal * 100 : 0) . '%</td></tr>';
-                }
-                $secHtml .= '</table>';
-            }
-
-            if (count($sortedSeries) > 0) {
-                $secHtml .= '<div style="font-size:13px;font-weight:600;margin:8px 0 4px">系列銷售 Top 5（' . $displayLabel . '）</div>';
-                $secHtml .= '<table style="width:100%;border-collapse:collapse;font-size:12px;"><tr style="background:#1e293b;color:white;"><th style="padding:4px 8px;text-align:left">系列</th><th style="padding:4px 8px;text-align:right">金額</th></tr>';
-                foreach ($sortedSeries as $name => $amt) {
-                    $secHtml .= '<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:4px 8px">' . $name . '</td><td style="padding:4px 8px;text-align:right">' . $this->fmtW($amt) . '</td></tr>';
-                }
-                $secHtml .= '</table>';
-            }
-
-            $secHtml .= '</div>';
-            $sections[] = $secHtml;
+            $data = $this->_collectSalesData($co, $today, $monthStart, $yearStart, $lyToday, $lyMonthStart, $lyYearStart);
+            $allData[] = $data;
+            $grandToday += $data['todayTotal'];
+            $grandMonth += $data['monthTotal'];
+            $grandYtd += $data['ytdTotal'];
         }
 
-        $title = $type === 'main' ? '高雅瓷每日戰報' : '集團每日戰報';
-        $allHtml = '<div style="font-family:-apple-system,\'PingFang TC\',sans-serif;max-width:720px;margin:0 auto;color:#333;">';
-        $allHtml .= '<h2 style="color:#c29d66;border-bottom:3px solid #c29d66;padding-bottom:8px;">' . $title . ' ' . $todayStr . '</h2>';
-        $allHtml .= '<div style="display:flex;gap:20px;margin-bottom:20px;padding:12px 16px;background:#f8fafc;border-radius:8px;">';
-        $allHtml .= '<div><span style="font-size:12px;color:#64748b;">集團今日</span><br><span style="font-size:20px;font-weight:800;color:' . ($grandTodayTotal > 0 ? '#059669' : '#94a3b8') . ';">' . $this->fmtW($grandTodayTotal) . '</span></div>';
-        $allHtml .= '<div><span style="font-size:12px;color:#64748b;">集團本月</span><br><span style="font-size:20px;font-weight:800;color:#2563eb;">' . $this->fmtW($grandMonthTotal) . '</span></div>';
-        $allHtml .= '</div>';
-        $allHtml .= implode('', $sections);
-        $allHtml .= '<p style="font-size:12px;color:#94a3b8;margin-top:20px;">' . ($type === 'main' ? '高雅瓷' : '睡美人戰情室') . ' AI 系統自動發送</p></div>';
+        $html = $this->_buildEmailHtml($allData, $todayStr, $grandToday, $grandMonth, $grandYtd, $type);
 
-        $subject = $title . ' ' . $todayStr . ' | 銷貨' . $this->fmtW($grandTodayTotal) . ' 月累' . $this->fmtW($grandMonthTotal);
+        $title = $type === 'main' ? '高雅瓷每日戰報' : '集團每日戰報';
+        $subject = $title . ' ' . $todayStr . ' | 銷貨' . $this->fmtW($grandToday) . ' 月累' . $this->fmtW($grandMonth);
         $headers = [
             'MIME-Version: 1.0',
             'Content-type: text/html; charset=utf-8',
@@ -184,7 +42,341 @@ trait MailTrait
             'To: ' . $recipients
         ];
 
-        $ok = mail($recipients, $subject, $allHtml, implode("\r\n", $headers));
-        return ['success' => $ok, 'todayTotal' => $grandTodayTotal, 'monthTotal' => $grandMonthTotal, 'subject' => $subject];
+        $ok = mail($recipients, $subject, $html, implode("\r\n", $headers));
+        return ['success' => $ok, 'todayTotal' => $grandToday, 'monthTotal' => $grandMonth, 'subject' => $subject];
+    }
+
+    private function _collectSalesData($co, $today, $monthStart, $yearStart, $lyToday, $lyMonthStart, $lyYearStart)
+    {
+        $result = [
+            'co' => $co,
+            'todayTotal' => 0, 'monthTotal' => 0, 'ytdTotal' => 0,
+            'lyMonthTotal' => 0, 'lyYtdTotal' => 0,
+            'todayItems' => [], 'monthItems' => [],
+            'lastTxDate' => null,
+            'salesTodayMap' => [], 'salesMonthMap' => [],
+        ];
+
+        try {
+            $gs = $this->getClient($co['ssId']);
+            $salesRows = $gs->readSheet(SALES_SHEET);
+        } catch (Exception $e) {
+            $salesRows = [];
+        }
+        if (count($salesRows) <= 1) return $result;
+
+        $h = $salesRows[0];
+        $idx = [
+            'date' => $this->findHeader($h, ['單據日期','銷貨日期','日期']),
+            'cust' => $this->findHeader($h, ['客戶名稱','客戶']),
+            'custCode' => $this->findHeader($h, ['客戶編號','客戶代碼','代碼']),
+            'sales' => $this->findHeader($h, ['負責業務','業務','業務員','負責人']),
+            'amt' => $this->findHeader($h, ['金額','銷額','銷售金額','成交金額','小計','總計']),
+            'code' => $this->findHeader($h, ['產品編號','編號','品號','品碼','序號']),
+            'qty' => $this->findHeader($h, ['數量','片數']),
+            'note' => $this->findHeader($h, ['備註','說明'])
+        ];
+        $profileMap = $this->getProductProfileMap();
+
+        for ($i = 1; $i < count($salesRows); $i++) {
+            $row = $salesRows[$i];
+            $d = $this->parseDate($this->getVal($row, $idx['date']));
+            if (!$d) continue;
+            $amt = $this->optFloat($this->getVal($row, $idx['amt']));
+            if ($amt <= 0) continue;
+            $custName = trim($this->getVal($row, $idx['cust']));
+            $custCode = trim($this->getVal($row, $idx['custCode']));
+            $note = trim($this->getVal($row, $idx['note']));
+            if ($this->isSampleRow($custCode, $custName, $note, $amt)) continue;
+            $code = $this->cleanSku($this->getVal($row, $idx['code']));
+            if ($code === '') continue;
+            $salesName = $this->normalizeSalesRep($this->getVal($row, $idx['sales']));
+            $profile = $profileMap[$code] ?? null;
+            $seriesCn = $profile ? (trim($profile['seriesCn'] ?: $profile['series']) ?: '') : '';
+            $perPing = $profile ? ($profile['perPing'] ?: 36) : 36;
+            $qty = $this->optFloat($this->getVal($row, $idx['qty']));
+            $pings = $qty > 0 ? $qty / $perPing : 0;
+            $item = [
+                'cust' => $custName, 'salesName' => $salesName, 'amt' => $amt,
+                'code' => $code, 'seriesCn' => $seriesCn, 'qty' => $qty,
+                'pings' => $pings, 'd' => $d
+            ];
+            if ($d >= $today) {
+                $result['todayItems'][] = $item;
+                $result['todayTotal'] += $amt;
+                $result['salesTodayMap'][$salesName] = ($result['salesTodayMap'][$salesName] ?? 0) + $amt;
+            }
+            if ($d >= $monthStart) {
+                $result['monthItems'][] = $item;
+                $result['monthTotal'] += $amt;
+                $result['salesMonthMap'][$salesName] = ($result['salesMonthMap'][$salesName] ?? 0) + $amt;
+            }
+            if ($d >= $yearStart) {
+                $result['ytdTotal'] += $amt;
+            }
+            if ($d >= $lyMonthStart && $d <= $lyToday) {
+                $result['lyMonthTotal'] += $amt;
+            }
+            if ($d >= $lyYearStart && $d <= $lyToday) {
+                $result['lyYtdTotal'] += $amt;
+            }
+            if (!$result['lastTxDate'] || $d > $result['lastTxDate']) {
+                $result['lastTxDate'] = $d;
+            }
+        }
+
+        // Build series ranking from display period
+        $result['displayItems'] = count($result['todayItems']) > 0 ? $result['todayItems'] : [];
+        $result['displayLabel'] = '當日';
+        if (count($result['todayItems']) === 0 && $result['lastTxDate']) {
+            $result['displayItems'] = array_values(array_filter($result['monthItems'], function ($item) use ($result) {
+                return $item['d'] == $result['lastTxDate'];
+            }));
+            $result['displayLabel'] = $result['lastTxDate']->format('m/d') . ' 交易';
+        }
+        $result['seriesRanking'] = $this->_buildSeriesRanking($result['displayItems']);
+
+        // Customer ranking
+        $custMap = [];
+        $custItems = [];
+        foreach ($result['displayItems'] as $item) {
+            $sn = $this->displayCustomerName($item['cust']);
+            $custMap[$sn] = ($custMap[$sn] ?? 0) + $item['amt'];
+            if (!isset($custItems[$sn])) $custItems[$sn] = [];
+            $custItems[$sn][] = $item;
+        }
+        arsort($custMap);
+        $result['custRanking'] = array_slice($custMap, 0, 10);
+        $result['custItems'] = $custItems;
+        $result['custTotalAmt'] = max(1, array_sum($custMap));
+
+        // Sales rep ranking
+        $allSales = array_unique(array_merge(
+            array_keys($result['salesTodayMap']),
+            array_keys($result['salesMonthMap'])
+        ));
+        $sorted = [];
+        foreach ($allSales as $name) {
+            $sorted[] = ['name' => $name, 'today' => $result['salesTodayMap'][$name] ?? 0, 'month' => $result['salesMonthMap'][$name] ?? 0];
+        }
+        usort($sorted, function ($a, $b) { return $b['today'] - $a['today']; });
+        $result['salesRanking'] = $sorted;
+        $result['salesTodayTotalAmt'] = max(1, array_sum($result['salesTodayMap']));
+
+        return $result;
+    }
+
+    private function _buildSeriesRanking($items)
+    {
+        $seriesMap = [];
+        $totalPings = 0;
+        foreach ($items as $item) {
+            $s = $item['seriesCn'] ?: '其他';
+            if (!isset($seriesMap[$s])) $seriesMap[$s] = ['pings' => 0, 'amount' => 0, 'skus' => []];
+            $seriesMap[$s]['pings'] += $item['pings'];
+            $seriesMap[$s]['amount'] += $item['amt'];
+            if (!isset($seriesMap[$s]['skus'][$item['code']])) {
+                $seriesMap[$s]['skus'][$item['code']] = ['pings' => 0, 'amount' => 0];
+            }
+            $seriesMap[$s]['skus'][$item['code']]['pings'] += $item['pings'];
+            $seriesMap[$s]['skus'][$item['code']]['amount'] += $item['amt'];
+            $totalPings += $item['pings'];
+        }
+        uasort($seriesMap, fn($a, $b) => $b['pings'] - $a['pings']);
+        $ranking = [];
+        foreach (array_slice($seriesMap, 0, 10) as $name => $s) {
+            $skuList = $s['skus'];
+            uasort($skuList, fn($a, $b) => $b['pings'] - $a['pings']);
+            $topSkus = [];
+            foreach (array_slice($skuList, 0, 2) as $sku => $sk) {
+                $topSkus[] = ['sku' => $sku, 'pings' => round($sk['pings'], 1)];
+            }
+            $ranking[] = [
+                'series' => $name,
+                'pings' => round($s['pings'], 1),
+                'amount' => round($s['amount']),
+                'pct' => $totalPings > 0 ? round($s['pings'] / $totalPings * 100, 1) : 0,
+                'skus' => $topSkus
+            ];
+        }
+        return $ranking;
+    }
+
+    private function _fmtYoy($cur, $prev)
+    {
+        if ($prev <= 0) return '<span style="color:#94a3b8">—</span>';
+        $pct = ($cur - $prev) / $prev * 100;
+        if ($pct > 0) return '<span style="color:#059669;font-weight:700">▲ +' . number_format($pct, 1) . '%</span>';
+        if ($pct < 0) return '<span style="color:#ef4444;font-weight:700">▼ ' . number_format($pct, 1) . '%</span>';
+        return '<span style="color:#94a3b8">0.0%</span>';
+    }
+
+    private function _buildEmailHtml($allData, $todayStr, $grandToday, $grandMonth, $grandYtd, $type)
+    {
+        $h = '<div style="font-family:-apple-system,\'PingFang TC\',sans-serif;max-width:780px;margin:0 auto;color:#1e293b;background:#f8fafc;padding:20px">';
+        $title = $type === 'main' ? '高雅瓷每日戰報' : '集團業績彙報';
+        $h .= '<div style="background:linear-gradient(135deg,#c29d66,#a07a4a);color:#fff;padding:16px 20px;border-radius:10px;margin-bottom:16px">';
+        $h .= '<h1 style="margin:0;font-size:20px">' . $title . ' — ' . $todayStr . '</h1>';
+        $h .= '<div style="display:flex;gap:24px;margin-top:10px;font-size:13px">';
+        $h .= '<div><span style="opacity:.7">集團今日</span><br><span style="font-size:22px;font-weight:800">' . $this->fmtW($grandToday) . '</span></div>';
+        $h .= '<div><span style="opacity:.7">集團本月</span><br><span style="font-size:22px;font-weight:800">' . $this->fmtW($grandMonth) . '</span></div>';
+        $h .= '<div><span style="opacity:.7">集團YTD</span><br><span style="font-size:22px;font-weight:800">' . $this->fmtW($grandYtd) . '</span></div>';
+        $h .= '</div></div>';
+
+        if ($type !== 'main') {
+            $h .= $this->_buildCompareSection($allData);
+        }
+
+        foreach ($allData as $d) {
+            $h .= $this->_buildCompanySection($d, $type === 'main');
+        }
+
+        $h .= '<div style="margin-top:20px;padding:12px 16px;background:#fff;border-radius:8px;border:1px solid #e2e8f0;text-align:center;font-size:12px;color:#64748b">';
+        $h .= '<a href="https://bigt.cc/sleeping-beauty/group_meeting.php" style="color:#c29d66;text-decoration:none;font-weight:600">🔗 查看完整集團月報（含互動式圖表）</a>';
+        $h .= '<br><span style="margin-top:6px;display:inline-block">睡美人戰情室 AI 自動發送</span></div>';
+        $h .= '</div>';
+        return $h;
+    }
+
+    private function _buildCompareSection($allData)
+    {
+        $h = '<table style="width:100%;border-collapse:collapse;margin-bottom:16px;background:#fff;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0">';
+        $h .= '<tr><th style="padding:10px 12px;background:#1e293b;color:#fff;font-size:12px;text-align:left">公司</th>';
+        foreach ($allData as $d) {
+            $h .= '<th style="padding:10px 12px;background:#1e293b;color:' . $d['co']['color'] . ';font-size:13px;text-align:center">' . $d['co']['name'] . '</th>';
+        }
+        $h .= '</tr>';
+
+        $rows = [
+            ['label' => '今日', 'fn' => fn($d) => $d['todayTotal'], 'fmt' => 'w'],
+            ['label' => '本月', 'fn' => fn($d) => $d['monthTotal'], 'fmt' => 'w'],
+            ['label' => 'YTD', 'fn' => fn($d) => $d['ytdTotal'], 'fmt' => 'w'],
+            ['label' => '月YOY', 'fn' => fn($d) => $d['lyMonthTotal'] > 0 ? ($d['monthTotal'] - $d['lyMonthTotal']) / $d['lyMonthTotal'] * 100 : null, 'fmt' => 'yoy'],
+            ['label' => 'YTD YOY', 'fn' => fn($d) => $d['lyYtdTotal'] > 0 ? ($d['ytdTotal'] - $d['lyYtdTotal']) / $d['lyYtdTotal'] * 100 : null, 'fmt' => 'yoy'],
+        ];
+        foreach ($rows as $rr) {
+            $h .= '<tr style="border-top:1px solid #e2e8f0">';
+            $h .= '<td style="padding:8px 12px;font-size:12px;color:#64748b;font-weight:600">' . $rr['label'] . '</td>';
+            foreach ($allData as $d) {
+                $val = $rr['fn']($d);
+                $cell = '';
+                if ($rr['fmt'] === 'yoy') {
+                    $cell = $val !== null ? $this->_fmtYoyPctPlain($val) : '<span style="color:#94a3b8">—</span>';
+                } else {
+                    $cell = '<span style="font-size:14px;font-weight:700">' . $this->fmtW($val) . '</span>';
+                }
+                $h .= '<td style="padding:8px 12px;text-align:center">' . $cell . '</td>';
+            }
+            $h .= '</tr>';
+        }
+
+        // 月份 YOY 的數值列（去年同期）
+        $h .= '<tr style="border-top:1px solid #e2e8f0">';
+        $h .= '<td style="padding:8px 12px;font-size:11px;color:#94a3b8;font-weight:400">去同月</td>';
+        foreach ($allData as $d) {
+            $h .= '<td style="padding:8px 12px;text-align:center;font-size:12px;color:#64748b">' . $this->fmtW($d['lyMonthTotal']) . '</td>';
+        }
+        $h .= '</tr>';
+        $h .= '<tr style="border-top:1px solid #e2e8f0">';
+        $h .= '<td style="padding:8px 12px;font-size:11px;color:#94a3b8;font-weight:400">去年YTD</td>';
+        foreach ($allData as $d) {
+            $h .= '<td style="padding:8px 12px;text-align:center;font-size:12px;color:#64748b">' . $this->fmtW($d['lyYtdTotal']) . '</td>';
+        }
+        $h .= '</tr>';
+        $h .= '</table>';
+        return $h;
+    }
+
+    private function _fmtYoyPctPlain($pct)
+    {
+        if ($pct > 0) return '<span style="color:#059669;font-weight:700">▲ +' . number_format($pct, 1) . '%</span>';
+        if ($pct < 0) return '<span style="color:#ef4444;font-weight:700">▼ ' . number_format($pct, 1) . '%</span>';
+        return '<span style="color:#94a3b8">0.0%</span>';
+    }
+
+    private function _buildCompanySection($d, $isMain)
+    {
+        $co = $d['co'];
+        $c = $co['color'];
+        $h = '<div style="background:#fff;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:16px;overflow:hidden">';
+        $h .= '<div style="background:' . $c . ';color:#fff;padding:10px 14px;font-size:15px;font-weight:700">' . $co['name'] . '</div>';
+        $h .= '<div style="padding:12px 14px">';
+
+        // KPI summary
+        $todayColor = $d['todayTotal'] > 0 ? '#059669' : '#94a3b8';
+        $lastTxNote = $d['todayTotal'] === 0 && $d['lastTxDate'] ? '（最後交易日：' . $d['lastTxDate']->format('Y/m/d') . '）' : '';
+        $h .= '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px;font-size:13px">';
+        $h .= '<div><span style="color:' . $todayColor . ';font-weight:700;font-size:16px">今日 ' . $this->fmtW($d['todayTotal']) . '</span>' . ($lastTxNote ? '<span style="color:#94a3b8;font-size:11px;margin-left:4px">' . $lastTxNote . '</span>' : '') . '</div>';
+        $h .= '<div><span style="color:#2563eb;font-weight:700;font-size:16px">本月 ' . $this->fmtW($d['monthTotal']) . '</span></div>';
+        $h .= '<div><span style="color:#7c3aed;font-weight:700;font-size:16px">YTD ' . $this->fmtW($d['ytdTotal']) . '</span></div>';
+        if (!$isMain) {
+            $myoy = $this->_fmtYoy($d['monthTotal'], $d['lyMonthTotal']);
+            $yoyYtd = $this->_fmtYoy($d['ytdTotal'], $d['lyYtdTotal']);
+            $h .= '<div style="font-size:12px;color:#64748b">月YOY ' . $myoy . ' &nbsp; YTD YOY ' . $yoyYtd . '</div>';
+        }
+        $h .= '</div>';
+
+        // Series ranking
+        if (count($d['seriesRanking']) > 0) {
+            $h .= '<div style="font-size:13px;font-weight:600;margin:10px 0 6px;color:' . $c . '">🏆 熱銷系列 Top 10（' . $d['displayLabel'] . '）</div>';
+            $h .= '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+            $h .= '<tr><th style="padding:3px 6px;text-align:left;color:#64748b;font-weight:500">#</th><th style="padding:3px 6px;text-align:left;color:#64748b;font-weight:500">系列</th><th style="padding:3px 6px;text-align:right;color:#64748b;font-weight:500">坪數</th><th style="padding:3px 6px;text-align:right;color:#64748b;font-weight:500">佔比</th><th style="padding:3px 6px;text-align:right;color:#64748b;font-weight:500">金額</th></tr>';
+            $rank = 0;
+            foreach ($d['seriesRanking'] as $sr) {
+                $rank++;
+                $h .= '<tr style="border-top:1px solid #f1f5f9">';
+                $h .= '<td style="padding:3px 6px;color:#94a3b8;font-size:11px">' . $rank . '</td>';
+                $h .= '<td style="padding:3px 6px;font-weight:600">' . $sr['series'] . '</td>';
+                $h .= '<td style="padding:3px 6px;text-align:right">' . number_format($sr['pings'], 1) . ' 坪</td>';
+                $h .= '<td style="padding:3px 6px;text-align:right;color:#64748b">' . $sr['pct'] . '%</td>';
+                $h .= '<td style="padding:3px 6px;text-align:right">' . $this->fmtW($sr['amount']) . '</td>';
+                $h .= '</tr>';
+                foreach ($sr['skus'] as $sk) {
+                    $h .= '<tr><td colspan="2" style="padding:1px 6px 1px 20px;font-size:11px;color:#94a3b8">├ ' . $sk['sku'] . '</td>';
+                    $h .= '<td style="padding:1px 6px;text-align:right;font-size:11px;color:#94a3b8">' . number_format($sk['pings'], 1) . ' 坪</td>';
+                    $h .= '<td colspan="2"></td></tr>';
+                }
+            }
+            $h .= '</table>';
+        }
+
+        // Customer ranking
+        if (count($d['custRanking']) > 0) {
+            $h .= '<div style="font-size:13px;font-weight:600;margin:10px 0 6px;color:' . $c . '">👥 客戶排行（' . $d['displayLabel'] . '）</div>';
+            $h .= '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+            $h .= '<tr><th style="padding:3px 6px;text-align:left;color:#64748b;font-weight:500">客戶</th><th style="padding:3px 6px;text-align:right;color:#64748b;font-weight:500">金額</th><th style="padding:3px 6px;text-align:right;color:#64748b;font-weight:500">佔比</th><th style="padding:3px 6px;color:#64748b;font-weight:500">明細</th></tr>';
+            foreach ($d['custRanking'] as $name => $amt) {
+                $items = $d['custItems'][$name] ?? [];
+                $detailParts = [];
+                foreach ($items as $item) {
+                    $detailParts[] = ($item['seriesCn'] ?: '') . ' ' . $item['code'] . ' ' . round($item['qty']) . '片';
+                }
+                $detail = implode('<br>', array_slice($detailParts, 0, 3));
+                if (count($detailParts) > 3) $detail .= '<br><span style="color:#94a3b8">…還有 ' . (count($detailParts) - 3) . ' 筆</span>';
+                $h .= '<tr style="border-top:1px solid #f1f5f9"><td style="padding:3px 6px">' . $name . '</td>';
+                $h .= '<td style="padding:3px 6px;text-align:right">' . $this->fmtW($amt) . '</td>';
+                $h .= '<td style="padding:3px 6px;text-align:right;color:#64748b">' . round($amt / $d['custTotalAmt'] * 100) . '%</td>';
+                $h .= '<td style="padding:3px 6px;font-size:11px;color:#64748b">' . $detail . '</td></tr>';
+            }
+            $h .= '</table>';
+        }
+
+        // Sales rep stats
+        if (count($d['salesRanking']) > 0) {
+            $h .= '<div style="font-size:13px;font-weight:600;margin:10px 0 6px;color:' . $c . '">📊 業務統計</div>';
+            $h .= '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+            $h .= '<tr><th style="padding:3px 6px;text-align:left;color:#64748b;font-weight:500">業務</th><th style="padding:3px 6px;text-align:right;color:#64748b;font-weight:500">當日</th><th style="padding:3px 6px;text-align:right;color:#64748b;font-weight:500">佔比</th><th style="padding:3px 6px;text-align:right;color:#64748b;font-weight:500">當月</th><th style="padding:3px 6px;text-align:right;color:#64748b;font-weight:500">佔比</th></tr>';
+            foreach ($d['salesRanking'] as $r) {
+                $h .= '<tr style="border-top:1px solid #f1f5f9"><td style="padding:3px 6px">' . $r['name'] . '</td>';
+                $h .= '<td style="padding:3px 6px;text-align:right">' . $this->fmtW($r['today']) . '</td>';
+                $h .= '<td style="padding:3px 6px;text-align:right;color:#64748b">' . round($r['today'] / $d['salesTodayTotalAmt'] * 100) . '%</td>';
+                $h .= '<td style="padding:3px 6px;text-align:right">' . $this->fmtW($r['month']) . '</td>';
+                $h .= '<td style="padding:3px 6px;text-align:right;color:#64748b">' . round($d['monthTotal'] > 0 ? $r['month'] / $d['monthTotal'] * 100 : 0) . '%</td></tr>';
+            }
+            $h .= '</table>';
+        }
+
+        $h .= '</div></div>';
+        return $h;
     }
 }
