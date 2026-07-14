@@ -46,7 +46,6 @@ trait MailTrait
 
         if ($ok && $type !== 'main') {
             $telegramText = $this->_buildTelegramSummary($allData, $grandToday, $grandMonth, $grandYtd, $todayStr);
-            $this->_sendTelegramMessage(TG_CHAT_BOSS, $telegramText);
             $this->_sendTelegramMessage(TG_CHAT_PRIVATE, $telegramText);
         }
 
