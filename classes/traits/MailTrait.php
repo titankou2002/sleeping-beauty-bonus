@@ -41,7 +41,8 @@ trait MailTrait
             'From: ' . ($fromEmail ?: DAILY_EMAIL_FROM),
         ];
 
-        $ok = mail($recipients, $subject, chunk_split($html, 990, "\n"), implode("\r\n", $headers));
+        $headers[] = 'Content-Transfer-Encoding: quoted-printable';
+        $ok = mail($recipients, $subject, quoted_printable_encode($html), implode("\r\n", $headers));
 
         if ($ok && $type !== 'main') {
             $telegramText = $this->_buildTelegramSummary($allData, $grandToday, $grandMonth, $grandYtd, $todayStr);
@@ -228,7 +229,7 @@ trait MailTrait
         $h .= '<div style="display:flex;gap:24px;margin-top:10px;font-size:13px">';
         $h .= '<div><span style="opacity:.7">集團今日</span><br><span style="font-size:22px;font-weight:800">' . $this->fmtW($grandToday) . '</span></div>';
         $h .= '<div><span style="opacity:.7">集團本月</span><br><span style="font-size:22px;font-weight:800">' . $this->fmtW($grandMonth) . '</span></div>';
-        $h .= '<div><span style="opacity:.7">集團YTD</span><br><span style="font-size:22px;font-weight:800">' . $this->fmtW($grandYtd) . '</span></div>';
+        $h .= '<div><span style="opacity:.7">年累計</span><br><span style="font-size:22px;font-weight:800">' . $this->fmtW($grandYtd) . '</span></div>';
         $h .= '</div></div>';
 
         if ($type !== 'main') {
@@ -258,9 +259,9 @@ trait MailTrait
         $rows = [
             ['label' => '今日', 'fn' => fn($d) => $d['todayTotal'], 'fmt' => 'w'],
             ['label' => '本月', 'fn' => fn($d) => $d['monthTotal'], 'fmt' => 'w'],
-            ['label' => 'YTD', 'fn' => fn($d) => $d['ytdTotal'], 'fmt' => 'w'],
-            ['label' => '月YOY', 'fn' => fn($d) => $d['lyMonthTotal'] > 0 ? ($d['monthTotal'] - $d['lyMonthTotal']) / $d['lyMonthTotal'] * 100 : null, 'fmt' => 'yoy'],
-            ['label' => 'YTD YOY', 'fn' => fn($d) => $d['lyYtdTotal'] > 0 ? ($d['ytdTotal'] - $d['lyYtdTotal']) / $d['lyYtdTotal'] * 100 : null, 'fmt' => 'yoy'],
+            ['label' => '年累計', 'fn' => fn($d) => $d['ytdTotal'], 'fmt' => 'w'],
+            ['label' => '月同比', 'fn' => fn($d) => $d['lyMonthTotal'] > 0 ? ($d['monthTotal'] - $d['lyMonthTotal']) / $d['lyMonthTotal'] * 100 : null, 'fmt' => 'yoy'],
+            ['label' => '年同比', 'fn' => fn($d) => $d['lyYtdTotal'] > 0 ? ($d['ytdTotal'] - $d['lyYtdTotal']) / $d['lyYtdTotal'] * 100 : null, 'fmt' => 'yoy'],
         ];
         foreach ($rows as $rr) {
             $h .= '<tr style="border-top:1px solid #e2e8f0">';
@@ -280,13 +281,13 @@ trait MailTrait
 
         // 月份 YOY 的數值列（去年同期）
         $h .= '<tr style="border-top:1px solid #e2e8f0">';
-        $h .= '<td style="padding:8px 12px;font-size:11px;color:#94a3b8;font-weight:400">去同月</td>';
+        $h .= '<td style="padding:8px 12px;font-size:11px;color:#94a3b8;font-weight:400">去年同月</td>';
         foreach ($allData as $d) {
             $h .= '<td style="padding:8px 12px;text-align:center;font-size:12px;color:#64748b">' . $this->fmtW($d['lyMonthTotal']) . '</td>';
         }
         $h .= '</tr>';
         $h .= '<tr style="border-top:1px solid #e2e8f0">';
-        $h .= '<td style="padding:8px 12px;font-size:11px;color:#94a3b8;font-weight:400">去年YTD</td>';
+        $h .= '<td style="padding:8px 12px;font-size:11px;color:#94a3b8;font-weight:400">去年同期</td>';
         foreach ($allData as $d) {
             $h .= '<td style="padding:8px 12px;text-align:center;font-size:12px;color:#64748b">' . $this->fmtW($d['lyYtdTotal']) . '</td>';
         }
@@ -316,11 +317,11 @@ trait MailTrait
         $h .= '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px;font-size:13px">';
         $h .= '<div><span style="color:' . $todayColor . ';font-weight:700;font-size:16px">今日 ' . $this->fmtW($d['todayTotal']) . '</span>' . ($lastTxNote ? '<span style="color:#94a3b8;font-size:11px;margin-left:4px">' . $lastTxNote . '</span>' : '') . '</div>';
         $h .= '<div><span style="color:#2563eb;font-weight:700;font-size:16px">本月 ' . $this->fmtW($d['monthTotal']) . '</span></div>';
-        $h .= '<div><span style="color:#7c3aed;font-weight:700;font-size:16px">YTD ' . $this->fmtW($d['ytdTotal']) . '</span></div>';
+        $h .= '<div><span style="color:#7c3aed;font-weight:700;font-size:16px">年累計 ' . $this->fmtW($d['ytdTotal']) . '</span></div>';
         if (!$isMain) {
             $myoy = $this->_fmtYoy($d['monthTotal'], $d['lyMonthTotal']);
             $yoyYtd = $this->_fmtYoy($d['ytdTotal'], $d['lyYtdTotal']);
-            $h .= '<div style="font-size:12px;color:#64748b">月YOY ' . $myoy . ' &nbsp; YTD YOY ' . $yoyYtd . '</div>';
+            $h .= '<div style="font-size:12px;color:#64748b">月同比 ' . $myoy . ' &nbsp; 年同比 ' . $yoyYtd . '</div>';
         }
         $h .= '</div>';
 
@@ -328,22 +329,19 @@ trait MailTrait
         if (count($d['seriesRanking']) > 0) {
             $h .= '<div style="font-size:13px;font-weight:600;margin:10px 0 6px;color:' . $c . '">🏆 熱銷系列 Top 10（' . $d['displayLabel'] . '）</div>';
             $h .= '<table style="width:100%;border-collapse:collapse;font-size:12px">';
-            $h .= '<tr><th style="padding:3px 6px;text-align:left;color:#64748b;font-weight:500">#</th><th style="padding:3px 6px;text-align:left;color:#64748b;font-weight:500">系列</th><th style="padding:3px 6px;text-align:right;color:#64748b;font-weight:500">坪數</th><th style="padding:3px 6px;text-align:right;color:#64748b;font-weight:500">佔比</th><th style="padding:3px 6px;text-align:right;color:#64748b;font-weight:500">金額</th></tr>';
+            $h .= '<tr style="background:#f8fafc"><th style="padding:4px 8px;text-align:left;color:#64748b;font-weight:500;font-size:11px">#</th><th style="padding:4px 8px;text-align:left;color:#64748b;font-weight:500;font-size:11px">系列</th><th style="padding:4px 8px;text-align:left;color:#64748b;font-weight:500;font-size:11px">品號</th><th style="padding:4px 8px;text-align:right;color:#64748b;font-weight:500;font-size:11px">坪數</th><th style="padding:4px 8px;text-align:right;color:#64748b;font-weight:500;font-size:11px">佔比</th><th style="padding:4px 8px;text-align:right;color:#64748b;font-weight:500;font-size:11px">金額</th></tr>';
             $rank = 0;
             foreach ($d['seriesRanking'] as $sr) {
                 $rank++;
+                $topSkuNames = implode(' / ', array_map(fn($sk) => $sk['sku'], $sr['skus']));
                 $h .= '<tr style="border-top:1px solid #f1f5f9">';
-                $h .= '<td style="padding:3px 6px;color:#94a3b8;font-size:11px">' . $rank . '</td>';
-                $h .= '<td style="padding:3px 6px;font-weight:600">' . $sr['series'] . '</td>';
-                $h .= '<td style="padding:3px 6px;text-align:right">' . number_format($sr['pings'], 1) . ' 坪</td>';
-                $h .= '<td style="padding:3px 6px;text-align:right;color:#64748b">' . $sr['pct'] . '%</td>';
-                $h .= '<td style="padding:3px 6px;text-align:right">' . $this->fmtW($sr['amount']) . '</td>';
+                $h .= '<td style="padding:4px 8px;color:#94a3b8;font-size:11px">' . $rank . '</td>';
+                $h .= '<td style="padding:4px 8px;font-weight:600">' . $sr['series'] . '</td>';
+                $h .= '<td style="padding:4px 8px;font-size:11px;color:#64748b">' . $topSkuNames . '</td>';
+                $h .= '<td style="padding:4px 8px;text-align:right">' . number_format($sr['pings'], 1) . ' 坪</td>';
+                $h .= '<td style="padding:4px 8px;text-align:right;color:#64748b">' . $sr['pct'] . '%</td>';
+                $h .= '<td style="padding:4px 8px;text-align:right;font-weight:600">' . $this->fmtW($sr['amount']) . '</td>';
                 $h .= '</tr>';
-                foreach ($sr['skus'] as $sk) {
-                    $h .= '<tr><td colspan="2" style="padding:1px 6px 1px 20px;font-size:11px;color:#94a3b8">├ ' . $sk['sku'] . '</td>';
-                    $h .= '<td style="padding:1px 6px;text-align:right;font-size:11px;color:#94a3b8">' . number_format($sk['pings'], 1) . ' 坪</td>';
-                    $h .= '<td colspan="2"></td></tr>';
-                }
             }
             $h .= '</table>';
         }
@@ -352,7 +350,7 @@ trait MailTrait
         if (count($d['custRanking']) > 0) {
             $h .= '<div style="font-size:13px;font-weight:600;margin:10px 0 6px;color:' . $c . '">👥 客戶排行（' . $d['displayLabel'] . '）</div>';
             $h .= '<table style="width:100%;border-collapse:collapse;font-size:12px">';
-            $h .= '<tr><th style="padding:3px 6px;text-align:left;color:#64748b;font-weight:500">客戶</th><th style="padding:3px 6px;text-align:right;color:#64748b;font-weight:500">金額</th><th style="padding:3px 6px;text-align:right;color:#64748b;font-weight:500">佔比</th><th style="padding:3px 6px;color:#64748b;font-weight:500">明細</th></tr>';
+            $h .= '<tr style="background:#f8fafc"><th style="padding:4px 8px;text-align:left;color:#64748b;font-weight:500;font-size:11px">客戶</th><th style="padding:4px 8px;text-align:right;color:#64748b;font-weight:500;font-size:11px">金額</th><th style="padding:4px 8px;text-align:right;color:#64748b;font-weight:500;font-size:11px">佔比</th><th style="padding:4px 8px;color:#64748b;font-weight:500;font-size:11px">明細</th></tr>';
             foreach ($d['custRanking'] as $name => $amt) {
                 $items = $d['custItems'][$name] ?? [];
                 $detailParts = [];
