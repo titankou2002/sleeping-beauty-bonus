@@ -499,8 +499,8 @@ try {
                 echo json_encode(['success' => false, 'msg' => 'invalid token']);
                 break;
             }
-            $to = $_GET['to'] ?: DAILY_EMAIL_TO;
-            $from = $_GET['from'] ?: DAILY_EMAIL_FROM;
+            $to = $_GET['to'] ?? DAILY_EMAIL_TO;
+            $from = $_GET['from'] ?? DAILY_EMAIL_FROM;
             $type = $_GET['type'] ?? 'group';
             $res = $svc->sendDailyPerformanceReport($to, $from, $type);
             echo json_encode($res, JSON_UNESCAPED_UNICODE);
