@@ -12,9 +12,9 @@ trait MailTrait
         $lyYearStart = (new DateTime($today->format('Y-01-01')))->modify('-1 year');
 
         $allCompanies = [
-            ['key' => 'main', 'name' => '高雅瓷', 'ssId' => SS_ID_MAIN, 'color' => '#c29d66'],
-            ['key' => 'andyga', 'name' => '安帝嘉', 'ssId' => SS_ID_ANDYGA, 'color' => '#10b981'],
-            ['key' => 'xiyena', 'name' => '喜悅納', 'ssId' => SS_ID_XIYENA, 'color' => '#38bdf8'],
+            ['key' => 'main',   'name' => '高雅瓷', 'ssId' => SS_ID_MAIN,   'color' => '#c29d66', 'sheet' => SALES_SHEET],
+            ['key' => 'andyga', 'name' => '安帝嘉', 'ssId' => SS_ID_ANDYGA, 'color' => '#10b981', 'sheet' => SALES_SHEET],
+            ['key' => 'xiyena', 'name' => '喜悅納', 'ssId' => SS_ID_XIYENA, 'color' => '#38bdf8', 'sheet' => '月報表'],
         ];
         $companies = $type === 'main' ? array_slice($allCompanies, 0, 1) : $allCompanies;
 
@@ -68,7 +68,7 @@ trait MailTrait
 
         try {
             $gs = $this->getClient($co['ssId']);
-            $salesRows = $gs->readSheet(SALES_SHEET);
+            $salesRows = $gs->readSheet($co['sheet'] ?? SALES_SHEET);
         } catch (Exception $e) {
             $salesRows = [];
         }
@@ -460,9 +460,9 @@ trait MailTrait
         $lyYearStart = (new DateTime($today->format('Y-01-01')))->modify('-1 year');
 
         $allCompanies = [
-            ['key' => 'main',   'name' => '高雅瓷', 'ssId' => SS_ID_MAIN,   'color' => '#c29d66'],
-            ['key' => 'andyga', 'name' => '安帝嘉', 'ssId' => SS_ID_ANDYGA, 'color' => '#10b981'],
-            ['key' => 'xiyena', 'name' => '喜悅納', 'ssId' => SS_ID_XIYENA, 'color' => '#38bdf8'],
+            ['key' => 'main',   'name' => '高雅瓷', 'ssId' => SS_ID_MAIN,   'color' => '#c29d66', 'sheet' => SALES_SHEET],
+            ['key' => 'andyga', 'name' => '安帝嘉', 'ssId' => SS_ID_ANDYGA, 'color' => '#10b981', 'sheet' => SALES_SHEET],
+            ['key' => 'xiyena', 'name' => '喜悅納', 'ssId' => SS_ID_XIYENA, 'color' => '#38bdf8', 'sheet' => '月報表'],
         ];
 
         $allData = [];
