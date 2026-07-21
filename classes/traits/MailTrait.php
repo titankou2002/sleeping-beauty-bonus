@@ -448,4 +448,54 @@ trait MailTrait
         if ($pct < 0) return '🔴 ' . number_format($pct, 1) . '%';
         return '⚪ 0.0%';
     }
+
+    public function sendDailyTelegramReport($chatId = null)
+    {
+        $today = new DateTime('today');
+        $todayStr = $today->format('Y/m/d');
+        $monthStart = new DateTime($today->format('Y-m-01'));
+        $yearStart = new DateTime($today->format('Y-01-01'));
+        $lyToday = (new DateTime('today'))->modify('-1 year');
+        $lyMonthStart = (new DateTime($today->format('Y-m-01')))->modify('-1 year');
+        $lyYearStart = (new DateTime($today->format('Y-01-01')))->modify('-1 year');
+
+        $allCompanies = [
+            ['key' => 'main',   'name' => '高雅瓷', 'ssId' => SS_ID_MAIN,   'color' => '#c29d66'],
+            ['key' => 'andyga', 'name' => '安帝嘉', 'ssId' => SS_ID_ANDYGA, 'color' => '#10b981'],
+            ['key' => 'xiyena', 'name' => '喜悅納', 'ssId' => SS_ID_XIYENA, 'color' => '#38bdf8'],
+        ];
+
+        $allData = [];
+        $grandToday = 0;
+        $grandMonth = 0;
+        $grandYtd = 0;
+        $mostRecentTxDate = null;
+
+        foreach ($allCompanies as $co) {
+            $data = $this->_collectSalesData($co, $today, $monthStart, $yearStart, $lyToday, $lyMonthStart, $lyYearStart);
+            $allData[] = $data;
+            $grandToday += $data['todayTotal'];
+            $grandMonth += $data['monthTotal'];
+            $grandYtd += $data['ytdTotal'];
+            if ($data['lastTxDate'] && (!$mostRecentTxDate || $data['lastTxDate'] > $mostRecentTxDate)) {
+                $mostRecentTxDate = $data['lastTxDate'];
+            }
+        }
+
+        if (!$mostRecentTxDate) {
+            return ['success' => false, 'skipped' => true, 'reason' => 'no data'];
+        }
+
+        // 5天內沒有新資料就不推（跨連假最多4天，第5天還沒資料代表真的沒更新）
+        $daysSince = (int)(new DateTime('today'))->diff($mostRecentTxDate)->days;
+        if ($daysSince >= 5) {
+            return ['success' => false, 'skipped' => true, 'reason' => 'stale', 'lastTxDate' => $mostRecentTxDate->format('Y-m-d'), 'daysSince' => $daysSince];
+        }
+
+        $text = $this->_buildTelegramSummary($allData, $grandToday, $grandMonth, $grandYtd, $todayStr);
+        $target = $chatId ?: TG_CHAT_PRIVATE;
+        $ok = $this->_sendTelegramMessage($target, $text);
+
+        return ['success' => $ok, 'todayTotal' => $grandToday, 'monthTotal' => $grandMonth, 'lastTxDate' => $mostRecentTxDate->format('Y-m-d'), 'daysSince' => $daysSince];
+    }
 }

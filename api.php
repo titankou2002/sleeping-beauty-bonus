@@ -506,6 +506,18 @@ try {
             echo json_encode($res, JSON_UNESCAPED_UNICODE);
             break;
 
+        case 'send-daily-telegram':
+            $token = $_GET['token'] ?? '';
+            if ($token !== CRON_TOKEN) {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'msg' => 'invalid token']);
+                break;
+            }
+            $chatId = $_GET['chat_id'] ?? null;
+            $res = $svc->sendDailyTelegramReport($chatId);
+            echo json_encode($res, JSON_UNESCAPED_UNICODE);
+            break;
+
         default:
             http_response_code(400);
             echo json_encode(['success' => false, 'msg' => '未知 action: ' . $action]);
