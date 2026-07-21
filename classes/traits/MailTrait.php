@@ -42,7 +42,7 @@ trait MailTrait
             'To: ' . $recipients
         ];
 
-        $ok = mail($recipients, $subject, $html, implode("\r\n", $headers));
+        $ok = mail($recipients, $subject, chunk_split($html, 990, "\n"), implode("\r\n", $headers));
 
         if ($ok && $type !== 'main') {
             $telegramText = $this->_buildTelegramSummary($allData, $grandToday, $grandMonth, $grandYtd, $todayStr);
