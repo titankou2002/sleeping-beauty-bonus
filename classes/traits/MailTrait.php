@@ -61,6 +61,9 @@ trait MailTrait
             'todayItems' => [], 'monthItems' => [],
             'lastTxDate' => null,
             'salesTodayMap' => [], 'salesMonthMap' => [],
+            'seriesRanking' => [], 'custRanking' => [], 'custItems' => [],
+            'custTotalAmt' => 1, 'salesRanking' => [], 'salesTodayTotalAmt' => 1,
+            'displayItems' => [], 'displayLabel' => '',
         ];
 
         try {
