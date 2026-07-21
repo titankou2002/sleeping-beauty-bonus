@@ -493,7 +493,7 @@ trait MailTrait
         }
 
         $text = $this->_buildTelegramSummary($allData, $grandToday, $grandMonth, $grandYtd, $todayStr);
-        $target = $chatId ?: TG_CHAT_PRIVATE;
+        $target = $chatId ?: TG_CHAT_BULLETIN;
         $ok = $this->_sendTelegramMessage($target, $text);
 
         return ['success' => $ok, 'todayTotal' => $grandToday, 'monthTotal' => $grandMonth, 'lastTxDate' => $mostRecentTxDate->format('Y-m-d'), 'daysSince' => $daysSince];
