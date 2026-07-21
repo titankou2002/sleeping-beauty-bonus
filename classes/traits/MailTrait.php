@@ -1,6 +1,57 @@
 <?php
 trait MailTrait
 {
+    public function getDailyReport($dateStr = null)
+    {
+        $today = $dateStr ? new DateTime($dateStr) : new DateTime('today');
+        $todayStr = $today->format('Y/m/d');
+        $monthStart = new DateTime($today->format('Y-m-01'));
+        $yearStart  = new DateTime($today->format('Y-01-01'));
+        $lyToday     = (clone $today)->modify('-1 year');
+        $lyMonthStart = (clone $monthStart)->modify('-1 year');
+        $lyYearStart  = (clone $yearStart)->modify('-1 year');
+
+        $allCompanies = [
+            ['key' => 'main',   'name' => '高雅瓷', 'ssId' => SS_ID_MAIN,   'color' => '#c29d66', 'sheet' => SALES_SHEET],
+            ['key' => 'andyga', 'name' => '安帝嘉', 'ssId' => SS_ID_ANDYGA, 'color' => '#10b981', 'sheet' => SALES_SHEET],
+            ['key' => 'xiyena', 'name' => '喜悅納', 'ssId' => SS_ID_XIYENA, 'color' => '#38bdf8', 'sheet' => '月報表'],
+        ];
+
+        $allData = [];
+        $grandToday = 0;
+        $grandMonth = 0;
+        $grandYtd   = 0;
+
+        foreach ($allCompanies as $co) {
+            $d = $this->_collectSalesData($co, $today, $monthStart, $yearStart, $lyToday, $lyMonthStart, $lyYearStart);
+            $grandToday += $d['todayTotal'];
+            $grandMonth += $d['monthTotal'];
+            $grandYtd   += $d['ytdTotal'];
+
+            // Serialize DateTime objects for JSON
+            $d['lastTxDate'] = $d['lastTxDate'] ? $d['lastTxDate']->format('Y-m-d') : null;
+            foreach ($d['todayItems'] as &$item) {
+                $item['d'] = $item['d'] ? $item['d']->format('Y-m-d') : null;
+            }
+            foreach ($d['displayItems'] as &$item) {
+                $item['d'] = $item['d'] ? $item['d']->format('Y-m-d') : null;
+            }
+            unset($item);
+            // Remove monthItems (too large, not needed by page)
+            unset($d['monthItems']);
+            $allData[] = $d;
+        }
+
+        return [
+            'success'     => true,
+            'date'        => $todayStr,
+            'grandToday'  => $grandToday,
+            'grandMonth'  => $grandMonth,
+            'grandYtd'    => $grandYtd,
+            'companies'   => $allData,
+        ];
+    }
+
     public function sendDailyPerformanceReport($recipients, $fromEmail = '', $type = 'group')
     {
         $today = new DateTime('today');
@@ -290,7 +341,8 @@ trait MailTrait
 
         // ── Footer ──
         $h .= '<tr><td style="background:#fff;border-radius:0 0 10px 10px;padding:14px 20px;text-align:center;border-top:1px solid #e2e8f0">';
-        $h .= '<a href="https://bigt.cc/sleeping-beauty/group_meeting.php" style="color:#b8935a;text-decoration:none;font-weight:600;font-size:13px">🔗 查看完整集團月報</a>';
+        $h .= '<a href="https://bigt.cc/sleeping-beauty/daily.php" style="color:#b8935a;text-decoration:none;font-weight:600;font-size:13px">🔗 每日戰報</a>';
+        $h .= ' &nbsp; <a href="https://bigt.cc/sleeping-beauty/group_meeting.php" style="color:#94a3b8;text-decoration:none;font-size:12px">集團月報</a>';
         $h .= '<div style="color:#94a3b8;font-size:11px;margin-top:6px">睡美人戰情室 自動發送</div>';
         $h .= '</td></tr>';
 
@@ -450,7 +502,7 @@ trait MailTrait
         }
 
         $lines[] = '';
-        $lines[] = '<a href="https://bigt.cc/sleeping-beauty/group_meeting.php">🔗 完整集團月報</a>';
+        $lines[] = '<a href="https://bigt.cc/sleeping-beauty/daily.php">🔗 每日戰報</a>　<a href="https://bigt.cc/sleeping-beauty/group_meeting.php">集團月報</a>';
         return implode("\n", $lines);
     }
 

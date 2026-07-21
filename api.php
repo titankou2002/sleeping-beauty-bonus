@@ -492,6 +492,16 @@ try {
             echo json_encode($res, JSON_UNESCAPED_UNICODE);
             break;
 
+        case 'daily-report':
+            try {
+                $date = $_GET['date'] ?? null;
+                $res = $svc->getDailyReport($date);
+                echo json_encode($res, JSON_UNESCAPED_UNICODE);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'msg' => 'daily-report 錯誤: ' . $e->getMessage()]);
+            }
+            break;
+
         case 'send-daily-email':
             $token = $_GET['token'] ?? '';
             if ($token !== CRON_TOKEN) {
