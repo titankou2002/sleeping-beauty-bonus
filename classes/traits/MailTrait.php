@@ -412,33 +412,35 @@ trait MailTrait
     private function _buildTelegramSummary($allData, $grandToday, $grandMonth, $grandYtd, $todayStr)
     {
         $lines = [];
-        $lines[] = '<b>📊 集團業績彙報 — ' . $todayStr . '</b>';
+        $lines[] = '<b>📊 集團業績彙報 ─ ' . $todayStr . '</b>';
         $lines[] = '';
-        $lines[] = '集團今日：<b>' . $this->fmtW($grandToday) . '</b>  本月：<b>' . $this->fmtW($grandMonth) . '</b>  YTD：<b>' . $this->fmtW($grandYtd) . '</b>';
-        $lines[] = '';
+        $lines[] = '今日 <b>' . $this->fmtW($grandToday) . '</b>　本月 <b>' . $this->fmtW($grandMonth) . '</b>　年累計 <b>' . $this->fmtW($grandYtd) . '</b>';
+        $lines[] = '─────────────────';
 
         $emoji = ['高雅瓷' => '🟤', '安帝嘉' => '🟢', '喜悅納' => '🔵'];
         foreach ($allData as $d) {
             $co = $d['co'];
             $e = $emoji[$co['name']] ?? '●';
-            $lines[] = $e . ' <b>' . $co['name'] . '</b>';
-            $lines[] = '  今日 ' . $this->fmtW($d['todayTotal']) . '  本月 ' . $this->fmtW($d['monthTotal']) . '  YTD ' . $this->fmtW($d['ytdTotal']);
+            $lines[] = '';
+            $lines[] = $e . ' <b>' . $co['name'] . '</b>　本月 ' . $this->fmtW($d['monthTotal']) . '　年累計 ' . $this->fmtW($d['ytdTotal']);
             if ($d['lyMonthTotal'] > 0) {
                 $mYoy = ($d['monthTotal'] - $d['lyMonthTotal']) / $d['lyMonthTotal'] * 100;
-                $yYoy = ($d['ytdTotal'] - $d['lyYtdTotal']) / $d['lyYtdTotal'] * 100;
-                $lines[] = '  月YOY ' . $this->_tgYoy($mYoy) . '  YTD YOY ' . $this->_tgYoy($yYoy);
+                $yYoy = $d['lyYtdTotal'] > 0 ? ($d['ytdTotal'] - $d['lyYtdTotal']) / $d['lyYtdTotal'] * 100 : null;
+                $yoyStr = $yYoy !== null ? '　年同比 ' . $this->_tgYoy($yYoy) : '';
+                $lines[] = '月同比 ' . $this->_tgYoy($mYoy) . $yoyStr;
             }
-            $topSeries = array_slice($d['seriesRanking'], 0, 5);
+            $topSeries = array_slice($d['seriesRanking'], 0, 3);
             if (count($topSeries) > 0) {
-                $lines[] = '  🏆 熱銷 Top 5：';
+                $parts = [];
                 foreach ($topSeries as $sr) {
-                    $lines[] = '    ' . $sr['series'] . ' ' . number_format($sr['pings'], 1) . '坪 ' . $sr['pct'] . '%';
+                    $parts[] = $sr['series'] . ' ' . $sr['pct'] . '%';
                 }
+                $lines[] = '🏆 ' . implode('　', $parts);
             }
-            $lines[] = '';
         }
 
-        $lines[] = '<a href="https://bigt.cc/sleeping-beauty/group_meeting.php">🔗 看完整集團月報</a>';
+        $lines[] = '';
+        $lines[] = '<a href="https://bigt.cc/sleeping-beauty/group_meeting.php">🔗 完整集團月報</a>';
         return implode("\n", $lines);
     }
 
