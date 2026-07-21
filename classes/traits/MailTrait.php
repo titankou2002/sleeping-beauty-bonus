@@ -39,7 +39,6 @@ trait MailTrait
             'MIME-Version: 1.0',
             'Content-type: text/html; charset=utf-8',
             'From: ' . ($fromEmail ?: DAILY_EMAIL_FROM),
-            'To: ' . $recipients
         ];
 
         $ok = mail($recipients, $subject, chunk_split($html, 990, "\n"), implode("\r\n", $headers));
