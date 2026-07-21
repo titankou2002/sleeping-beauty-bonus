@@ -415,7 +415,7 @@ try {
 
         case 'clear-opcache':
             $token = $_GET['token'] ?? '';
-            if ($token !== 'be4109677a907a4e5fab34f9bf302fb2') {
+            if ($token !== CRON_TOKEN) {
                 http_response_code(403);
                 echo json_encode(['success' => false, 'msg' => 'forbidden']);
                 break;

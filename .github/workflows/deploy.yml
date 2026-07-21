@@ -45,4 +45,4 @@ jobs:
 
       - name: Clear OPcache
         run: |
-          curl -s "https://bigt.cc/sleeping-beauty/api.php?action=clear-opcache&token=be4109677a907a4e5fab34f9bf302fb2"
+          curl -s "https://bigt.cc/sleeping-beauty/api.php?action=clear-opcache&token=sb-cron-2026-rebuild"
