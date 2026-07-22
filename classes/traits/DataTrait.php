@@ -353,9 +353,10 @@ trait DataTrait
         return $map;
     }
 
-    public function getProductProfileMap()
+    public function getProductProfileMap($gsClient = null)
     {
-        $data = $this->gs->readSheet(PRICE_SHEET);
+        $gs = $gsClient ?? $this->gs;
+        $data = $gs->readSheet(PRICE_SHEET);
         if (count($data) < 2) return [];
 
         $h = $data[0];

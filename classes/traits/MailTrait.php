@@ -136,7 +136,7 @@ trait MailTrait
             'qty' => $this->findHeader($h, ['數量','片數']),
             'note' => $this->findHeader($h, ['備註','說明'])
         ];
-        $profileMap = $this->getProductProfileMap();
+        $profileMap = $this->getProductProfileMap($gs);
 
         for ($i = 1; $i < count($salesRows); $i++) {
             $row = $salesRows[$i];
@@ -158,7 +158,8 @@ trait MailTrait
             $pings = $qty > 0 ? $qty / $perPing : 0;
             $item = [
                 'cust' => $custName, 'custShort' => $this->displayCustomerName($custName),
-                'salesName' => $salesName, 'amt' => $amt,
+                'salesName' => $salesName, 'salesShort' => mb_substr($salesName, -2, 2, 'UTF-8'),
+                'amt' => $amt,
                 'code' => $code, 'seriesCn' => $seriesCn, 'qty' => $qty,
                 'pings' => $pings, 'd' => $d
             ];

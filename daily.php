@@ -206,7 +206,7 @@ function buildCoCard(d) {
         <td>${i.code}</td>
         <td class="r">${i.qty > 0 ? Math.round(i.qty) + '片' : ''}</td>
         <td class="r">${fmtW(i.amt)}</td>
-        <td>${i.salesName || ''}</td>
+        <td>${i.salesShort || i.salesName || ''}</td>
       </tr>`).join('');
     txHtml = `
       <div class="sec-title">📋 ${d.displayLabel} 明細</div>
