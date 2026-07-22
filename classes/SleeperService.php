@@ -41,24 +41,45 @@ class SleeperService
         return preg_replace('/[()（）【】\[\]「」『』,，.。\/／:：\s]+/u', '', trim((string)$name));
     }
 
+    private static $custNameExceptions = [
+        '夏綠蒂', '德思特尼', '百事得', '百達富麗', '鑫東聖', '海格斯',
+        '信義星', '好仕齊', '新睦豐', '富利鴻', '金豪益',
+    ];
+
     private function displayCustomerName($name)
     {
         $s = $this->normalizeCustomerName($name);
         if ($s === '') return '未知客戶';
+
+        // 固定合併清單（順序重要：長名在前）
+        if (mb_strpos($s, '德思特尼') !== false || mb_strpos($s, '德思') !== false) return '德思特尼';
         if (mb_strpos($s, '漢樺') !== false || mb_strpos($s, '波爾泰') !== false) return '漢樺';
         if (mb_strpos($s, '大永') !== false || mb_strpos($s, '新大永') !== false) return '大永';
         if (mb_strpos($s, '伊特') !== false || mb_strpos($s, '喬弈') !== false || mb_strpos($s, '喬翌') !== false) return '伊特';
         if (mb_strpos($s, '鏷城') !== false || mb_strpos($s, '璞城') !== false) return '鏷城';
         if (mb_strpos($s, '鼎康') !== false || mb_strpos($s, '鼎晨') !== false) return '鼎晨';
         if (mb_strpos($s, '今冠') !== false || mb_strpos($s, '金冠') !== false) return '金冠';
-        if (mb_strpos($s, '東春') !== false || mb_strpos($s, '滿財') !== false) return '東春';
-        if (mb_strpos($s, '德思特尼') !== false || mb_strpos($s, '德思') !== false) return '德思特尼';
-        // 客戶合併規則 (2026-06-22 新增)
+        if (mb_strpos($s, '東春') !== false || mb_strpos($s, '滿財') !== false) return '滿財';
+        if (mb_strpos($s, '傅邦') !== false || mb_strpos($s, '盛邦') !== false) return '傅邦';
+        if (mb_strpos($s, '錦義') !== false || mb_strpos($s, '睿敏') !== false) return '錦義';
+        if (mb_strpos($s, '高頓') !== false || mb_strpos($s, '馬來高') !== false) return '馬來高';
         if (mb_strpos($s, '太爾') !== false) return '信義星';
         if (mb_strpos($s, '琮達') !== false) return '琮威';
 
+        // 前二字匹配（專岩 / 禾昇）
+        $prefix2 = mb_substr($s, 0, 2, 'UTF-8');
+        if ($prefix2 === '專岩') return '專岩';
+        if ($prefix2 === '禾昇') return '禾昇';
+
         $parts = preg_split('/[-－—]/u', $s);
         $s = $parts[0] ?? $s;
+
+        // 保留完整名稱的例外
+        foreach (self::$custNameExceptions as $ex) {
+            if (mb_strpos($s, $ex) !== false) return $ex;
+        }
+
+        // 移除公司後綴
         $changed = true;
         while ($changed) {
             $changed = false;

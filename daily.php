@@ -201,7 +201,7 @@ function buildCoCard(d) {
   if (d.displayItems.length > 0) {
     const rows = d.displayItems.map(i => `
       <tr>
-        <td>${i.cust}</td>
+        <td>${i.custShort || i.cust}</td>
         <td>${i.seriesCn || ''}</td>
         <td>${i.code}</td>
         <td class="r">${i.qty > 0 ? Math.round(i.qty) + '片' : ''}</td>

@@ -157,7 +157,8 @@ trait MailTrait
             $qty = $this->optFloat($this->getVal($row, $idx['qty']));
             $pings = $qty > 0 ? $qty / $perPing : 0;
             $item = [
-                'cust' => $custName, 'salesName' => $salesName, 'amt' => $amt,
+                'cust' => $custName, 'custShort' => $this->displayCustomerName($custName),
+                'salesName' => $salesName, 'amt' => $amt,
                 'code' => $code, 'seriesCn' => $seriesCn, 'qty' => $qty,
                 'pings' => $pings, 'd' => $d
             ];
