@@ -130,7 +130,7 @@ require_once __DIR__ . '/config.php';
       <button class="btn-primary" onclick="loadReport()">📊 載入報表</button>
       <button style="background:rgba(194,157,102,.15);border-color:rgba(194,157,102,.5);color:var(--gold)" onclick="rebuildAllCaches()">🔄 同步全部快取</button>
       <span id="cache-info-group" style="font-size:11px;color:var(--muted)"></span>
-      <a class="btn-link" href="daily.php">📅 每日戰報</a>
+      <a class="btn-link" href="daily.php">📅 每日戰報 </a>
       <a class="btn-link" href="meeting.php">高雅瓷月報</a>
       <a class="btn-link" href="index.php">回首頁</a>
     </div>
