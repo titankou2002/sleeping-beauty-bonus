@@ -45,4 +45,7 @@ jobs:
 
       - name: Clear OPcache
         run: |
+          for i in $(seq 1 12); do
+            curl -s "https://bigt.cc/sleeping-beauty/api.php?action=clear-opcache&token=sb-cron-2026-rebuild" > /dev/null
+          done
           curl -s "https://bigt.cc/sleeping-beauty/api.php?action=clear-opcache&token=sb-cron-2026-rebuild"

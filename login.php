@@ -10,8 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = $_POST['password'] ?? '';
     if ($password === ACCESS_PASSWORD) {
         $_SESSION['war_room_auth'] = true;
-        $redirect = $_GET['redirect'] ?? 'daily.php';
-        header("Location: $redirect");
+        header("Location: daily.php");
         exit;
     } else {
         $error = '密碼錯誤，請重新輸入';
