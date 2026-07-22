@@ -10,7 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = $_POST['password'] ?? '';
     if ($password === ACCESS_PASSWORD) {
         $_SESSION['war_room_auth'] = true;
-        $redirect = $_GET['redirect'] ?? 'group_meeting.php';
+        $redirect = $_GET['redirect'] ?? 'daily.php';
         header("Location: $redirect");
         exit;
     } else {

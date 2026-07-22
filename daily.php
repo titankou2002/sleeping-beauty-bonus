@@ -98,7 +98,7 @@ require_once __DIR__ . '/config.php';
       <input type="date" id="date-input">
       <button class="btn-primary" onclick="load()">查詢</button>
       <button onclick="load()">🔄 重整</button>
-      <a class="btn-link" href="group_meeting.php">📊 月報</a>
+      <a class="btn-link" href="group_meeting.php">📊 集團月報</a>
       <span id="last-update"></span>
     </div>
   </div>
