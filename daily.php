@@ -76,7 +76,9 @@ require_once __DIR__ . '/config.php';
     tr.pad-row:hover td{background:none}
     .fixed-tbl.collapsed tr.extra-row{display:none}
     .fixed-tbl:not(.collapsed) tr.pad-row{display:none}
-    .more-btn{width:100%;background:rgba(194,157,102,.08);border:1px solid var(--line);border-radius:4px;color:var(--muted);font-size:11px;font-weight:600;padding:4px 0;margin-top:4px;cursor:pointer;transition:all .2s}
+    /* 展開按鈕與其佔位：高度一致，確保下方區塊在各卡片對齊 */
+    .more-slot{display:block;width:100%;box-sizing:border-box;height:24px;margin-top:4px}
+    .more-btn{background:rgba(194,157,102,.08);border:1px solid var(--line);border-radius:4px;color:var(--muted);font-size:11px;font-weight:600;padding:0;line-height:22px;cursor:pointer;transition:all .2s}
     .more-btn:hover{border-color:var(--gold);color:var(--gold);background:rgba(194,157,102,.16)}
 
     /* Collapsible */
@@ -168,10 +170,10 @@ function padRows(count, cols, target) {
   return `<tr class="pad-row">${blank}</tr>`.repeat(need);
 }
 
-// 超過固定列數時顯示展開／收合按鈕
+// 超過固定列數時顯示展開／收合按鈕；未超過時保留等高佔位，避免各卡片高度不一
 function moreBtn(count) {
-  if (count <= ROWS) return '';
-  return `<button class="more-btn" data-n="${count}" onclick="toggleMore(this)">▾ 展開全部 ${count} 家</button>`;
+  if (count <= ROWS) return `<div class="more-slot"></div>`;
+  return `<button class="more-btn more-slot" data-n="${count}" onclick="toggleMore(this)">▾ 展開全部 ${count} 家</button>`;
 }
 
 function toggleMore(btn) {
@@ -304,7 +306,10 @@ function buildCoCard(d) {
         ${moreBtn(custRows.length)}
       </div>`;
   } else {
-    txHtml = `<div class="no-data" style="height:${ROWS*ROW_H}px;display:flex;align-items:center;justify-content:center">今日暫無出貨資料</div>`;
+    txHtml = `
+      <div class="sec-title">📋 明細</div>
+      <div class="no-data" style="height:${ROWS*ROW_H + 24}px;display:flex;align-items:center;justify-content:center;padding:0">今日暫無出貨資料</div>
+      <div class="more-slot"></div>`;
   }
 
   // 熱銷系列 Top10：負坪數（退貨）不顯示，固定 10 列高度
