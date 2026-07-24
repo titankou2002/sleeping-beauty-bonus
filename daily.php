@@ -70,6 +70,15 @@ require_once __DIR__ . '/config.php';
 
     .no-data{font-size:13px;color:var(--muted);padding:16px 0;text-align:center}
 
+    /* 固定高度表格：統一各公司卡片高度 */
+    .tbl td{height:25px}
+    tr.pad-row td{border-bottom:1px solid rgba(255,255,255,.03);color:transparent;cursor:default}
+    tr.pad-row:hover td{background:none}
+    .fixed-tbl.collapsed tr.extra-row{display:none}
+    .fixed-tbl:not(.collapsed) tr.pad-row{display:none}
+    .more-btn{width:100%;background:rgba(194,157,102,.08);border:1px solid var(--line);border-radius:4px;color:var(--muted);font-size:11px;font-weight:600;padding:4px 0;margin-top:4px;cursor:pointer;transition:all .2s}
+    .more-btn:hover{border-color:var(--gold);color:var(--gold);background:rgba(194,157,102,.16)}
+
     /* Collapsible */
     .collapsible-btn{width:100%;background:none;border:none;color:var(--muted);font-size:12px;text-align:left;padding:6px 0;cursor:pointer;display:flex;align-items:center;gap:4px;border-top:1px solid var(--line);margin-top:8px}
     .collapsible-btn:hover{color:var(--text)}
@@ -147,17 +156,39 @@ require_once __DIR__ . '/config.php';
 
 <script>
 const COL = {高雅瓷:'#c29d66', 安帝嘉:'#10b981', 喜悅納:'#38bdf8'};
+const ROWS = 10;        // 交易明細／熱銷系列 固定列數
+const CUST_ROWS = 15;   // 客戶排行 固定列數
+const ROW_H = 25;       // 每列高度(px)，用於留白對齊
 
+// 不足固定列數時補空白列，讓三家公司的表格高度一致
+function padRows(count, cols, target) {
+  const need = (target || ROWS) - count;
+  if (need <= 0) return '';
+  const blank = `<td>&nbsp;</td>`.repeat(cols);
+  return `<tr class="pad-row">${blank}</tr>`.repeat(need);
+}
+
+// 超過固定列數時顯示展開／收合按鈕
+function moreBtn(count) {
+  if (count <= ROWS) return '';
+  return `<button class="more-btn" data-n="${count}" onclick="toggleMore(this)">▾ 展開全部 ${count} 家</button>`;
+}
+
+function toggleMore(btn) {
+  const wrap = btn.closest('.fixed-tbl');
+  const open = !wrap.classList.toggle('collapsed');
+  btn.textContent = open ? '▴ 收合' : `▾ 展開全部 ${btn.dataset.n} 家`;
+}
+
+// 金額一律以「萬」為單位（6,000 → 0.6 萬）
 function fmtW(v) {
   if (v === null || v === undefined) return '—';
   if (Math.abs(v) >= 1e8) return (v/1e8).toFixed(1) + '億';
-  if (Math.abs(v) >= 1e4) return (v/1e4).toFixed(1) + '萬';
-  return Math.round(v).toLocaleString();
+  return (v/1e4).toFixed(1) + '萬';
 }
-// 金額顯示：負數（退貨）用紅字
-function amtHtml(v) {
-  if (v < 0) return `<span style="color:#ef4444">${fmtW(v)}</span>`;
-  return fmtW(v);
+// 坪數：負數（退貨）不顯示
+function fmtPing(p) {
+  return (p > 0) ? p.toFixed(1) + ' 坪' : '';
 }
 function yoyHtml(cur, ly) {
   if (!ly) return '';
@@ -234,61 +265,64 @@ function buildCoCard(d) {
       </div>
     </div>`;
 
-  // 當日明細：客戶彙總，點擊展開品項
+  // 當日明細：客戶彙總，固定 10 列高度、可展開；退貨不顯示
   let txHtml = '';
-  const custRows = d.custRows || [];
+  const custRows = (d.custRows || []).filter(cr => cr.amt > 0);
   if (custRows.length > 0) {
-    const rows = custRows.map(cr => {
-      const det = (cr.items || []).map(i => `
-        <tr${i.isReturn ? ' style="color:#ef4444"' : ''}>
-          <td>${i.isReturn ? '↩ ' : ''}${i.seriesCn || '—'}</td>
+    const rows = custRows.map((cr, n) => {
+      const ex = n >= ROWS ? ' extra-row' : '';
+      const det = (cr.items || []).filter(i => !i.isReturn && i.amt > 0).map(i => `
+        <tr>
+          <td>${i.seriesCn || '—'}</td>
           <td>${i.code}</td>
-          <td class="r">${i.qty != 0 ? Math.round(i.qty) + '片' : ''}</td>
-          <td class="r">${amtHtml(i.amt)}</td>
+          <td class="r">${i.qty > 0 ? Math.round(i.qty) + '片' : ''}</td>
+          <td class="r">${fmtW(i.amt)}</td>
         </tr>`).join('');
       return `
-      <tr class="cust-row" onclick="toggleCust(this)">
+      <tr class="cust-row${ex}" onclick="toggleCust(this)">
         <td><span class="cust-caret">▶</span> ${cr.name}</td>
-        <td class="r">${amtHtml(cr.amt)}</td>
-        <td class="r ${cr.monthAmt < 0 ? '' : 'month-amt'}">${amtHtml(cr.monthAmt)}</td>
+        <td class="r">${fmtW(cr.amt)}</td>
+        <td class="r month-amt">${cr.monthAmt > 0 ? fmtW(cr.monthAmt) : ''}</td>
         <td>${cr.sales || ''}</td>
       </tr>
-      <tr class="detail-row"><td colspan="4">
+      <tr class="detail-row${ex}"><td colspan="4">
         <table class="detail-tbl">
           <thead><tr><th>系列</th><th>品號</th><th class="r">片數</th><th class="r">金額</th></tr></thead>
           <tbody>${det}</tbody>
         </table>
       </td></tr>`;
-    }).join('');
+    }).join('') + padRows(custRows.length, 4);
     txHtml = `
       <div class="sec-title">📋 ${d.displayLabel} 明細 <span style="font-size:10px;font-weight:400;text-transform:none">點客戶看品項</span></div>
-      <div class="tbl-wrap">
+      <div class="tbl-wrap fixed-tbl collapsed">
         <table class="tbl">
           <thead><tr>
             <th>客戶</th><th class="r">當日</th><th class="r">當月累積</th><th>業務</th>
           </tr></thead>
           <tbody>${rows}</tbody>
         </table>
+        ${moreBtn(custRows.length)}
       </div>`;
   } else {
-    txHtml = `<div class="no-data">今日暫無出貨資料</div>`;
+    txHtml = `<div class="no-data" style="height:${ROWS*ROW_H}px;display:flex;align-items:center;justify-content:center">今日暫無出貨資料</div>`;
   }
 
-  // Series ranking
+  // 熱銷系列 Top10：負坪數（退貨）不顯示，固定 10 列高度
   let seriesHtml = '';
-  if (d.seriesRanking.length > 0) {
-    const rows = d.seriesRanking.map((s,i) => `
+  const srs = (d.seriesRanking || []).filter(s => s.pings > 0 && s.amount > 0).slice(0, ROWS);
+  if (srs.length > 0) {
+    const rows = srs.map((s,i) => `
       <tr>
         <td style="color:var(--muted)">${i+1}</td>
         <td><strong>${s.series}</strong></td>
         <td style="color:var(--muted);font-size:11px">${s.skus.map(k=>k.sku).join(' ')}</td>
-        <td class="r">${s.pings.toFixed(1)} 坪</td>
+        <td class="r">${fmtPing(s.pings)}</td>
         <td class="r" style="color:var(--muted)">${s.pct}%</td>
         <td class="r">${fmtW(s.amount)}</td>
-      </tr>`).join('');
+      </tr>`).join('') + padRows(srs.length, 6);
     seriesHtml = `
       <button class="collapsible-btn" onclick="toggleCollapse(this)">
-        🏆 熱銷系列 Top${d.seriesRanking.length} <span class="chevron" style="transform:rotate(180deg)">▾</span>
+        🏆 熱銷系列 Top${srs.length} <span class="chevron" style="transform:rotate(180deg)">▾</span>
       </button>
       <div class="collapsible-content open">
         <div class="tbl-wrap" style="margin-top:8px">
@@ -305,31 +339,31 @@ function buildCoCard(d) {
 
   // 本月客戶排行 Top 15（點開看每日出貨）
   let salesHtml = '';
-  const cmr = d.custMonthRows || [];
+  const cmr = (d.custMonthRows || []).filter(cr => cr.amt > 0);
   if (cmr.length > 0) {
     const rows = cmr.map((cr, n) => {
-      const dayBlocks = (cr.days || []).map(dy => {
-        const its = dy.items.map(i => `
-          <tr${i.isReturn ? ' style="color:#ef4444"' : ''}>
-            <td>${i.isReturn ? '↩ ' : ''}${i.seriesCn || '—'}</td>
+      const dayBlocks = (cr.days || []).filter(dy => dy.amt > 0).map(dy => {
+        const its = dy.items.filter(i => !i.isReturn && i.amt > 0).map(i => `
+          <tr>
+            <td>${i.seriesCn || '—'}</td>
             <td>${i.code}</td>
-            <td class="r">${i.qty != 0 ? Math.round(i.qty) + '片' : ''}</td>
-            <td class="r">${amtHtml(i.amt)}</td>
+            <td class="r">${i.qty > 0 ? Math.round(i.qty) + '片' : ''}</td>
+            <td class="r">${fmtW(i.amt)}</td>
           </tr>`).join('');
         return `
-          <tr class="day-head"><td colspan="4">📅 ${dy.date.slice(5).replace('-','/')} <span class="day-amt">${amtHtml(dy.amt)}</span></td></tr>
+          <tr class="day-head"><td colspan="4">📅 ${dy.date.slice(5).replace('-','/')} <span class="day-amt">${fmtW(dy.amt)}</span></td></tr>
           ${its}`;
       }).join('');
       return `
       <tr class="cust-row" onclick="toggleCust(this)">
         <td style="color:var(--muted);width:18px">${n+1}</td>
         <td><span class="cust-caret">▶</span> ${cr.name} <span class="pct-tag">(${cr.pct}%)</span></td>
-        <td class="r">${amtHtml(cr.amt)}</td>
+        <td class="r">${fmtW(cr.amt)}</td>
       </tr>
       <tr class="detail-row"><td colspan="3">
         <table class="detail-tbl"><tbody>${dayBlocks}</tbody></table>
       </td></tr>`;
-    }).join('');
+    }).join('') + padRows(cmr.length, 3, CUST_ROWS);
     salesHtml = `
       <button class="collapsible-btn" onclick="toggleCollapse(this)">
         🏅 客戶排行 Top${cmr.length}（本月） <span class="chevron" style="transform:rotate(180deg)">▾</span>
