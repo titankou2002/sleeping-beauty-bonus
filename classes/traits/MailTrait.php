@@ -149,8 +149,10 @@ trait MailTrait
             'sales' => $this->findHeader($h, ['負責業務','業務','業務員','負責人']),
             'amt' => $this->findHeader($h, ['金額','銷額','銷售金額','成交金額','小計','總計']),
             'code' => $this->findHeader($h, ['產品編號','編號','品號','品碼','序號']),
-            'qty' => $this->findHeader($h, ['數量','片數']),
-            'note' => $this->findHeader($h, ['備註','說明'])
+            'qty' => $this->findHeader($h, ['數量','銷貨數量','片數']),
+            'note' => $this->findHeader($h, ['產品備註','備註','說明']),
+            'type' => $this->findHeader($h, ['類別','性質','單據類別']),
+            'productName' => $this->findHeader($h, ['產品名稱','品名'])
         ];
         $profileMap = $this->getProductProfileMap($gs);
 
@@ -159,25 +161,38 @@ trait MailTrait
             $d = $this->parseDate($this->getVal($row, $idx['date']));
             if (!$d) continue;
             $amt = $this->optFloat($this->getVal($row, $idx['amt']));
-            if ($amt <= 0) continue;
+            $qty = $this->optFloat($this->getVal($row, $idx['qty']));
+            if ($qty == 0 && $amt == 0) continue;
             $custName = trim($this->getVal($row, $idx['cust']));
             $custCode = trim($this->getVal($row, $idx['custCode']));
             $note = trim($this->getVal($row, $idx['note']));
-            if ($this->isSampleRow($custCode, $custName, $note, $amt)) continue;
+            $productName = $idx['productName'] !== -1 ? trim($this->getVal($row, $idx['productName'])) : '';
+            if ($this->isSampleRow($custCode, $custName, $productName . ' ' . $note, $amt)) continue;
             $code = $this->cleanSku($this->getVal($row, $idx['code']));
             if ($code === '') continue;
             $salesName = $this->normalizeSalesRep($this->getVal($row, $idx['sales']));
             $profile = $profileMap[$code] ?? null;
             $seriesCn = $profile ? (trim($profile['seriesCn'] ?: $profile['series']) ?: '') : '';
             $perPing = $profile ? ($profile['perPing'] ?: 36) : 36;
-            $qty = $this->optFloat($this->getVal($row, $idx['qty']));
-            $pings = $qty > 0 ? $qty / $perPing : 0;
+
+            // 退貨判定與扣抵（對齊 DataTrait::rebuildSalesCache 的邏輯）
+            $typeText = $idx['type'] !== -1 ? trim($this->getVal($row, $idx['type'])) : '';
+            $isReturn = (strpos($typeText, '退') !== false) || ($qty < 0);
+            if ($isReturn) {
+                $absQty = abs($qty);
+                $qty = -$absQty;
+                $amt = ($amt < 0 ? $amt : -abs($amt));
+            } else {
+                $qty = abs($qty);
+            }
+            $pings = $perPing ? $qty / $perPing : 0;
+
             $item = [
                 'cust' => $custName, 'custShort' => $this->displayCustomerName($custName),
                 'salesName' => $salesName, 'salesShort' => mb_substr($salesName, -2, 2, 'UTF-8'),
                 'amt' => $amt,
                 'code' => $code, 'seriesCn' => $seriesCn, 'qty' => $qty,
-                'pings' => $pings, 'd' => $d
+                'pings' => $pings, 'isReturn' => $isReturn, 'd' => $d
             ];
             if ($d >= $today) {
                 $result['todayItems'][] = $item;

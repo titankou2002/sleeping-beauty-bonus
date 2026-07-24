@@ -151,6 +151,11 @@ function fmtW(v) {
   if (Math.abs(v) >= 1e4) return (v/1e4).toFixed(1) + '萬';
   return Math.round(v).toLocaleString();
 }
+// 金額顯示：負數（退貨）用紅字
+function amtHtml(v) {
+  if (v < 0) return `<span style="color:#ef4444">${fmtW(v)}</span>`;
+  return fmtW(v);
+}
 function yoyHtml(cur, ly) {
   if (!ly) return '';
   const p = (cur - ly) / ly * 100;
@@ -232,17 +237,17 @@ function buildCoCard(d) {
   if (custRows.length > 0) {
     const rows = custRows.map(cr => {
       const det = (cr.items || []).map(i => `
-        <tr>
-          <td>${i.seriesCn || '—'}</td>
+        <tr${i.isReturn ? ' style="color:#ef4444"' : ''}>
+          <td>${i.isReturn ? '↩ ' : ''}${i.seriesCn || '—'}</td>
           <td>${i.code}</td>
-          <td class="r">${i.qty > 0 ? Math.round(i.qty) + '片' : ''}</td>
-          <td class="r">${fmtW(i.amt)}</td>
+          <td class="r">${i.qty != 0 ? Math.round(i.qty) + '片' : ''}</td>
+          <td class="r">${amtHtml(i.amt)}</td>
         </tr>`).join('');
       return `
       <tr class="cust-row" onclick="toggleCust(this)">
         <td><span class="cust-caret">▶</span> ${cr.name}</td>
-        <td class="r">${fmtW(cr.amt)}</td>
-        <td class="r month-amt">${fmtW(cr.monthAmt)}</td>
+        <td class="r">${amtHtml(cr.amt)}</td>
+        <td class="r ${cr.monthAmt < 0 ? '' : 'month-amt'}">${amtHtml(cr.monthAmt)}</td>
         <td>${cr.sales || ''}</td>
       </tr>
       <tr class="detail-row"><td colspan="4">
