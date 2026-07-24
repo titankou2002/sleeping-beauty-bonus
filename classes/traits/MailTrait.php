@@ -52,7 +52,8 @@ trait MailTrait
             }
             $d['monthlyBreakdown'] = $mb;
             // 移除過大或已由 custRows 承載的欄位
-            unset($d['monthItems'], $d['custItems'], $d['custMonthMap']);
+            unset($d['monthItems'], $d['custItems'], $d['custMonthMap'],
+                  $d['custYtdMap'], $d['custLyYtdMap']);
             $allData[] = $d;
         }
 
@@ -131,6 +132,7 @@ trait MailTrait
             'displayItems' => [], 'displayLabel' => '',
             'custMonthMap' => [], 'custRows' => [], 'custCount' => 0,
             'monthlyBreakdown' => [], 'custMonthRows' => [],
+            'custYtdMap' => [], 'custLyYtdMap' => [],
         ];
 
         try {
@@ -210,12 +212,16 @@ trait MailTrait
                 $result['ytdTotal'] += $amt;
                 $mn = (int) $d->format('n');
                 $result['monthlyBreakdown'][$mn] = ($result['monthlyBreakdown'][$mn] ?? 0) + $amt;
+                $cy = $item['custShort'];
+                $result['custYtdMap'][$cy] = ($result['custYtdMap'][$cy] ?? 0) + $amt;
             }
             if ($d >= $lyMonthStart && $d <= $lyToday) {
                 $result['lyMonthTotal'] += $amt;
             }
             if ($d >= $lyYearStart && $d <= $lyToday) {
                 $result['lyYtdTotal'] += $amt;
+                $cl = $item['custShort'];
+                $result['custLyYtdMap'][$cl] = ($result['custLyYtdMap'][$cl] ?? 0) + $amt;
             }
             if (!$result['lastTxDate'] || $d > $result['lastTxDate']) {
                 $result['lastTxDate'] = $d;
@@ -296,10 +302,12 @@ trait MailTrait
                 $days[] = ['date' => $dk, 'amt' => $dv['amt'], 'items' => $dv['items']];
             }
             $custMonthRows[] = [
-                'name' => $sn,
-                'amt'  => $amt,
-                'pct'  => round($amt / $mTot * 100, 1),
-                'days' => $days,
+                'name'  => $sn,
+                'amt'   => $amt,
+                'pct'   => round($amt / $mTot * 100, 1),
+                'ytd'   => $result['custYtdMap'][$sn] ?? 0,
+                'lyYtd' => $result['custLyYtdMap'][$sn] ?? 0,
+                'days'  => $days,
             ];
         }
         $result['custMonthRows'] = $custMonthRows;

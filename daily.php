@@ -182,11 +182,12 @@ function toggleMore(btn) {
   btn.textContent = open ? '▴ 收合' : `▾ 展開全部 ${btn.dataset.n} 家`;
 }
 
-// 金額一律以「萬」為單位（6,000 → 0.6 萬）
+// 金額一律以「萬」為單位：10 萬以上取整數，10 萬以下留一位小數
 function fmtW(v) {
   if (v === null || v === undefined) return '—';
   if (Math.abs(v) >= 1e8) return (v/1e8).toFixed(1) + '億';
-  return (v/1e4).toFixed(1) + '萬';
+  const w = v / 1e4;
+  return (Math.abs(w) >= 10 ? Math.round(w) : w.toFixed(1)) + '萬';
 }
 // 坪數：負數（退貨）不顯示
 function fmtPing(p) {
@@ -364,11 +365,13 @@ function buildCoCard(d) {
         <td style="color:var(--muted);width:18px">${n+1}</td>
         <td><span class="cust-caret">▶</span> ${cr.name} <span class="pct-tag">(${cr.pct}%)</span></td>
         <td class="r">${fmtW(cr.amt)}</td>
+        <td class="r" style="color:#a78bfa">${cr.ytd > 0 ? fmtW(cr.ytd) : ''}</td>
+        <td class="r">${yoyHtml(cr.ytd, cr.lyYtd) || '<span style="color:var(--muted)">—</span>'}</td>
       </tr>
-      <tr class="detail-row"><td colspan="3">
+      <tr class="detail-row"><td colspan="5">
         <table class="detail-tbl"><tbody>${dayBlocks}</tbody></table>
       </td></tr>`;
-    }).join('') + padRows(cmr.length, 3, CUST_ROWS);
+    }).join('') + padRows(cmr.length, 5, CUST_ROWS);
     salesHtml = `
       <button class="collapsible-btn" onclick="toggleCollapse(this)">
         🏅 客戶排行 Top${cmr.length}（本月） <span class="chevron" style="transform:rotate(180deg)">▾</span>
@@ -376,7 +379,10 @@ function buildCoCard(d) {
       <div class="collapsible-content open">
         <div class="tbl-wrap" style="margin-top:8px">
           <table class="tbl">
-            <thead><tr><th>#</th><th>客戶（佔比）</th><th class="r">本月業績</th></tr></thead>
+            <thead><tr>
+              <th>#</th><th>客戶（佔比）</th>
+              <th class="r">本月業績</th><th class="r">年度累計</th><th class="r">年度同比</th>
+            </tr></thead>
             <tbody>${rows}</tbody>
           </table>
         </div>
