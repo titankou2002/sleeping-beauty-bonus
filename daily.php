@@ -74,9 +74,37 @@ require_once __DIR__ . '/config.php';
     .collapsible-btn{width:100%;background:none;border:none;color:var(--muted);font-size:12px;text-align:left;padding:6px 0;cursor:pointer;display:flex;align-items:center;gap:4px;border-top:1px solid var(--line);margin-top:8px}
     .collapsible-btn:hover{color:var(--text)}
     .collapsible-content{overflow:hidden;transition:max-height .3s ease;max-height:0}
-    .collapsible-content.open{max-height:1000px}
+    .collapsible-content.open{max-height:4000px}
     .chevron{transition:transform .3s;display:inline-block}
     .open + .chevron,.open .chevron{transform:rotate(180deg)}
+
+    /* 客戶可展開列 */
+    tr.cust-row{cursor:pointer;transition:background .15s}
+    tr.cust-row:hover{background:rgba(194,157,102,.10)}
+    tr.cust-row.open{background:rgba(194,157,102,.14)}
+    tr.cust-row td{font-weight:600}
+    .cust-caret{display:inline-block;width:10px;color:var(--muted);transition:transform .2s;font-size:9px}
+    tr.cust-row.open .cust-caret{transform:rotate(90deg);color:var(--gold)}
+    tr.detail-row{display:none}
+    tr.detail-row.show{display:table-row}
+    tr.detail-row > td{padding:0 0 6px 0;background:rgba(0,0,0,.25)}
+    .detail-tbl{width:100%;border-collapse:collapse;font-size:11px}
+    .detail-tbl th{text-align:left;font-weight:600;font-size:10px;color:var(--muted);padding:4px 6px 4px 18px}
+    .detail-tbl td{padding:3px 6px 3px 18px;border-bottom:1px solid rgba(255,255,255,.04);color:var(--text)}
+    .detail-tbl tr:last-child td{border-bottom:none}
+    .detail-tbl .r{text-align:right}
+    .month-amt{color:#60a5fa}
+
+    /* KPI 可點擊 */
+    .kpi-box.clickable{cursor:pointer;transition:border-color .2s,background .2s}
+    .kpi-box.clickable:hover{border-color:var(--gold);background:rgba(194,157,102,.10)}
+    .kpi-hint{font-size:9px;color:var(--muted);margin-top:2px}
+    .mb-list{margin-top:6px;border-top:1px solid var(--line);padding-top:6px;display:none}
+    .mb-list.show{display:block}
+    .mb-row{display:flex;justify-content:space-between;font-size:11px;padding:2px 0}
+    .mb-row .mb-m{color:var(--muted)}
+    .mb-row.cur{color:var(--gold);font-weight:700}
+    .mb-bar{height:3px;background:rgba(167,139,250,.35);border-radius:2px;margin-top:1px}
 
     /* Error */
     .err-box{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#ef4444;padding:12px;border-radius:6px;font-size:13px}
@@ -184,37 +212,52 @@ function buildCoCard(d) {
         <div class="vl" style="color:#60a5fa">${fmtW(d.monthTotal)}</div>
         <div class="yoy">同比 ${mYoy || '—'} <span style="font-size:10px;color:var(--muted)">去年 ${fmtW(d.lyMonthTotal)}</span></div>
       </div>
-      <div class="kpi-box">
+      <div class="kpi-box clickable" onclick="toggleMonthly(this)">
         <div class="lb">年累計</div>
         <div class="vl" style="color:#a78bfa">${fmtW(d.ytdTotal)}</div>
         <div class="yoy">同比 ${yYoy || '—'} <span style="font-size:10px;color:var(--muted)">去年 ${fmtW(d.lyYtdTotal)}</span></div>
+        <div class="kpi-hint">▸ 點看各月</div>
+        <div class="mb-list" onclick="event.stopPropagation()">${monthlyHtml(d.monthlyBreakdown)}</div>
       </div>
       <div class="kpi-box">
-        <div class="lb">業務筆數</div>
-        <div class="vl">${d.salesRanking.length}</div>
-        <div class="yoy" style="color:var(--muted);font-size:10px">今日 ${d.todayItems.length} 筆</div>
+        <div class="lb">交易家數</div>
+        <div class="vl">${d.custCount || 0} <span style="font-size:11px;font-weight:600;color:var(--muted)">家</span></div>
+        <div class="yoy" style="color:var(--muted);font-size:10px">${d.displayItems.length} 筆出貨</div>
       </div>
     </div>`;
 
-  // Today's transactions
+  // 當日明細：客戶彙總，點擊展開品項
   let txHtml = '';
-  if (d.displayItems.length > 0) {
-    const rows = d.displayItems.map(i => `
-      <tr>
-        <td>${i.custShort || i.cust}</td>
-        <td>${i.seriesCn || ''}</td>
-        <td>${i.code}</td>
-        <td class="r">${i.qty > 0 ? Math.round(i.qty) + '片' : ''}</td>
-        <td class="r">${fmtW(i.amt)}</td>
-        <td>${i.salesShort || i.salesName || ''}</td>
-      </tr>`).join('');
+  const custRows = d.custRows || [];
+  if (custRows.length > 0) {
+    const rows = custRows.map(cr => {
+      const det = (cr.items || []).map(i => `
+        <tr>
+          <td>${i.seriesCn || '—'}</td>
+          <td>${i.code}</td>
+          <td class="r">${i.qty > 0 ? Math.round(i.qty) + '片' : ''}</td>
+          <td class="r">${fmtW(i.amt)}</td>
+        </tr>`).join('');
+      return `
+      <tr class="cust-row" onclick="toggleCust(this)">
+        <td><span class="cust-caret">▶</span> ${cr.name}</td>
+        <td class="r">${fmtW(cr.amt)}</td>
+        <td class="r month-amt">${fmtW(cr.monthAmt)}</td>
+        <td>${cr.sales || ''}</td>
+      </tr>
+      <tr class="detail-row"><td colspan="4">
+        <table class="detail-tbl">
+          <thead><tr><th>系列</th><th>品號</th><th class="r">片數</th><th class="r">金額</th></tr></thead>
+          <tbody>${det}</tbody>
+        </table>
+      </td></tr>`;
+    }).join('');
     txHtml = `
-      <div class="sec-title">📋 ${d.displayLabel} 明細</div>
+      <div class="sec-title">📋 ${d.displayLabel} 明細 <span style="font-size:10px;font-weight:400;text-transform:none">點客戶看品項</span></div>
       <div class="tbl-wrap">
         <table class="tbl">
           <thead><tr>
-            <th>客戶</th><th>系列</th><th>品號</th>
-            <th class="r">片數</th><th class="r">金額</th><th>業務</th>
+            <th>客戶</th><th class="r">當日</th><th class="r">當月累積</th><th>業務</th>
           </tr></thead>
           <tbody>${rows}</tbody>
         </table>
@@ -237,9 +280,9 @@ function buildCoCard(d) {
       </tr>`).join('');
     seriesHtml = `
       <button class="collapsible-btn" onclick="toggleCollapse(this)">
-        🏆 熱銷系列 Top${d.seriesRanking.length} <span class="chevron">▾</span>
+        🏆 熱銷系列 Top${d.seriesRanking.length} <span class="chevron" style="transform:rotate(180deg)">▾</span>
       </button>
-      <div class="collapsible-content">
+      <div class="collapsible-content open">
         <div class="tbl-wrap" style="margin-top:8px">
           <table class="tbl">
             <thead><tr>
@@ -263,9 +306,9 @@ function buildCoCard(d) {
       </tr>`).join('');
     salesHtml = `
       <button class="collapsible-btn" onclick="toggleCollapse(this)">
-        👤 業務統計 <span class="chevron">▾</span>
+        👤 業務統計 <span class="chevron" style="transform:rotate(180deg)">▾</span>
       </button>
-      <div class="collapsible-content">
+      <div class="collapsible-content open">
         <div class="tbl-wrap" style="margin-top:8px">
           <table class="tbl">
             <thead><tr><th>業務</th><th class="r">今日</th><th class="r">本月</th></tr></thead>
@@ -294,6 +337,34 @@ function toggleCollapse(btn) {
   const chevron = btn.querySelector('.chevron');
   const open = content.classList.toggle('open');
   chevron.style.transform = open ? 'rotate(180deg)' : 'rotate(0deg)';
+}
+
+// 點客戶列展開／收合該客戶的品項明細
+function toggleCust(tr) {
+  const open = tr.classList.toggle('open');
+  const detail = tr.nextElementSibling;
+  if (detail && detail.classList.contains('detail-row')) {
+    detail.classList.toggle('show', open);
+  }
+}
+
+// 年累計 KPI 點開看 1 月至今各月金額
+function toggleMonthly(box) {
+  box.querySelector('.mb-list').classList.toggle('show');
+  const hint = box.querySelector('.kpi-hint');
+  const shown = box.querySelector('.mb-list').classList.contains('show');
+  hint.textContent = shown ? '▾ 收合各月' : '▸ 點看各月';
+}
+
+function monthlyHtml(mb) {
+  if (!mb || !mb.length) return '<div class="mb-row"><span class="mb-m">無資料</span></div>';
+  const max = Math.max(...mb.map(x => x.amt), 1);
+  const cur = mb.length;
+  return mb.map(x => `
+    <div class="mb-row ${x.m === cur ? 'cur' : ''}">
+      <span class="mb-m">${x.m} 月</span><span>${fmtW(x.amt)}</span>
+    </div>
+    <div class="mb-bar" style="width:${Math.max(2, x.amt / max * 100)}%"></div>`).join('');
 }
 
 // Init

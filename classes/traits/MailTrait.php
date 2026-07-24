@@ -37,8 +37,22 @@ trait MailTrait
                 $item['d'] = $item['d'] ? $item['d']->format('Y-m-d') : null;
             }
             unset($item);
-            // Remove monthItems (too large, not needed by page)
-            unset($d['monthItems']);
+            foreach ($d['custRows'] as &$cr) {
+                foreach ($cr['items'] as &$ci) {
+                    $ci['d'] = ($ci['d'] instanceof DateTime) ? $ci['d']->format('Y-m-d') : $ci['d'];
+                }
+                unset($ci);
+            }
+            unset($cr);
+            // 月度分解補齊 1..當月，並轉為有序陣列
+            $curMonth = (int) $today->format('n');
+            $mb = [];
+            for ($m = 1; $m <= $curMonth; $m++) {
+                $mb[] = ['m' => $m, 'amt' => $d['monthlyBreakdown'][$m] ?? 0];
+            }
+            $d['monthlyBreakdown'] = $mb;
+            // 移除過大或已由 custRows 承載的欄位
+            unset($d['monthItems'], $d['custItems'], $d['custMonthMap']);
             $allData[] = $d;
         }
 
@@ -115,6 +129,8 @@ trait MailTrait
             'seriesRanking' => [], 'custRanking' => [], 'custItems' => [],
             'custTotalAmt' => 1, 'salesRanking' => [], 'salesTodayTotalAmt' => 1,
             'displayItems' => [], 'displayLabel' => '',
+            'custMonthMap' => [], 'custRows' => [], 'custCount' => 0,
+            'monthlyBreakdown' => [],
         ];
 
         try {
@@ -172,9 +188,13 @@ trait MailTrait
                 $result['monthItems'][] = $item;
                 $result['monthTotal'] += $amt;
                 $result['salesMonthMap'][$salesName] = ($result['salesMonthMap'][$salesName] ?? 0) + $amt;
+                $cs = $item['custShort'];
+                $result['custMonthMap'][$cs] = ($result['custMonthMap'][$cs] ?? 0) + $amt;
             }
             if ($d >= $yearStart) {
                 $result['ytdTotal'] += $amt;
+                $mn = (int) $d->format('n');
+                $result['monthlyBreakdown'][$mn] = ($result['monthlyBreakdown'][$mn] ?? 0) + $amt;
             }
             if ($d >= $lyMonthStart && $d <= $lyToday) {
                 $result['lyMonthTotal'] += $amt;
@@ -211,6 +231,28 @@ trait MailTrait
         $result['custRanking'] = array_slice($custMap, 0, 10);
         $result['custItems'] = $custItems;
         $result['custTotalAmt'] = max(1, array_sum($custMap));
+        $result['custCount'] = count($custMap);
+
+        // 客戶聚合列：當日金額 + 當月累積 + 主要業務 + 明細品項
+        $custRows = [];
+        foreach ($custMap as $sn => $amt) {
+            $its = $custItems[$sn] ?? [];
+            $bySales = [];
+            foreach ($its as $it) {
+                $rep = $it['salesShort'] ?: $it['salesName'];
+                if ($rep === '') continue;
+                $bySales[$rep] = ($bySales[$rep] ?? 0) + $it['amt'];
+            }
+            arsort($bySales);
+            $custRows[] = [
+                'name'     => $sn,
+                'amt'      => $amt,
+                'monthAmt' => $result['custMonthMap'][$sn] ?? 0,
+                'sales'    => count($bySales) ? array_key_first($bySales) : '',
+                'items'    => $its,
+            ];
+        }
+        $result['custRows'] = $custRows;
 
         // Sales rep ranking
         $allSales = array_unique(array_merge(
