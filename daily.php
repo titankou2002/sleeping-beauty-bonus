@@ -74,7 +74,7 @@ require_once __DIR__ . '/config.php';
     .collapsible-btn{width:100%;background:none;border:none;color:var(--muted);font-size:12px;text-align:left;padding:6px 0;cursor:pointer;display:flex;align-items:center;gap:4px;border-top:1px solid var(--line);margin-top:8px}
     .collapsible-btn:hover{color:var(--text)}
     .collapsible-content{overflow:hidden;transition:max-height .3s ease;max-height:0}
-    .collapsible-content.open{max-height:4000px}
+    .collapsible-content.open{max-height:none;overflow:visible}
     .chevron{transition:transform .3s;display:inline-block}
     .open + .chevron,.open .chevron{transform:rotate(180deg)}
 
@@ -94,6 +94,9 @@ require_once __DIR__ . '/config.php';
     .detail-tbl tr:last-child td{border-bottom:none}
     .detail-tbl .r{text-align:right}
     .month-amt{color:#60a5fa}
+    .pct-tag{color:var(--gold);font-size:10px;font-weight:700}
+    .detail-tbl tr.day-head td{padding:5px 6px 3px 12px;background:rgba(194,157,102,.10);color:var(--accent);font-weight:700;font-size:10px;border-bottom:1px solid rgba(194,157,102,.2)}
+    .detail-tbl tr.day-head .day-amt{float:right;color:var(--text);font-weight:800}
 
     /* KPI 可點擊 */
     .kpi-box.clickable{cursor:pointer;transition:border-color .2s,background .2s}
@@ -300,23 +303,41 @@ function buildCoCard(d) {
       </div>`;
   }
 
-  // Sales rep
+  // 本月客戶排行 Top 15（點開看每日出貨）
   let salesHtml = '';
-  if (d.salesRanking.length > 0) {
-    const rows = d.salesRanking.map(s => `
-      <tr>
-        <td>${s.name}</td>
-        <td class="r">${fmtW(s.today)}</td>
-        <td class="r">${fmtW(s.month)}</td>
-      </tr>`).join('');
+  const cmr = d.custMonthRows || [];
+  if (cmr.length > 0) {
+    const rows = cmr.map((cr, n) => {
+      const dayBlocks = (cr.days || []).map(dy => {
+        const its = dy.items.map(i => `
+          <tr${i.isReturn ? ' style="color:#ef4444"' : ''}>
+            <td>${i.isReturn ? '↩ ' : ''}${i.seriesCn || '—'}</td>
+            <td>${i.code}</td>
+            <td class="r">${i.qty != 0 ? Math.round(i.qty) + '片' : ''}</td>
+            <td class="r">${amtHtml(i.amt)}</td>
+          </tr>`).join('');
+        return `
+          <tr class="day-head"><td colspan="4">📅 ${dy.date.slice(5).replace('-','/')} <span class="day-amt">${amtHtml(dy.amt)}</span></td></tr>
+          ${its}`;
+      }).join('');
+      return `
+      <tr class="cust-row" onclick="toggleCust(this)">
+        <td style="color:var(--muted);width:18px">${n+1}</td>
+        <td><span class="cust-caret">▶</span> ${cr.name} <span class="pct-tag">(${cr.pct}%)</span></td>
+        <td class="r">${amtHtml(cr.amt)}</td>
+      </tr>
+      <tr class="detail-row"><td colspan="3">
+        <table class="detail-tbl"><tbody>${dayBlocks}</tbody></table>
+      </td></tr>`;
+    }).join('');
     salesHtml = `
       <button class="collapsible-btn" onclick="toggleCollapse(this)">
-        👤 業務統計 <span class="chevron" style="transform:rotate(180deg)">▾</span>
+        🏅 客戶排行 Top${cmr.length}（本月） <span class="chevron" style="transform:rotate(180deg)">▾</span>
       </button>
       <div class="collapsible-content open">
         <div class="tbl-wrap" style="margin-top:8px">
           <table class="tbl">
-            <thead><tr><th>業務</th><th class="r">今日</th><th class="r">本月</th></tr></thead>
+            <thead><tr><th>#</th><th>客戶（佔比）</th><th class="r">本月業績</th></tr></thead>
             <tbody>${rows}</tbody>
           </table>
         </div>

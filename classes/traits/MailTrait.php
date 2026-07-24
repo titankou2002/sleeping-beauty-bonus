@@ -130,7 +130,7 @@ trait MailTrait
             'custTotalAmt' => 1, 'salesRanking' => [], 'salesTodayTotalAmt' => 1,
             'displayItems' => [], 'displayLabel' => '',
             'custMonthMap' => [], 'custRows' => [], 'custCount' => 0,
-            'monthlyBreakdown' => [],
+            'monthlyBreakdown' => [], 'custMonthRows' => [],
         ];
 
         try {
@@ -268,6 +268,41 @@ trait MailTrait
             ];
         }
         $result['custRows'] = $custRows;
+
+        // 本月客戶排行 Top 15（含每日出貨明細與業績佔比）
+        $custMonthDays = [];
+        foreach ($result['monthItems'] as $it) {
+            $cs = $it['custShort'];
+            $dk = $it['d']->format('Y-m-d');
+            if (!isset($custMonthDays[$cs][$dk])) {
+                $custMonthDays[$cs][$dk] = ['amt' => 0, 'items' => []];
+            }
+            $custMonthDays[$cs][$dk]['amt'] += $it['amt'];
+            $custMonthDays[$cs][$dk]['items'][] = [
+                'seriesCn' => $it['seriesCn'], 'code' => $it['code'],
+                'qty' => $it['qty'], 'amt' => $it['amt'],
+                'isReturn' => $it['isReturn'], 'salesShort' => $it['salesShort'],
+            ];
+        }
+        $mm = $result['custMonthMap'];
+        arsort($mm);
+        $mTot = $result['monthTotal'] != 0 ? abs($result['monthTotal']) : 1;
+        $custMonthRows = [];
+        foreach (array_slice($mm, 0, 15, true) as $sn => $amt) {
+            $dayMap = $custMonthDays[$sn] ?? [];
+            krsort($dayMap);
+            $days = [];
+            foreach ($dayMap as $dk => $dv) {
+                $days[] = ['date' => $dk, 'amt' => $dv['amt'], 'items' => $dv['items']];
+            }
+            $custMonthRows[] = [
+                'name' => $sn,
+                'amt'  => $amt,
+                'pct'  => round($amt / $mTot * 100, 1),
+                'days' => $days,
+            ];
+        }
+        $result['custMonthRows'] = $custMonthRows;
 
         // Sales rep ranking
         $allSales = array_unique(array_merge(
