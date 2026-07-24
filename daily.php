@@ -43,7 +43,7 @@ require_once __DIR__ . '/config.php';
     .co-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
     @media(max-width:960px){.co-grid{grid-template-columns:1fr}}
 
-    .co-card{background:var(--paper);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+    .co-card{background:var(--paper);border:2px solid var(--line);border-radius:8px;overflow:hidden}
     .co-header{padding:10px 14px;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:space-between}
     .co-header .last-tx{font-size:11px;font-weight:400;opacity:.75}
     .co-body{padding:12px 14px}
@@ -384,7 +384,7 @@ function buildCoCard(d) {
   }
 
   return `
-    <div class="co-card">
+    <div class="co-card" style="border-color:${c}99;box-shadow:0 0 0 1px ${c}33, 0 4px 18px rgba(0,0,0,.35)">
       <div class="co-header" style="background:${c}20;border-bottom:2px solid ${c}">
         <span style="color:${c}">${d.co.name}</span>${lastTx}
       </div>
