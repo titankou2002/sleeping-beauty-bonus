@@ -620,7 +620,7 @@ trait ProductTrait
                 foreach ($skuAreaAmount[$sku] as $area => $amt) {
                     $areaSales[] = ['area' => $area, 'amount' => round($amt)];
                 }
-                usort($areaSales, function ($a, $b) { return $b['amount'] - $a['amount']; });
+                usort($areaSales, function ($a, $b) { return $b['amount'] <=> $a['amount']; });
             }
 
             $products[] = [
@@ -708,7 +708,7 @@ trait ProductTrait
         }
         unset($p);
 
-        usort($graded, function ($a, $b) { return $b['score'] - $a['score']; });
+        usort($graded, function ($a, $b) { return $b['score'] <=> $a['score']; });
 
         $seriesGroups = [];
         foreach ($graded as $p) {
@@ -733,7 +733,7 @@ trait ProductTrait
             else $sg['mainGrade'] = 'C';
         }
         unset($sg);
-        usort($seriesGroups, function ($a, $b) { return $b['totalAmount'] - $a['totalAmount']; });
+        usort($seriesGroups, function ($a, $b) { return $b['totalAmount'] <=> $a['totalAmount']; });
 
         $gradeGroups = [];
         foreach ($gradeDefs as $g => $def) {
@@ -756,7 +756,7 @@ trait ProductTrait
         foreach ($gradeGroups as &$gg) {
             $gg['seriesCount'] = count($gg['seriesBreakdown']);
             $gg['seriesBreakdown'] = array_values($gg['seriesBreakdown']);
-            usort($gg['seriesBreakdown'], function ($a, $b) { return $b['count'] - $a['count']; });
+            usort($gg['seriesBreakdown'], function ($a, $b) { return $b['count'] <=> $a['count']; });
         }
         unset($gg);
 

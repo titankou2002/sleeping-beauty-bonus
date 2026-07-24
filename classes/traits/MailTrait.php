@@ -313,7 +313,7 @@ trait MailTrait
         foreach ($allSales as $name) {
             $sorted[] = ['name' => $name, 'today' => $result['salesTodayMap'][$name] ?? 0, 'month' => $result['salesMonthMap'][$name] ?? 0];
         }
-        usort($sorted, function ($a, $b) { return $b['today'] - $a['today']; });
+        usort($sorted, function ($a, $b) { return $b['today'] <=> $a['today']; });
         $result['salesRanking'] = $sorted;
         $result['salesTodayTotalAmt'] = max(1, array_sum($result['salesTodayMap']));
 
@@ -336,11 +336,11 @@ trait MailTrait
             $seriesMap[$s]['skus'][$item['code']]['amount'] += $item['amt'];
             $totalPings += $item['pings'];
         }
-        uasort($seriesMap, fn($a, $b) => $b['pings'] - $a['pings']);
+        uasort($seriesMap, fn($a, $b) => $b['pings'] <=> $a['pings']);
         $ranking = [];
         foreach (array_slice($seriesMap, 0, 10) as $name => $s) {
             $skuList = $s['skus'];
-            uasort($skuList, fn($a, $b) => $b['pings'] - $a['pings']);
+            uasort($skuList, fn($a, $b) => $b['pings'] <=> $a['pings']);
             $topSkus = [];
             foreach (array_slice($skuList, 0, 2) as $sku => $sk) {
                 $topSkus[] = ['sku' => $sku, 'pings' => round($sk['pings'], 1)];

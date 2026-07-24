@@ -344,7 +344,7 @@ trait RepTrait
         }
 
         foreach ($reps as &$rep) {
-            usort($rep['customers'], function ($a, $b) { return $b['totalAmount'] - $a['totalAmount']; });
+            usort($rep['customers'], function ($a, $b) { return $b['totalAmount'] <=> $a['totalAmount']; });
             $yoyVals = array_filter(array_column($rep['customers'], 'yoyPct'), function ($v) { return $v !== 0; });
             $rep['avgYoy'] = count($yoyVals) > 0 ? round(array_sum($yoyVals) / count($yoyVals), 1) : 0;
             // 整體達成率
@@ -362,7 +362,7 @@ trait RepTrait
         }
         unset($rep);
 
-        usort($reps, function ($a, $b) { return $b['totalAmount'] - $a['totalAmount']; });
+        usort($reps, function ($a, $b) { return $b['totalAmount'] <=> $a['totalAmount']; });
 
         return ['success' => true, 'data' => ['reps' => array_values($reps)]];
     }

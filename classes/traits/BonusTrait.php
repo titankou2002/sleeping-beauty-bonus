@@ -319,7 +319,7 @@ trait BonusTrait
                 'details'   => $g['details']
             ];
         }
-        usort($people, function($a, $b) { return $b['totalBonus'] - $a['totalBonus']; });
+        usort($people, function($a, $b) { return $b['totalBonus'] <=> $a['totalBonus']; });
 
         $grand = [
             'count'      => array_sum(array_map(function($p) { return $p['count']; }, $people)),
@@ -415,7 +415,7 @@ trait BonusTrait
         }
 
         $top10cust = [];
-        uasort($custData, function($a, $b) { return $b['total'] - $a['total']; });
+        uasort($custData, function($a, $b) { return $b['total'] <=> $a['total']; });
         $ci = 0;
         foreach ($custData as $name => $data) {
             if ($ci++ >= 10) break;
@@ -431,7 +431,7 @@ trait BonusTrait
         }
 
         $top10prod = [];
-        usort($prodTotals, function($a, $b) { return $b['amt'] - $a['amt']; });
+        usort($prodTotals, function($a, $b) { return $b['amt'] <=> $a['amt']; });
         $top10prod = array_slice($prodTotals, 0, 10);
 
         $discontStats = ['discCount' => 0, 'missingSleeper' => []];

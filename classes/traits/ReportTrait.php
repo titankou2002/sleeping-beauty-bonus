@@ -1834,7 +1834,7 @@ trait ReportTrait
                     'rep' => $rep,
                 ];
             }
-            usort($detail, function ($a, $b) { return $b['balance'] - $a['balance']; });
+            usort($detail, function ($a, $b) { return $b['balance'] <=> $a['balance']; });
             return ['customers' => $customers, 'healthCounts' => $healthCounts, 'active' => count($customers), 'monthlyTarget' => round($monthlyTarget), 'detail' => $detail];
         } catch (Exception $e) {
             return ['customers' => [], 'healthCounts' => [], 'active' => 0, 'monthlyTarget' => 0, 'detail' => []];
@@ -2156,7 +2156,7 @@ trait ReportTrait
                     'yoy' => $yoy,
                 ];
             }
-            usort($result, function ($a, $b) { return $b['curMonth'] - $a['curMonth']; });
+            usort($result, function ($a, $b) { return $b['curMonth'] <=> $a['curMonth']; });
             return $result;
         } catch (Exception $e) {
             return [];
@@ -2394,7 +2394,7 @@ trait ReportTrait
             }
         }
 
-        uasort($mergedCustomers, function ($a, $b) { return $b['totalMonth'] - $a['totalMonth']; });
+        uasort($mergedCustomers, function ($a, $b) { return $b['totalMonth'] <=> $a['totalMonth']; });
         $top20 = [];
         $i = 0;
         foreach ($mergedCustomers as $name => $data) {
@@ -2430,7 +2430,7 @@ trait ReportTrait
                 ];
             }
         }
-        usort($crossCompanyCustomers, function ($a, $b) { return $b['totalMonth'] - $a['totalMonth']; });
+        usort($crossCompanyCustomers, function ($a, $b) { return $b['totalMonth'] <=> $a['totalMonth']; });
         $crossCompanyCustomers = array_slice($crossCompanyCustomers, 0, 10);
 
         $contractTotal = ['active' => 0, 'monthlyTarget' => 0, 'healthCounts' => []];
