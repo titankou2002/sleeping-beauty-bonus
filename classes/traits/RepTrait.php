@@ -239,7 +239,8 @@ trait RepTrait
 
         $reps = [];
         foreach ($custMonthly as $cust => $yrData) {
-            $rep = $custMainRep[$cust] ?? '未分配';
+            // 客戶歸屬以「業務分區」表為準；未列於業務分區者才退回用成交金額推斷
+            $rep = $custRepMapFromSheet[$cust] ?? $custMainRep[$cust] ?? '未分配';
             if (!isset($reps[$rep])) {
                 $reps[$rep] = [
                     'name' => $rep, 'area' => $repAreaMap[$rep] ?? $areaMap[$rep] ?? '',
