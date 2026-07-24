@@ -479,11 +479,12 @@ class SleeperService
     }
 
 
+    // 與每日戰報網頁一致：一律以「萬」為單位，10 萬以上取整、以下留一位小數
     private function fmtW($v)
     {
         $v = (float)$v;
-        if ($v >= 10000) return number_format($v / 10000, 1) . '萬';
-        if ($v >= 1000) return number_format($v / 1000, 1) . '千';
-        return round($v) . '元';
+        if (abs($v) >= 100000000) return number_format($v / 100000000, 1) . '億';
+        $w = $v / 10000;
+        return (abs($w) >= 10 ? number_format(round($w)) : number_format($w, 1)) . '萬';
     }
 }

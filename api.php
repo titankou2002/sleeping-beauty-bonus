@@ -502,6 +502,13 @@ try {
             }
             break;
 
+        case 'preview-daily-email':
+            // 預覽每日戰報信件內容，不寄出
+            $type = $_GET['type'] ?? 'group';
+            header('Content-Type: text/html; charset=utf-8');
+            echo $svc->previewDailyReportHtml($type);
+            exit;
+
         case 'send-daily-email':
             $token = $_GET['token'] ?? '';
             if ($token !== CRON_TOKEN) {

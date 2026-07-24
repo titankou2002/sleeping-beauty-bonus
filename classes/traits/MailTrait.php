@@ -67,7 +67,8 @@ trait MailTrait
         ];
     }
 
-    public function sendDailyPerformanceReport($recipients, $fromEmail = '', $type = 'group')
+    // 蒐集發信所需資料（寄送與預覽共用）
+    private function _prepareDailyReport($type)
     {
         $today = new DateTime('today');
         $todayStr = $today->format('Y/m/d');
@@ -96,6 +97,25 @@ trait MailTrait
             $grandMonth += $data['monthTotal'];
             $grandYtd += $data['ytdTotal'];
         }
+
+        return compact('allData', 'todayStr', 'grandToday', 'grandMonth', 'grandYtd');
+    }
+
+    // 預覽信件內容（不寄出）
+    public function previewDailyReportHtml($type = 'group')
+    {
+        $p = $this->_prepareDailyReport($type);
+        return $this->_buildEmailHtml($p['allData'], $p['todayStr'], $p['grandToday'], $p['grandMonth'], $p['grandYtd'], $type);
+    }
+
+    public function sendDailyPerformanceReport($recipients, $fromEmail = '', $type = 'group')
+    {
+        $p = $this->_prepareDailyReport($type);
+        $allData    = $p['allData'];
+        $todayStr   = $p['todayStr'];
+        $grandToday = $p['grandToday'];
+        $grandMonth = $p['grandMonth'];
+        $grandYtd   = $p['grandYtd'];
 
         $html = $this->_buildEmailHtml($allData, $todayStr, $grandToday, $grandMonth, $grandYtd, $type);
 
@@ -452,10 +472,11 @@ trait MailTrait
         return $h;
     }
 
+    // 同比配色與戰情室網頁一致：紅色為成長、綠色為衰退
     private function _fmtYoyPctPlain($pct)
     {
-        if ($pct > 0) return '<span style="color:#059669;font-weight:700">▲ +' . number_format($pct, 1) . '%</span>';
-        if ($pct < 0) return '<span style="color:#ef4444;font-weight:700">▼ ' . number_format($pct, 1) . '%</span>';
+        if ($pct > 0) return '<span style="color:#dc2626;font-weight:700">▲ +' . number_format($pct, 1) . '%</span>';
+        if ($pct < 0) return '<span style="color:#16a34a;font-weight:700">▼ ' . number_format($pct, 1) . '%</span>';
         return '<span style="color:#94a3b8">0.0%</span>';
     }
 
@@ -474,46 +495,66 @@ trait MailTrait
         if ($lastTx && !$isMain) $h .= '<span style="font-size:11px;font-weight:400;opacity:.8;margin-left:8px">最後交易 ' . $lastTx . '</span>';
         $h .= '</td></tr>';
 
-        // KPI row
-        $myoy   = !$isMain ? $this->_fmtYoyPctPlain($d['lyMonthTotal'] > 0 ? ($d['monthTotal']-$d['lyMonthTotal'])/$d['lyMonthTotal']*100 : 0) : '';
-        $yoyYtd = !$isMain ? $this->_fmtYoyPctPlain($d['lyYtdTotal'] > 0 ? ($d['ytdTotal']-$d['lyYtdTotal'])/$d['lyYtdTotal']*100 : 0) : '';
-        $h .= '<tr style="background:#fff"><td style="padding:10px 14px">';
+        // ── KPI 列：今日／本月／年累計／交易家數（同戰情室網頁）──
+        $mYoy = $d['lyMonthTotal'] > 0 ? $this->_fmtYoyPctPlain(($d['monthTotal']-$d['lyMonthTotal'])/$d['lyMonthTotal']*100) : '<span style="color:#94a3b8">—</span>';
+        $yYoy = $d['lyYtdTotal'] > 0 ? $this->_fmtYoyPctPlain(($d['ytdTotal']-$d['lyYtdTotal'])/$d['lyYtdTotal']*100) : '<span style="color:#94a3b8">—</span>';
+        $h .= '<tr style="background:#fff"><td style="padding:10px 14px 6px">';
         $h .= '<table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>';
         $kpis = [
-            ['本月', $this->fmtW($d['monthTotal']), '#2563eb'],
-            ['年累計', $this->fmtW($d['ytdTotal']), '#7c3aed'],
-            ['月同比', $myoy, ''],
-            ['年同比', $yoyYtd, ''],
+            ['今日',   $this->fmtW($d['todayTotal']), '#16a34a', ''],
+            ['本月',   $this->fmtW($d['monthTotal']), '#2563eb', '同比 ' . $mYoy],
+            ['年累計', $this->fmtW($d['ytdTotal']),   '#7c3aed', '同比 ' . $yYoy],
+            ['交易家數', ($d['custCount'] ?? 0) . ' 家', '#334155', count($d['displayItems']) . ' 筆出貨'],
         ];
-        foreach ($kpis as [$lbl, $val, $col]) {
-            if (!$isMain || $lbl === '本月' || $lbl === '年累計') {
-                $h .= '<td style="padding:6px 10px 6px 0;vertical-align:top;white-space:nowrap">';
-                $h .= '<div style="color:#94a3b8;font-size:10px;margin-bottom:3px">' . $lbl . '</div>';
-                $valStyle = $col ? 'color:' . $col . ';font-size:15px;font-weight:700' : 'font-size:13px';
-                $h .= '<div style="' . $valStyle . '">' . $val . '</div>';
-                $h .= '</td>';
-            }
+        foreach ($kpis as [$lbl, $val, $col, $sub]) {
+            $h .= '<td width="25%" style="padding:6px 6px 6px 0;vertical-align:top">';
+            $h .= '<div style="color:#94a3b8;font-size:10px;margin-bottom:3px">' . $lbl . '</div>';
+            $h .= '<div style="color:' . $col . ';font-size:15px;font-weight:800">' . $val . '</div>';
+            if ($sub !== '') $h .= '<div style="font-size:10px;color:#64748b;margin-top:2px">' . $sub . '</div>';
+            $h .= '</td>';
         }
-        $h .= '</tr></table>';
-        $h .= '</td></tr>';
+        $h .= '</tr></table></td></tr>';
 
-        // Series ranking
-        if (count($d['seriesRanking']) > 0) {
+        // ── 當日明細：客戶／當日／當月累積／業務（退貨不列）──
+        $custRows = array_slice(array_values(array_filter($d['custRows'] ?? [], fn($r) => $r['amt'] > 0)), 0, 10);
+        if (count($custRows) > 0) {
             $h .= '<tr><td style="background:#fff;padding:0 14px 10px">';
-            $h .= '<div style="font-size:12px;font-weight:700;color:' . $c . ';margin-bottom:6px">🏆 熱銷系列' . ($label ? '（' . $label . '）' : '') . '</div>';
+            $h .= '<div style="font-size:12px;font-weight:700;color:' . $c . ';margin-bottom:6px">📋 ' . ($label ?: '當日') . ' 明細</div>';
             $h .= '<table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size:12px">';
             $h .= '<tr style="background:#f8fafc">';
-            foreach (['系列', '品號', '坪數', '佔比', '金額'] as $col) {
-                $align = in_array($col, ['坪數','佔比','金額']) ? 'right' : 'left';
-                $h .= '<th style="padding:5px 6px;color:#64748b;font-size:10px;font-weight:600;text-align:' . $align . '">' . $col . '</th>';
+            foreach ([['客戶','left'],['當日','right'],['當月累積','right'],['業務','left']] as [$col,$al]) {
+                $h .= '<th style="padding:5px 6px;color:#64748b;font-size:10px;font-weight:600;text-align:' . $al . '">' . $col . '</th>';
             }
             $h .= '</tr>';
-            foreach ($d['seriesRanking'] as $sr) {
+            foreach ($custRows as $r) {
+                $h .= '<tr style="border-top:1px solid #f1f5f9">';
+                $h .= '<td style="padding:5px 6px;font-weight:600">' . $r['name'] . '</td>';
+                $h .= '<td style="padding:5px 6px;text-align:right;font-weight:600">' . $this->fmtW($r['amt']) . '</td>';
+                $h .= '<td style="padding:5px 6px;text-align:right;color:#2563eb">' . ($r['monthAmt'] > 0 ? $this->fmtW($r['monthAmt']) : '') . '</td>';
+                $h .= '<td style="padding:5px 6px;color:#64748b">' . $r['sales'] . '</td>';
+                $h .= '</tr>';
+            }
+            $h .= '</table></td></tr>';
+        }
+
+        // ── 熱銷系列 Top10（負坪數／負金額不列）──
+        $srs = array_slice(array_values(array_filter($d['seriesRanking'] ?? [], fn($s) => $s['pings'] > 0 && $s['amount'] > 0)), 0, 10);
+        if (count($srs) > 0) {
+            $h .= '<tr><td style="background:#fff;padding:0 14px 10px">';
+            $h .= '<div style="font-size:12px;font-weight:700;color:' . $c . ';margin-bottom:6px">🏆 熱銷系列 Top' . count($srs) . ($label ? '（' . $label . '）' : '') . '</div>';
+            $h .= '<table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size:12px">';
+            $h .= '<tr style="background:#f8fafc">';
+            foreach ([['#','left'],['系列','left'],['品號','left'],['坪數','right'],['佔比','right'],['金額','right']] as [$col,$al]) {
+                $h .= '<th style="padding:5px 6px;color:#64748b;font-size:10px;font-weight:600;text-align:' . $al . '">' . $col . '</th>';
+            }
+            $h .= '</tr>';
+            foreach ($srs as $i => $sr) {
                 $skus = implode(' ', array_map(fn($sk) => $sk['sku'], $sr['skus']));
                 $h .= '<tr style="border-top:1px solid #f1f5f9">';
+                $h .= '<td style="padding:5px 6px;color:#94a3b8">' . ($i+1) . '</td>';
                 $h .= '<td style="padding:5px 6px;font-weight:600">' . $sr['series'] . '</td>';
                 $h .= '<td style="padding:5px 6px;color:#64748b;font-size:11px">' . $skus . '</td>';
-                $h .= '<td style="padding:5px 6px;text-align:right">' . number_format($sr['pings'], 1) . '</td>';
+                $h .= '<td style="padding:5px 6px;text-align:right">' . number_format($sr['pings'], 1) . ' 坪</td>';
                 $h .= '<td style="padding:5px 6px;text-align:right;color:#64748b">' . $sr['pct'] . '%</td>';
                 $h .= '<td style="padding:5px 6px;text-align:right;font-weight:600">' . $this->fmtW($sr['amount']) . '</td>';
                 $h .= '</tr>';
@@ -521,26 +562,26 @@ trait MailTrait
             $h .= '</table></td></tr>';
         }
 
-        // Customer ranking
-        if (count($d['custRanking']) > 0) {
+        // ── 客戶排行 Top15：本月業績／年度累計／年度同比 ──
+        $cmr = array_values(array_filter($d['custMonthRows'] ?? [], fn($r) => $r['amt'] > 0));
+        if (count($cmr) > 0) {
             $h .= '<tr><td style="background:#fff;padding:0 14px 14px">';
-            $h .= '<div style="font-size:12px;font-weight:700;color:' . $c . ';margin-bottom:6px">👥 客戶排行' . ($label ? '（' . $label . '）' : '') . '</div>';
+            $h .= '<div style="font-size:12px;font-weight:700;color:' . $c . ';margin-bottom:6px">🏅 客戶排行 Top' . count($cmr) . '（本月）</div>';
             $h .= '<table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size:12px">';
             $h .= '<tr style="background:#f8fafc">';
-            foreach (['客戶', '金額', '佔比', '明細'] as $col) {
-                $align = in_array($col, ['金額','佔比']) ? 'right' : 'left';
-                $h .= '<th style="padding:5px 6px;color:#64748b;font-size:10px;font-weight:600;text-align:' . $align . '">' . $col . '</th>';
+            foreach ([['#','left'],['客戶（佔比）','left'],['本月業績','right'],['年度累計','right'],['年度同比','right']] as [$col,$al]) {
+                $h .= '<th style="padding:5px 6px;color:#64748b;font-size:10px;font-weight:600;text-align:' . $al . '">' . $col . '</th>';
             }
             $h .= '</tr>';
-            foreach ($d['custRanking'] as $name => $amt) {
-                $items = $d['custItems'][$name] ?? [];
-                $parts = array_slice(array_map(fn($i) => ($i['seriesCn'] ?: '') . ' ' . $i['code'] . ' ' . round($i['qty']) . '片', $items), 0, 2);
-                if (count($items) > 2) $parts[] = '…還有' . (count($items)-2) . '筆';
+            foreach ($cmr as $i => $r) {
+                $yo = $r['lyYtd'] > 0 ? $this->_fmtYoyPctPlain(($r['ytd']-$r['lyYtd'])/$r['lyYtd']*100) : '<span style="color:#94a3b8">—</span>';
                 $h .= '<tr style="border-top:1px solid #f1f5f9">';
-                $h .= '<td style="padding:5px 6px;font-weight:600">' . $name . '</td>';
-                $h .= '<td style="padding:5px 6px;text-align:right">' . $this->fmtW($amt) . '</td>';
-                $h .= '<td style="padding:5px 6px;text-align:right;color:#64748b">' . round($amt / $d['custTotalAmt'] * 100) . '%</td>';
-                $h .= '<td style="padding:5px 6px;font-size:11px;color:#64748b">' . implode('<br>', $parts) . '</td>';
+                $h .= '<td style="padding:5px 6px;color:#94a3b8">' . ($i+1) . '</td>';
+                $h .= '<td style="padding:5px 6px;font-weight:600">' . $r['name']
+                    . ' <span style="color:' . $c . ';font-size:10px;font-weight:700">(' . $r['pct'] . '%)</span></td>';
+                $h .= '<td style="padding:5px 6px;text-align:right;font-weight:600">' . $this->fmtW($r['amt']) . '</td>';
+                $h .= '<td style="padding:5px 6px;text-align:right;color:#7c3aed">' . ($r['ytd'] > 0 ? $this->fmtW($r['ytd']) : '') . '</td>';
+                $h .= '<td style="padding:5px 6px;text-align:right">' . $yo . '</td>';
                 $h .= '</tr>';
             }
             $h .= '</table></td></tr>';
