@@ -304,12 +304,23 @@ try {
             try {
                 $sheet = $_GET['sheet'] ?? '業務分區';
                 $rows = $gs->readSheet($sheet);
+                $cols = isset($_GET['cols']) ? array_map('intval', explode(',', $_GET['cols'])) : null;
+                $out = [];
+                if ($cols) {
+                    for ($i = 1; $i < count($rows); $i++) {
+                        $picked = [];
+                        foreach ($cols as $ci) $picked[] = $rows[$i][$ci] ?? '';
+                        $out[] = $picked;
+                    }
+                } else {
+                    $out = array_slice($rows, 1, 12);
+                }
                 echo json_encode([
                     'success' => true,
                     'sheet' => $sheet,
                     'rowCount' => count($rows),
                     'header' => $rows[0] ?? [],
-                    'sample' => array_slice($rows, 1, 12),
+                    'rows' => $out,
                 ], JSON_UNESCAPED_UNICODE);
             } catch (Exception $e) {
                 echo json_encode(['success'=>false,'msg'=>$e->getMessage()]);
