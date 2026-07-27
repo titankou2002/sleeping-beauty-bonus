@@ -1905,33 +1905,52 @@ function renderCustomerDashboard(summary) {
     '<div class="kpi-card"><div class="label">現正陳列版面數</div><div class="value">' + summary.totalActiveDisplays + '</div><div class="sub">個 SKU 上架中</div></div>' +
   '</div>';
 
-  // 健康度分布
+  // 健康度分布（點類別可展開該類客戶名單）
   var healthOrder = ['growth', 'normal', 'warning', 'decline', 'dormant'];
   var maxH = Math.max.apply(null, healthOrder.map(function(k) { return summary.healthCounts[k] || 0; })) || 1;
-  html += '<div class="kpi-card" style="margin-top:10px"><div class="label">客戶健康度分布</div><div style="display:flex;flex-direction:column;gap:5px;margin-top:8px">';
+  var expandedH = window._dashHealthExpanded || '';
+  var activeAll = (window._customerData || []).filter(function(c) { return (c.saleCount || 0) >= 15 && (c.totalAmount || 0) > 0; });
+  html += '<div class="kpi-card" style="margin-top:10px"><div class="label">客戶健康度分布 <span style="font-size:10px;color:var(--text2);font-weight:400">· 點類別展開名單</span></div><div style="display:flex;flex-direction:column;gap:5px;margin-top:8px">';
   healthOrder.forEach(function(k) {
     var info = HEALTH_INFO[k];
     var n = summary.healthCounts[k] || 0;
     var pct = Math.round(n / maxH * 100);
-    html += '<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2)">' +
-      '<span style="width:80px;flex-shrink:0">' + info.label + '</span>' +
+    var isOpen = expandedH === k;
+    html += '<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;user-select:none" onclick="window._dashHealthExpanded=(window._dashHealthExpanded===\'' + k + '\'?\'\':\'' + k + '\');renderCustomerAnalysis(window._customerData)">' +
+      '<span style="width:88px;flex-shrink:0">' + (isOpen ? '▼ ' : '▶ ') + info.label + '</span>' +
       '<div style="flex:1;background:var(--bg2);border-radius:3px;height:10px;overflow:hidden"><div style="width:' + pct + '%;height:100%;background:' + info.color + '"></div></div>' +
       '<span style="width:36px;text-align:right;flex-shrink:0;color:var(--text1)">' + n + '</span>' +
     '</div>';
+    if (isOpen) {
+      var listC = activeAll.filter(function(c) { return c.health === k; }).sort(function(a, b) { return (b.thisYearAmount || 0) - (a.thisYearAmount || 0); });
+      html += '<div style="margin:2px 0 8px 94px;display:flex;flex-direction:column;gap:3px">';
+      if (!listC.length) html += '<div style="font-size:11px;color:var(--text2)">（無符合客戶）</div>';
+      listC.forEach(function(c) {
+        var yc = (c.yoyPct === null || c.yoyPct === undefined) ? 'var(--text2)' : (c.yoyPct > 0 ? 'var(--red)' : (c.yoyPct < 0 ? 'var(--green)' : 'var(--text2)'));
+        var yt = (c.yoyPct === null || c.yoyPct === undefined) ? '—' : (c.yoyPct > 0 ? '+' + c.yoyPct + '%' : c.yoyPct + '%');
+        html += '<div style="display:flex;align-items:center;gap:8px;font-size:11px;cursor:pointer;padding:1px 4px;border-radius:3px" onmouseover="this.style.background=\'var(--bg2)\'" onmouseout="this.style.background=\'transparent\'" onclick="event.stopPropagation();showCustomerDetail(\'' + String(c.name).replace(/'/g, "\\'") + '\')">' +
+          '<span style="width:88px;flex-shrink:0;color:var(--text1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + shortCust(c.name) + '</span>' +
+          '<span style="width:56px;text-align:right;color:var(--text2)">' + fmt(c.thisYearAmount) + '</span>' +
+          '<span style="width:52px;text-align:right;color:' + yc + '">' + yt + '</span>' +
+          '<span style="flex:1;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (c.area || '') + ' · ' + (c.salesRep || '') + '</span>' +
+        '</div>';
+      });
+      html += '</div>';
+    }
   });
   html += '</div></div>';
 
   // Top 10 客戶
   if (summary.topCustomers && summary.topCustomers.length) {
-    var maxAmt = Math.max.apply(null, summary.topCustomers.map(function(c) { return c.totalAmount; })) || 1;
+    var maxAmt = Math.max.apply(null, summary.topCustomers.map(function(c) { return c.thisYearAmount; })) || 1;
     html += '<div class="kpi-card" style="margin-top:10px"><div class="label">業績 Top 10 客戶（依今年累積總額）</div><div style="display:flex;flex-direction:column;gap:5px;margin-top:8px">';
     summary.topCustomers.forEach(function(c) {
-      var pct = Math.round(c.totalAmount / maxAmt * 100);
+      var pct = Math.round(c.thisYearAmount / maxAmt * 100);
       var color = HEALTH_INFO[c.health] ? HEALTH_INFO[c.health].color : 'var(--gold)';
       html += '<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2)">' +
         '<span style="width:90px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text1)">' + shortCust(c.name) + '</span>' +
         '<div style="flex:1;background:var(--bg2);border-radius:3px;height:10px;overflow:hidden"><div style="width:' + pct + '%;height:100%;background:' + color + '"></div></div>' +
-        '<span style="width:50px;text-align:right;flex-shrink:0;color:var(--text1)">' + fmt(c.totalAmount) + '</span>' +
+        '<span style="width:50px;text-align:right;flex-shrink:0;color:var(--text1)">' + fmt(c.thisYearAmount) + '</span>' +
       '</div>';
     });
     html += '</div></div>';

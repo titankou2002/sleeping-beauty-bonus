@@ -453,9 +453,12 @@ trait CustomerTrait
         $summary['yoyPct'] = $summary['lastYearAmount'] > 0
             ? round((($summary['thisYearAmount'] - $summary['lastYearAmount']) / $summary['lastYearAmount']) * 100, 1)
             : null;
-        $top10 = array_slice($activeCustomers, 0, 10);
+        // TOP10 依「今年累積業績」排序（thisYearAmount 已含漢樺 1/3 權重），與標題與上方今年KPI一致
+        $byThisYear = $activeCustomers;
+        usort($byThisYear, function ($a, $b) { return $b['thisYearAmount'] <=> $a['thisYearAmount']; });
+        $top10 = array_slice($byThisYear, 0, 10);
         $summary['topCustomers'] = array_map(function ($c) {
-            return ['name' => $c['name'], 'totalAmount' => $c['totalAmount'], 'yoyPct' => $c['yoyPct'], 'health' => $c['health']];
+            return ['name' => $c['name'], 'thisYearAmount' => $c['thisYearAmount'], 'totalAmount' => $c['totalAmount'], 'yoyPct' => $c['yoyPct'], 'health' => $c['health']];
         }, $top10);
 
         // 產品類型佔比
