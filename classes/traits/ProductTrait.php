@@ -168,12 +168,12 @@ trait ProductTrait
         }
 
         return [
-                'mos' => $diag['mos'],
-                'monthlySpeedPings' => $diag['monthlySpeedPings'],
-                'action' => $diag['action'],
-                'actionColor' => $diag['actionColor'],
-                'stagnantReason' => $diag['stagnantReason'],
-                'mosLevel' => $diag['mosLevel'],
+                'mos' => $mos,
+                'monthlySpeedPings' => round($monthlySpeedPings * 10) / 10,
+                'action' => $action,
+                'actionColor' => $actionColor,
+                'stagnantReason' => $stagnantReason,
+                'mosLevel' => $mosLevel,
         ];
     }
 
@@ -239,12 +239,12 @@ trait ProductTrait
                 'avgMarginPct' => $avgMarginPct,
                 'customers' => $customers,
                 'imageUrl' => $profile['imageUrl'] ?? '',
-                'mos' => $mos,
-                'monthlySpeedPings' => round($monthlySpeedPings * 10) / 10,
-                'action' => $action,
-                'actionColor' => $actionColor,
-                'stagnantReason' => $stagnantReason,
-                'mosLevel' => $mosLevel,
+                'mos' => $diag['mos'],
+                'monthlySpeedPings' => $diag['monthlySpeedPings'],
+                'action' => $diag['action'],
+                'actionColor' => $diag['actionColor'],
+                'stagnantReason' => $diag['stagnantReason'],
+                'mosLevel' => $diag['mosLevel'],
                 'displayCount' => count($activeDisplays),
                 'displays' => $activeDisplays
             ];

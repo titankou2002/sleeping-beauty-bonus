@@ -457,8 +457,37 @@ try {
                     }
                 }
             }
-            
-            echo json_encode(['success' => true, 'results' => $results, 'time' => date('Y-m-d H:i:s')], JSON_UNESCAPED_UNICODE);
+
+            // 庫存快照：只記錄，不觸發 AI 分析（Gemini）。只針對高雅瓷（唯一有此功能的公司）。
+            $snapshotResults = [];
+            $nowY = (int)date('Y');
+            $nowM = (int)date('n');
+            try {
+                $svc->recordInventorySnapshot($nowY, $nowM);
+                $snapshotResults['inventory'] = 'OK';
+            } catch (Exception $e) {
+                $snapshotResults['inventory'] = 'FAIL: ' . $e->getMessage();
+            }
+            $overviewFns = [
+                'sleeper' => 'getSleeperProductOverview',
+                'normal' => 'getNormalProductOverview',
+                'discontinued' => 'getDiscontinuedProductOverview',
+            ];
+            foreach ($overviewFns as $tab => $fn) {
+                try {
+                    $res = $svc->$fn();
+                    if ($res['success'] ?? false) {
+                        $svc->recordProductHistory($tab, $res['data'] ?? []);
+                        $snapshotResults[$tab] = 'OK (' . count($res['data'] ?? []) . ' SKU)';
+                    } else {
+                        $snapshotResults[$tab] = 'FAIL: ' . ($res['msg'] ?? 'unknown');
+                    }
+                } catch (Exception $e) {
+                    $snapshotResults[$tab] = 'FAIL: ' . $e->getMessage();
+                }
+            }
+
+            echo json_encode(['success' => true, 'results' => $results, 'snapshot' => $snapshotResults, 'time' => date('Y-m-d H:i:s')], JSON_UNESCAPED_UNICODE);
             break;
 
         case 'active-displays':
