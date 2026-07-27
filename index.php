@@ -563,10 +563,10 @@ input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-colo
   <div class="app">
     <header class="topbar">
       <div class="topbar-inner">
-        <img src="logo.svg" alt="eliTile" class="top-logo" onclick="loadDashboardHome()" style="cursor:pointer">
-        <h1 class="logo" onclick="loadDashboardHome()" style="cursor:pointer">高雅瓷戰情室</h1>
+        <img src="logo.svg" alt="eliTile" class="top-logo" onclick="switchTab('products')" style="cursor:pointer">
+        <h1 class="logo" onclick="switchTab('products')" style="cursor:pointer">高雅瓷戰情室</h1>
         <div class="tab-bar">
-          <button class="tab-btn active" id="tab-products" onclick="switchTab('products')">產品總覽</button>
+          <button class="tab-btn active" id="tab-products" onclick="switchTab('products')">每日戰報</button>
           <button class="tab-btn" id="tab-reports" onclick="switchTab('reports')">銷售報表</button>
           <button class="tab-btn" id="tab-bonus" onclick="switchTab('bonus')">睡美人銷售</button>
           <button class="tab-btn" id="tab-customers" onclick="switchTab('customers')">客戶分析</button>
@@ -1057,14 +1057,13 @@ function switchTab(tab) {
   document.getElementById('tab-reps').classList.toggle('active', tab === 'reps');
   document.getElementById('tab-mgr').classList.toggle('active', tab === 'mgr');
   document.getElementById('ctrl-bonus').classList.toggle('hidden', tab !== 'bonus');
-  document.getElementById('ctrl-products').classList.toggle('hidden', tab !== 'products');
+  document.getElementById('ctrl-products').classList.add('hidden');
   document.getElementById('ctrl-reports').classList.toggle('hidden', tab !== 'reports');
   if (tab === 'products') {
-    var el = document.getElementById('filter-grade');
-    el.style.display = currentProdTab === 'sleeper' ? '' : 'none';
-    loadCacheInfo();
-    if (!window._normalData) loadProducts();
-    else renderProducts();
+    var c = document.getElementById('main-content');
+    if (!c.querySelector('iframe[data-tab=daily]')) {
+      c.innerHTML = '<iframe data-tab="daily" src="daily.php" style="width:100%;border:none;background:var(--bg);min-height:calc(100vh - 120px)"></iframe>';
+    }
   } else if (tab === 'reports') {
     if (!window._strategyReport) loadStrategyReport();
     else renderStrategyReport(window._strategyReport);
@@ -1133,7 +1132,7 @@ function switchProdTab(tab) {
   renderProducts();
 }
 
-loadDashboardHome();
+switchTab('products');
 
 function loadProducts() {
   showLoading(true);
