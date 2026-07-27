@@ -299,13 +299,21 @@ function openRepDetail(name) {
   var content = document.getElementById('rep-detail-content');
   var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">';
   html += '<div><span style="font-size:22px;font-weight:800">' + rep.name + '</span>';
-  html += '<span style="font-size:13px;color:var(--text2);margin-left:10px">' + (rep.area || '') + ' \u00B7 ' + rep.customerCount + ' \u5BB6\u5BA2\u6236 \u00B7 \u7E3D\u696D\u7E3E ' + fmtNum(rep.totalAmount) + '</span>';
-  // \u7B49\u7D1A\u5206\u5E03
+  html += '<span style="font-size:13px;color:var(--text2);margin-left:10px">' + rep.customerCount + ' \u5BB6\u5BA2\u6236 \u00B7 \u4ECA\u5E74\u696D\u7E3E ' + fmtNum(rep.totalThisYear) + '</span>';
+  // \u7B49\u7D1A\u5206\u5E03\uFF08\u53EF\u9EDE\u64CA\u7BE9\u9078\uFF09
   if (rep.gradeDist) {
-    var gradeColors = {'\u7279':'#ff2a85','A':'var(--green)','B':'var(--blue)','C':'var(--text2)'};
-    Object.keys(rep.gradeDist).filter(function(g){return g!=='\u7121';}).forEach(function(g) {
-      html += '<span style="margin-left:6px;background:' + (gradeColors[g]||'var(--text2)') + '20;color:' + (gradeColors[g]||'var(--text2)') + ';border:1px solid ' + (gradeColors[g]||'var(--text2)') + '40;border-radius:4px;padding:1px 7px;font-size:11px;font-weight:800">' + g + '\xD7' + rep.gradeDist[g] + '</span>';
+    var gradeColors = {'\u7279':'#ff2a85','A':'var(--green)','B':'var(--blue)','C':'var(--text2)','\u7121':'var(--text2)'};
+    html += '<span style="display:inline-block;margin-left:8px">';
+    Object.keys(rep.gradeDist).forEach(function(g) {
+      var gc = gradeColors[g] || 'var(--text2)';
+      var on = (rep._gradeFilter === g);
+      var glabel = (g === '\u7121') ? '\u672A\u5206\u7D1A' : g;
+      html += '<span onclick="filterGrade(' + index + ',\'' + g + '\')" style="cursor:pointer;margin-left:6px;background:' + gc + (on ? '' : '20') + ';color:' + (on ? '#000' : gc) + ';border:1px solid ' + gc + (on ? '' : '40') + ';border-radius:4px;padding:1px 7px;font-size:11px;font-weight:800">' + glabel + '\xD7' + rep.gradeDist[g] + '</span>';
     });
+    html += '</span>';
+    if (rep._gradeFilter) {
+      html += '<span onclick="filterGrade(' + index + ',\'\')" style="cursor:pointer;margin-left:6px;font-size:11px;color:var(--gold);text-decoration:underline">\u6E05\u9664\u7BE9\u9078</span>';
+    }
   }
   html += '</div>';
   // \u6574\u9AD4\u9054\u6210\u7387
@@ -331,8 +339,11 @@ function openRepDetail(name) {
   ];
   sortOpts.forEach(function(o) {
     var active = (rep._sortField === o.key);
-    html += '<button class="sort-btn" data-sort="' + o.key + '" style="font-size:11px;padding:3px 10px;background:' + (active ? 'var(--gold)' : 'transparent') + ';border:1px solid ' + (active ? 'var(--gold)' : 'var(--border)') + ';border-radius:4px;color:' + (active ? '#000' : 'var(--text2)') + ';cursor:pointer;font-weight:' + (active ? '700' : '500') + '" onclick="sortCustomers(' + index + ',\'' + o.key + '\')">' + o.label + '</button>';
+    var arrow = active ? (rep._sortAsc ? '▲' : '▼') : '↕';
+    var arrowColor = active ? '#000' : 'var(--text2)';
+    html += '<button class="sort-btn" data-sort="' + o.key + '" style="font-size:11px;padding:3px 10px;background:' + (active ? 'var(--gold)' : 'transparent') + ';border:1px solid ' + (active ? 'var(--gold)' : 'var(--border)') + ';border-radius:4px;color:' + (active ? '#000' : 'var(--text2)') + ';cursor:pointer;font-weight:' + (active ? '700' : '500') + '" onclick="sortCustomers(' + index + ',\'' + o.key + '\')"><span style="color:' + arrowColor + ';margin-right:3px;font-size:9px">' + arrow + '</span>' + o.label + '</button>';
   });
+  html += '<span style="font-size:10px;color:var(--text2);align-self:center;margin-left:2px">▼降 ▲升 · 再點切換</span>';
   html += '</div>';
 
   html += '<div class="cust-grid" id="cust-grid-' + index + '">';
@@ -355,9 +366,26 @@ function sortCustomers(index, field) {
   renderCustomers(index);
 }
 
+function filterGrade(index, grade) {
+  var rep = allData.reps[index];
+  rep._gradeFilter = (rep._gradeFilter === grade) ? '' : grade;
+  openRepDetail(rep.name);
+}
+
+// 沉底判定：C 級、未分級、或去年同期為 0（YOY 無基準）者排到最後
+function _isLowPriority(c) {
+  var noBaseline = !(c.lastYearSamePeriod || c.lastYearAmount);
+  return c.grade === 'C' || !c.grade || noBaseline;
+}
+
 function renderCustomers(index) {
   var rep = allData.reps[index];
   var custs = rep.customers.slice();
+  if (rep._gradeFilter) {
+    custs = custs.filter(function(c) {
+      return rep._gradeFilter === '無' ? !c.grade : c.grade === rep._gradeFilter;
+    });
+  }
   var field = rep._sortField || null;
 
   if (field === 'thisYearAmount') {
@@ -389,6 +417,12 @@ function renderCustomers(index) {
   } else {
     custs.sort(function(a,b){ return b.totalAmount - a.totalAmount; });
   }
+
+  // C 級／未分級／去年同期 0 沉底（穩定排序，維持各區塊內既有順序）
+  custs.sort(function(a,b){ return (_isLowPriority(a) ? 1 : 0) - (_isLowPriority(b) ? 1 : 0); });
+
+  window._repSorted = window._repSorted || {};
+  window._repSorted[index] = custs;   // 供延遲繪圖取用
 
   var html = '';
   custs.forEach(function(c, ci) {
@@ -441,8 +475,11 @@ function renderCustomers(index) {
     if (contractStr !== '-') html += '<div class="cc-stat" style="grid-column:1/-1"><div class="cs-label" style="color:var(--gold)">\u5408\u7D04\u72C0\u6CC1</div><div class="cs-value mono" style="font-size:12px;color:var(--text2)">' + contractStr + '</div></div>';
     html += '</div>';
 
-    // Monthly trend chart placeholder
-    html += '<div class="chart-sm" id="trend-chart-' + index + '-' + ci + '"></div>';
+    // 月度趨勢圖：預設收合，點開才繪製（省空間）
+    html += '<div style="margin:4px 0">' +
+      '<button onclick="toggleTrendChart(' + index + ',' + ci + ',this)" style="font-size:11px;padding:2px 8px;background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text2);cursor:pointer">📈 顯示趨勢圖</button>' +
+      '<div class="chart-sm" id="trend-chart-' + index + '-' + ci + '" data-drawn="0" style="display:none"></div>' +
+    '</div>';
 
     // Top series comparison
     html += '<div style="display:flex;gap:12px;margin:8px 0">';
@@ -532,38 +569,49 @@ function renderCustomers(index) {
     }
   }
 
-  // Render charts after DOM update
-  setTimeout(function() {
-    custs.forEach(function(c, ci) {
-      var el = document.getElementById('trend-chart-' + index + '-' + ci);
-      if (!el) return;
-      var ctx = document.createElement('canvas');
-      el.appendChild(ctx);
-      var months = c.monthlyTrend || [];
-      var labels = months.map(function(m) { return m.month + '\u6708'; });
-      var ty = months.map(function(m) { return m.thisYear; });
-      var ly = months.map(function(m) { return m.lastYear; });
-      charts.push(new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: labels,
-          datasets: [
-            { label: '\u4ECA\u5E74', data: ty, borderColor: '#c29d66', borderWidth: 2, pointRadius: 1.5, tension: 0.2, fill: false },
-            { label: '\u53BB\u5E74', data: ly, borderColor: 'rgba(255,255,255,0.2)', borderWidth: 1.5, borderDash: [3,3], pointRadius: 0, tension: 0.2, fill: false }
-          ]
-        },
-        options: {
-          responsive: true, maintainAspectRatio: false,
-          plugins: { legend: { display: false }, tooltip: { enabled: true, backgroundColor: '#111', borderColor: 'rgba(194,157,102,0.3)', borderWidth: 1, bodyColor: '#fff' } },
-          scales: {
-            x: { display: false, grid: { display: false } },
-            y: { display: false, beginAtZero: true, grid: { display: false } }
-          },
-          elements: { point: { radius: 0 } }
-        }
-      }));
-    });
-  }, 50);
+}
+
+// \u9EDE\u6309\u9215\u624D\u7E6A\u88FD\u8A72\u5BA2\u6236\u7684\u8DA8\u52E2\u5716\uFF08\u53EA\u7E6A\u4E00\u6B21\uFF09
+function toggleTrendChart(index, ci, btn) {
+  var el = document.getElementById('trend-chart-' + index + '-' + ci);
+  if (!el) return;
+  var showing = el.style.display !== 'none';
+  if (showing) {
+    el.style.display = 'none';
+    btn.textContent = '\uD83D\uDCC8 \u986F\u793A\u8DA8\u52E2\u5716';
+    return;
+  }
+  el.style.display = '';
+  btn.textContent = '\uD83D\uDCC9 \u6536\u5408\u8DA8\u52E2\u5716';
+  if (el.getAttribute('data-drawn') === '1') return;
+  el.setAttribute('data-drawn', '1');
+  var c = ((window._repSorted || {})[index] || [])[ci];
+  if (!c) return;
+  var ctx = document.createElement('canvas');
+  el.appendChild(ctx);
+  var months = c.monthlyTrend || [];
+  var labels = months.map(function(m) { return m.month + '\u6708'; });
+  var ty = months.map(function(m) { return m.thisYear; });
+  var ly = months.map(function(m) { return m.lastYear; });
+  charts.push(new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        { label: '\u4ECA\u5E74', data: ty, borderColor: '#c29d66', borderWidth: 2, pointRadius: 1.5, tension: 0.2, fill: false },
+        { label: '\u53BB\u5E74', data: ly, borderColor: 'rgba(255,255,255,0.2)', borderWidth: 1.5, borderDash: [3,3], pointRadius: 0, tension: 0.2, fill: false }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { enabled: true, backgroundColor: '#111', borderColor: 'rgba(194,157,102,0.3)', borderWidth: 1, bodyColor: '#fff' } },
+      scales: {
+        x: { display: false, grid: { display: false } },
+        y: { display: false, beginAtZero: true, grid: { display: false } }
+      },
+      elements: { point: { radius: 0 } }
+    }
+  }));
 }
 
 function closeRepDetail() {
