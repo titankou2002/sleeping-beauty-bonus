@@ -299,6 +299,23 @@ try {
             echo json_encode($res);
             break;
 
+        case 'debug-dump-sheet':
+            if (($_GET['token'] ?? '') !== CRON_TOKEN) { http_response_code(403); echo json_encode(['success'=>false]); break; }
+            try {
+                $sheet = $_GET['sheet'] ?? '業務分區';
+                $rows = $gs->readSheet($sheet);
+                echo json_encode([
+                    'success' => true,
+                    'sheet' => $sheet,
+                    'rowCount' => count($rows),
+                    'header' => $rows[0] ?? [],
+                    'sample' => array_slice($rows, 1, 12),
+                ], JSON_UNESCAPED_UNICODE);
+            } catch (Exception $e) {
+                echo json_encode(['success'=>false,'msg'=>$e->getMessage()]);
+            }
+            break;
+
         case 'debug-sales-compare':
             try {
                 $year = (int)($_GET['year'] ?? date('Y'));
