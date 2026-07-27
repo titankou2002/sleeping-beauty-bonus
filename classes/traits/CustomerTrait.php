@@ -353,8 +353,8 @@ trait CustomerTrait
         $result = [];
         foreach ($customers as $key => $c) {
             $weight = 1.0;
-            foreach ($customerWeights as $name => $w) {
-                if (mb_strpos($key, $name) !== false) { $weight = $w; break; }
+            foreach ($customerWeights as $cwName => $w) {
+                if (mb_strpos($key, $cwName) !== false) { $weight = $w; break; }
             }
             $daysSinceLastOrder = $c['lastOrderDate'] ? (int)$now->diff(new DateTime($c['lastOrderDate']))->days : null;
             $yoyPct = $c['lastYearAmount'] > 0
@@ -397,7 +397,7 @@ trait CustomerTrait
                     if (empty($counts)) return '未分配';
                     arsort($counts);
                     return array_key_first($counts);
-                })->call($this, $c['salesRepCounts'], $name),
+                })->call($this, $c['salesRepCounts'], $key),
                 'area' => (function ($counts, $custName) use ($areaMap, $customerAreaMap) {
                     $v = $this->fuzzyLookup($customerAreaMap, $custName);
                     if ($v !== null) return $v;
@@ -405,10 +405,10 @@ trait CustomerTrait
                     arsort($counts);
                     $rep = array_key_first($counts);
                     return $areaMap[$rep] ?? '未分配';
-                })->call($this, $c['salesRepCounts'], $name),
-                'grade'   => $this->fuzzyLookup($customerGradeMap, $name),
-                'target'  => $this->fuzzyLookup($customerTargetMap, $name),
-                'contrib' => $this->fuzzyLookup($customerContribMap, $name),
+                })->call($this, $c['salesRepCounts'], $key),
+                'grade'   => $this->fuzzyLookup($customerGradeMap, $key),
+                'target'  => $this->fuzzyLookup($customerTargetMap, $key),
+                'contrib' => $this->fuzzyLookup($customerContribMap, $key),
                 'contractHealth' => $c['contractHealth'],
                 'contractExpiry' => $c['contractExpiry'],
                 'contractBalance' => $c['contractBalance'] !== null ? round($c['contractBalance']) : null,
