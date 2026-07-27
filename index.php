@@ -1997,6 +1997,17 @@ function renderCustomerAnalysis(data) {
 
   var groupByArea = !!window._customerGroupByArea;
 
+  // 業務篩選選項（依客戶數多到少）
+  var repCounts = {};
+  data.forEach(function(c) { var r = c.salesRep || '未分配'; repCounts[r] = (repCounts[r] || 0) + 1; });
+  var repNames = Object.keys(repCounts).sort(function(a, b) { return repCounts[b] - repCounts[a]; });
+  var salesFilterHtml = '<div class="kpi-card" style="flex:0 0 auto">' +
+    '<div class="label">業務</div>' +
+    '<select id="customer-sales-select" style="width:130px;background:var(--bg2);border:1px solid var(--border);color:var(--text1);border-radius:6px;padding:6px 8px;font-size:13px;margin-top:6px" onchange="window._customerSalesFilter=this.value;renderCustomerAnalysis(window._customerData)">' +
+      '<option value=""' + (!salesFilter ? ' selected' : '') + '>全部業務</option>' +
+      repNames.map(function(r) { return '<option value="' + r + '"' + (salesFilter === r ? ' selected' : '') + '>' + r + '（' + repCounts[r] + '）</option>'; }).join('') +
+    '</select></div>';
+
   var html = '';
   html += renderCustomerDashboard(window._customerSummary);
 
@@ -2005,6 +2016,7 @@ function renderCustomerAnalysis(data) {
       '<div class="label">搜尋客戶</div>' +
       '<input id="customer-search-input" type="text" value="' + (search || '').replace(/"/g, '&quot;') + '" placeholder="輸入客戶名稱..." style="width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text1);border-radius:6px;padding:6px 8px;font-size:13px;margin-top:6px" oninput="window._customerSearch=this.value;renderCustomerAnalysis(window._customerData)">' +
     '</div>' +
+    salesFilterHtml +
     '<div class="kpi-card" style="flex:0 0 auto">' +
       '<div class="label">排序</div>' +
       '<select id="customer-sort-select" style="width:140px;background:var(--bg2);border:1px solid var(--border);color:var(--text1);border-radius:6px;padding:6px 8px;font-size:13px;margin-top:6px" onchange="window._customerSort=this.value;renderCustomerAnalysis(window._customerData)">' +
@@ -2061,7 +2073,13 @@ function renderCustomerAnalysis(data) {
     html += '</div>';
   }
 
+  // 保留捲動位置，避免點篩選/展開時跳動
+  var mainEl = document.querySelector('.main');
+  var winY = window.scrollY || 0;
+  var mainY = mainEl ? mainEl.scrollTop : 0;
   document.getElementById('main-content').innerHTML = html;
+  window.scrollTo(0, winY);
+  if (mainEl) mainEl.scrollTop = mainY;
   var input = document.getElementById('customer-search-input');
   if (input) {
     var pos = input.selectionStart;
@@ -2071,6 +2089,27 @@ function renderCustomerAnalysis(data) {
 }
 
 var _custCardSeq = 0;
+
+// 距今天數
+function _daysAgo(dateStr) {
+  if (!dateStr) return null;
+  var d = new Date(dateStr);
+  if (isNaN(d.getTime())) return null;
+  return Math.floor((Date.now() - d.getTime()) / 86400000);
+}
+// 合約狀況：逾期→逾期XX月；未逾期→X月後到期
+function _contractStatus(c) {
+  if (c.contractExpiry) {
+    var d = new Date(c.contractExpiry);
+    if (!isNaN(d.getTime())) {
+      var months = Math.round((d.getTime() - Date.now()) / (86400000 * 30.44));
+      if (months < 0) return '逾期 ' + Math.abs(months) + ' 月';
+      return months + ' 月後到期';
+    }
+  }
+  return c.contractHealth || '';
+}
+
 function renderCustomerCard(c) {
   var idx = _custCardSeq++;
   var info = HEALTH_INFO[c.health];
@@ -2099,29 +2138,47 @@ function renderCustomerCard(c) {
       '<div style="font-size:11px;color:var(--text2);margin-top:2px">目標 ' + fmt(c.target) + '　實績 ' + fmt(c.thisYearAmount) + '</div>' +
     '</div>';
   }
+  var lastOrderText = (c.lastOrderDate || '無') + ((c.daysSinceLastOrder !== null && c.daysSinceLastOrder !== undefined) ? '（' + c.daysSinceLastOrder + '天前）' : '');
+  var dv = _daysAgo(c.lastVisitDate);
+  var visitText = c.lastVisitDate ? (c.lastVisitDate + (dv !== null ? '（' + dv + '天前）' : '')) : '無';
+  var cs = _contractStatus(c);
+  var csColor = /逾期/.test(cs) ? 'var(--red)' : 'var(--text2)';
+
+  function _stat(label, val, color) {
+    return '<div class="prod-stat"><div class="ps-label">' + label + '</div><div class="ps-value"' + (color ? ' style="color:' + color + '"' : '') + '>' + val + '</div></div>';
+  }
+
+  var moreHtml =
+    '<div style="margin-top:8px;font-size:11px;font-weight:800;color:var(--text2)">業績表現</div>' +
+    renderYoyBar(c) +
+    renderLowMarginDeals(c.lowMarginDeals) +
+    (c.activeDisplayCount > 0 ? '<div style="margin-top:8px;font-size:11px;font-weight:800;color:var(--text2)">版面陳列</div>' + renderActiveDisplays(c) : '') +
+    '<div style="margin-top:8px;font-size:11px;font-weight:800;color:var(--text2)">互動紀錄</div>' +
+    (c.lastNote ? '<div style="margin-top:4px;font-size:12px;color:var(--text2)">最新備註（' + (c.lastNoteDate || '') + '）：' + c.lastNote + '</div>' : '') +
+    renderCatBreakdown(c.catCounts) +
+    (c.contractHealth ? '<div style="margin-top:8px;font-size:11px;font-weight:800;color:var(--text2)">合約狀態</div>' + renderContractBadge(c) : '') +
+    '<div id="cust-expand-' + idx + '" style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px" onclick="event.stopPropagation()"></div>';
+
   return '<div class="product-card" style="grid-template-columns:1fr;cursor:pointer" onclick="toggleCustomerExpand(' + idx + ', \'' + nameEsc + '\')">' +
     '<div class="prod-info">' +
       '<div class="prod-summary-row">' +
-        '<div class="prod-summary-main"><div class="prod-title">' + c.name + gradeHtml + '</div></div>' +
+        '<div class="prod-summary-main"><div class="prod-title">' + c.name + gradeHtml +
+          '<span style="background:' + info.color + '15;border:1px solid ' + info.color + '30;color:' + info.color + ';padding:2px 7px;border-radius:6px;font-size:11px;font-weight:800;margin-left:8px">' + info.label + '</span>' +
+          (c.area ? '<span style="font-size:11px;color:var(--text2);margin-left:8px">' + c.area + (c.salesRep ? ' · ' + c.salesRep : '') + '</span>' : '') +
+        '</div></div>' +
         '<div class="prod-summary-stats">' +
-          '<div class="prod-stat"><div class="ps-label">今年業績</div><div class="ps-value">' + fmt(c.thisYearAmount) + '</div></div>' +
-          '<div class="prod-stat"><div class="ps-label">YOY</div><div class="ps-value" style="color:' + yoyColor + '">' + yoyText + '</div></div>' +
-          '<div class="prod-stat"><div class="ps-label">最後下單</div><div class="ps-value">' + (c.lastOrderDate || '無') + (c.daysSinceLastOrder !== null ? '（' + c.daysSinceLastOrder + '天前）' : '') + '</div></div>' +
-          '<div class="prod-stat"><div class="ps-label">拜訪次數</div><div class="ps-value">' + c.visits + '</div></div>' +
-          '<div class="prod-stat"><div class="ps-label">平均毛利率</div><div class="ps-value" style="color:' + (c.avgMarginPct === null ? 'var(--text2)' : (c.avgMarginPct < 15 ? 'var(--red)' : 'var(--text1)')) + '">' + (c.avgMarginPct === null ? '—' : c.avgMarginPct + '%') + '</div></div>' +
+          _stat('當月業績', fmt(c.thisMonthAmount || 0)) +
+          _stat('年度業績', fmt(c.thisYearAmount)) +
+          _stat('YOY', yoyText, yoyColor) +
+          _stat('最後下單', lastOrderText) +
+          _stat('最近到訪', visitText) +
+          _stat('版面數', (c.activeDisplayCount || 0) + ' 版') +
+          _stat('合約狀況', cs || '—', csColor) +
         '</div>' +
       '</div>' +
       targetHtml +
-      '<div class="action-badge" style="background:' + info.color + '15;border:1px solid ' + info.color + '30;color:' + info.color + ';padding:4px 8px;border-radius:6px;font-size:11px;font-weight:800;display:inline-block;margin-top:6px">' + info.label + '</div>' +
-      '<div style="margin-top:8px;font-size:11px;font-weight:800;color:var(--text2)">📊 業績表現</div>' +
-      renderYoyBar(c) +
-      renderLowMarginDeals(c.lowMarginDeals) +
-      (c.activeDisplayCount > 0 ? '<div style="margin-top:8px;font-size:11px;font-weight:800;color:var(--text2)">🏪 版面陳列</div>' + renderActiveDisplays(c) : '') +
-      '<div style="margin-top:8px;font-size:11px;font-weight:800;color:var(--text2)">🤝 互動紀錄</div>' +
-      (c.lastNote ? '<div style="margin-top:4px;font-size:12px;color:var(--text2)">最新備註（' + (c.lastNoteDate || '') + '）：' + c.lastNote + '</div>' : '') +
-      renderCatBreakdown(c.catCounts) +
-      (c.contractHealth ? '<div style="margin-top:8px;font-size:11px;font-weight:800;color:var(--text2)">📋 合約狀態</div>' + renderContractBadge(c) : '') +
-      '<div id="cust-expand-' + idx + '" style="display:none;margin-top:10px;border-top:1px solid var(--border);padding-top:10px" onclick="event.stopPropagation()"></div>' +
+      '<div id="cust-more-' + idx + '" style="display:none;margin-top:8px">' + moreHtml + '</div>' +
+      '<div id="cust-more-hint-' + idx + '" style="text-align:center;font-size:11px;color:var(--text2);margin-top:6px">▾ 點卡片看明細</div>' +
     '</div>' +
   '</div>';
 }
@@ -2269,16 +2326,18 @@ function renderCatPie(catCounts) {
 }
 
 function toggleCustomerExpand(idx, customer) {
-  var el = document.getElementById('cust-expand-' + idx);
-  if (!el) return;
-  if (el.style.display === 'none' || el.style.display === '') {
-    el.style.display = 'block';
-    if (!el.dataset.loaded) {
+  var more = document.getElementById('cust-more-' + idx);
+  if (!more) return;
+  var hint = document.getElementById('cust-more-hint-' + idx);
+  var opening = (more.style.display === 'none' || more.style.display === '');
+  more.style.display = opening ? 'block' : 'none';
+  if (hint) hint.textContent = opening ? '▴ 收合明細' : '▾ 點卡片看明細';
+  if (opening) {
+    var el = document.getElementById('cust-expand-' + idx);
+    if (el && !el.dataset.loaded) {
       el.dataset.loaded = '1';
       loadCustomerExpand(el, customer);
     }
-  } else {
-    el.style.display = 'none';
   }
 }
 

@@ -61,6 +61,7 @@ trait CustomerTrait
         $now = new DateTime();
         $thisYear = (int)$now->format('Y');
         $lastYear = $thisYear - 1;
+        $thisMonth = (int)$now->format('n');
         $todayMD = $now->format('m-d');
         $areaMap = $this->getSalesRepAreaMap();
 
@@ -119,7 +120,7 @@ trait CustomerTrait
             if (!isset($customers[$key])) {
                 $customers[$key] = [
                     'name' => $key,
-                    'totalAmount' => 0, 'thisYearAmount' => 0, 'lastYearAmount' => 0,
+                    'totalAmount' => 0, 'thisYearAmount' => 0, 'lastYearAmount' => 0, 'thisMonthAmount' => 0,
                     'lastOrderDate' => null, 'visits' => 0, 'lastVisitDate' => null,
                     'noteCount' => 0, 'lastNote' => '', 'lastNoteDate' => null,
                     'catCounts' => [],
@@ -187,6 +188,7 @@ trait CustomerTrait
                     $customers[$key]['totalAmount'] += $amt;
                     $y = (int)$d->format('Y');
                     if ($y === $thisYear) $customers[$key]['thisYearAmount'] += $amt;
+                    if ($y === $thisYear && (int)$d->format('n') === $thisMonth) $customers[$key]['thisMonthAmount'] += $amt;
                     if ($y === $lastYear && $d->format('m-d') <= $todayMD) $customers[$key]['lastYearAmount'] += $amt;
 
                     // 按產品類型統計
@@ -379,6 +381,7 @@ trait CustomerTrait
                 'name' => $key,
                 'totalAmount' => round($c['totalAmount']),
                 'thisYearAmount' => round($c['thisYearAmount'] * $weight),
+                'thisMonthAmount' => round($c['thisMonthAmount'] * $weight),
                 'lastYearAmount' => round($c['lastYearAmount'] * $weight),
                 'yoyPct' => $yoyPct,
                 'lastOrderDate' => $c['lastOrderDate'],
