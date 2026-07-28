@@ -495,7 +495,7 @@ trait DataTrait
         return array_slice($data, 1); // skip header row
     }
 
-    public function rebuildSalesYearCache($years = null)
+    public function rebuildSalesYearCache($years = null, $sheetName = null)
     {
         set_time_limit(120);
         ini_set('memory_limit', '256M');
@@ -521,7 +521,7 @@ trait DataTrait
             }
             sort($targetYears);
 
-            $salesRows = $this->gs->readSheet(SALES_SHEET);
+            $salesRows = $this->gs->readSheet($sheetName ?: SALES_SHEET);
             if (count($salesRows) < 2) {
                 return ['success' => false, 'error' => '找不到經銷銷售報表資料。'];
             }

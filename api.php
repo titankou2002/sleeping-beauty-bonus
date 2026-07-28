@@ -445,15 +445,15 @@ try {
             }
             $results = [];
             $companySheets = [
-                '高雅瓷' => SS_ID_MAIN,
-                '安帝嘉' => SS_ID_ANDYGA,
-                '喜悅納' => SS_ID_XIYENA,
+                '高雅瓷' => ['id' => SS_ID_MAIN, 'sheet' => SALES_SHEET],
+                '安帝嘉' => ['id' => SS_ID_ANDYGA, 'sheet' => SALES_SHEET],
+                '喜悅納' => ['id' => SS_ID_XIYENA, 'sheet' => '月報表'],
             ];
-            foreach ($companySheets as $name => $ssId) {
+            foreach ($companySheets as $name => $co) {
                 try {
-                    $gsClient = new GoogleSheetsClient($ssId);
+                    $gsClient = new GoogleSheetsClient($co['id']);
                     $companySvc = new SleeperService($gsClient);
-                    $res = $companySvc->rebuildSalesYearCache();
+                    $res = $companySvc->rebuildSalesYearCache(null, $co['sheet']);
                     $ok = $res['success'] ?? false;
                     $results[$name] = [
                         'success' => $ok,
