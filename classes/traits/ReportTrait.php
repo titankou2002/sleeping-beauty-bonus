@@ -1351,6 +1351,79 @@ trait ReportTrait
         ];
     }
 
+    // 診斷用：比對「快取(CACHE_SHEET)」與「即時掃描原始銷售表」的當月金額差異
+    public function debugCompanyCacheCompare($co, $year, $month)
+    {
+        $companyMap = ['main' => SS_ID_MAIN, 'andyga' => SS_ID_ANDYGA, 'xiyena' => SS_ID_XIYENA];
+        $ssId = $companyMap[$co] ?? SS_ID_ANDYGA;
+        $gsC = $this->getClient($ssId);
+
+        // 1) 快取值：直接讀 CACHE_SHEET 該年月加總，並取最後更新時間
+        $cacheRows = $gsC->readSheet(CACHE_SHEET);
+        $ch = $cacheRows[0] ?? [];
+        $ciYear = $this->findHeader($ch, ['年度']);
+        $ciMonth = $this->findHeader($ch, ['月份']);
+        $ciAmt = $this->findHeader($ch, ['銷售金額']);
+        $ciUpdated = $this->findHeader($ch, ['更新時間']);
+        $cacheSum = 0; $cacheRowCount = 0; $lastUpdated = '';
+        for ($i = 1; $i < count($cacheRows); $i++) {
+            $r = $cacheRows[$i];
+            if ((int)($r[$ciYear] ?? 0) === $year && (int)($r[$ciMonth] ?? 0) === $month) {
+                $cacheSum += (float)str_replace(',', '', $r[$ciAmt] ?? 0);
+                $cacheRowCount++;
+                if ($ciUpdated !== -1 && ($r[$ciUpdated] ?? '') > $lastUpdated) $lastUpdated = $r[$ciUpdated];
+            }
+        }
+
+        // 2) 即時值：比照 MailTrait::_collectSalesData 的邏輯，即時掃原始銷售表
+        $companySheet = $co === 'xiyena' ? '月報表' : SALES_SHEET;
+        $salesRows = $gsC->readSheet($companySheet);
+        $sh = $salesRows[0] ?? [];
+        $idxDate = $this->findHeader($sh, ['單據日期','銷貨日期','日期']);
+        $idxAmt2 = $this->findHeader($sh, ['金額','銷額','銷售金額','成交金額','小計','總計']);
+        $idxQty2 = $this->findHeader($sh, ['數量','銷貨數量','片數']);
+        $idxCode2 = $this->findHeader($sh, ['產品編號','編號','品號','品碼','序號']);
+        $idxCust2 = $this->findHeader($sh, ['客戶名稱','客戶']);
+        $idxCustCode2 = $this->findHeader($sh, ['客戶編號','客戶代碼','代碼']);
+        $idxNote2 = $this->findHeader($sh, ['產品備註','備註','說明']);
+        $idxType2 = $this->findHeader($sh, ['類別','性質','單據類別']);
+        $idxProdName2 = $this->findHeader($sh, ['產品名稱','品名']);
+        $liveSum = 0; $liveRowCount = 0; $liveLastDate = '';
+        for ($i = 1; $i < count($salesRows); $i++) {
+            $r = $salesRows[$i];
+            $d = $this->parseDate($r[$idxDate] ?? '');
+            if (!$d) continue;
+            if ((int)$d->format('Y') !== $year || (int)$d->format('n') !== $month) continue;
+            $amt = $this->optFloat($r[$idxAmt2] ?? 0);
+            $qty = $this->optFloat($r[$idxQty2] ?? 0);
+            if ($qty == 0 && $amt == 0) continue;
+            $custName = trim($r[$idxCust2] ?? '');
+            $custCode = trim($r[$idxCustCode2] ?? '');
+            $note = trim($r[$idxNote2] ?? '');
+            $prodName = $idxProdName2 !== -1 ? trim($r[$idxProdName2] ?? '') : '';
+            if ($this->isSampleRow($custCode, $custName, $prodName . ' ' . $note, $amt)) continue;
+            $code = $idxCode2 !== -1 ? $this->cleanSku($r[$idxCode2] ?? '') : '';
+            if ($code === '') continue;
+            $typeText = $idxType2 !== -1 ? trim($r[$idxType2] ?? '') : '';
+            $isReturn = (strpos($typeText, '退') !== false) || ($qty < 0);
+            if ($isReturn) {
+                $amt = ($amt < 0 ? $amt : -abs($amt));
+            }
+            $liveSum += $amt;
+            $liveRowCount++;
+            $ds = $d->format('Y-m-d');
+            if ($ds > $liveLastDate) $liveLastDate = $ds;
+        }
+
+        return [
+            'success' => true,
+            'company' => $co, 'year' => $year, 'month' => $month,
+            'cache' => ['sum' => round($cacheSum), 'rowCount' => $cacheRowCount, 'lastUpdated' => $lastUpdated],
+            'live' => ['sum' => round($liveSum), 'rowCount' => $liveRowCount, 'lastTxDate' => $liveLastDate],
+            'diff' => round($liveSum) - round($cacheSum),
+        ];
+    }
+
     private function getCompanyReportStats($ssId, $year, $month)
     {
         try {

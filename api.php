@@ -299,6 +299,18 @@ try {
             echo json_encode($res);
             break;
 
+        case 'debug-company-cache-compare':
+            if (($_GET['token'] ?? '') !== CRON_TOKEN) { http_response_code(403); echo json_encode(['success'=>false]); break; }
+            try {
+                $co = $_GET['company'] ?? 'andyga';
+                $year = (int)($_GET['year'] ?? date('Y'));
+                $month = (int)($_GET['month'] ?? date('n'));
+                echo json_encode($svc->debugCompanyCacheCompare($co, $year, $month), JSON_UNESCAPED_UNICODE);
+            } catch (Exception $e) {
+                echo json_encode(['success'=>false,'msg'=>$e->getMessage()]);
+            }
+            break;
+
         case 'debug-sales-compare':
             try {
                 $year = (int)($_GET['year'] ?? date('Y'));
