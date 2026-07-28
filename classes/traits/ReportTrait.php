@@ -1358,20 +1358,28 @@ trait ReportTrait
         $ssId = $companyMap[$co] ?? SS_ID_ANDYGA;
         $gsC = $this->getClient($ssId);
 
-        // 1) 快取值：直接讀 CACHE_SHEET 該年月加總，並取最後更新時間
+        // 1) 快取值：直接讀 CACHE_SHEET 該年月加總，並取最後更新時間；同時建立分組鍵對照(客戶|產品|專案|業務)
         $cacheRows = $gsC->readSheet(CACHE_SHEET);
         $ch = $cacheRows[0] ?? [];
         $ciYear = $this->findHeader($ch, ['年度']);
         $ciMonth = $this->findHeader($ch, ['月份']);
+        $ciCode = $this->findHeader($ch, ['產品編號']);
+        $ciCust = $this->findHeader($ch, ['客戶名稱']);
+        $ciProj = $this->findHeader($ch, ['專案名稱']);
+        $ciSales = $this->findHeader($ch, ['負責業務']);
         $ciAmt = $this->findHeader($ch, ['銷售金額']);
         $ciUpdated = $this->findHeader($ch, ['更新時間']);
         $cacheSum = 0; $cacheRowCount = 0; $lastUpdated = '';
+        $cacheMap = [];
         for ($i = 1; $i < count($cacheRows); $i++) {
             $r = $cacheRows[$i];
             if ((int)($r[$ciYear] ?? 0) === $year && (int)($r[$ciMonth] ?? 0) === $month) {
-                $cacheSum += (float)str_replace(',', '', $r[$ciAmt] ?? 0);
+                $amt = (float)str_replace(',', '', $r[$ciAmt] ?? 0);
+                $cacheSum += $amt;
                 $cacheRowCount++;
                 if ($ciUpdated !== -1 && ($r[$ciUpdated] ?? '') > $lastUpdated) $lastUpdated = $r[$ciUpdated];
+                $key = ($r[$ciCode] ?? '') . '|' . ($r[$ciCust] ?? '') . '|' . ($r[$ciProj] ?? '') . '|' . ($r[$ciSales] ?? '');
+                $cacheMap[$key] = ($cacheMap[$key] ?? 0) + $amt;
             }
         }
 
@@ -1388,7 +1396,9 @@ trait ReportTrait
         $idxNote2 = $this->findHeader($sh, ['產品備註','備註','說明']);
         $idxType2 = $this->findHeader($sh, ['類別','性質','單據類別']);
         $idxProdName2 = $this->findHeader($sh, ['產品名稱','品名']);
+        $idxSales2 = $this->findHeader($sh, ['負責業務','業務','業務員']);
         $liveSum = 0; $liveRowCount = 0; $liveLastDate = '';
+        $liveMap = [];
         for ($i = 1; $i < count($salesRows); $i++) {
             $r = $salesRows[$i];
             $d = $this->parseDate($r[$idxDate] ?? '');
@@ -1404,6 +1414,8 @@ trait ReportTrait
             if ($this->isSampleRow($custCode, $custName, $prodName . ' ' . $note, $amt)) continue;
             $code = $idxCode2 !== -1 ? $this->cleanSku($r[$idxCode2] ?? '') : '';
             if ($code === '') continue;
+            $salesName = $this->normalizeSalesRep($idxSales2 !== -1 ? ($r[$idxSales2] ?? '') : '');
+            $projectName = $this->extractProjectFromNote($note);
             $typeText = $idxType2 !== -1 ? trim($r[$idxType2] ?? '') : '';
             $isReturn = (strpos($typeText, '退') !== false) || ($qty < 0);
             if ($isReturn) {
@@ -1413,7 +1425,21 @@ trait ReportTrait
             $liveRowCount++;
             $ds = $d->format('Y-m-d');
             if ($ds > $liveLastDate) $liveLastDate = $ds;
+            $key = $code . '|' . $custName . '|' . $projectName . '|' . $salesName;
+            $liveMap[$key] = ($liveMap[$key] ?? 0) + $amt;
         }
+
+        // 逐鍵比對，找出快取與即時值差異最大的組合
+        $allKeys = array_unique(array_merge(array_keys($cacheMap), array_keys($liveMap)));
+        $keyDiffs = [];
+        foreach ($allKeys as $k) {
+            $cv = round($cacheMap[$k] ?? 0);
+            $lv = round($liveMap[$k] ?? 0);
+            if ($cv !== $lv) {
+                $keyDiffs[] = ['key' => $k, 'cache' => $cv, 'live' => $lv, 'diff' => $lv - $cv];
+            }
+        }
+        usort($keyDiffs, function ($a, $b) { return abs($b['diff']) <=> abs($a['diff']); });
 
         return [
             'success' => true,
@@ -1421,6 +1447,8 @@ trait ReportTrait
             'cache' => ['sum' => round($cacheSum), 'rowCount' => $cacheRowCount, 'lastUpdated' => $lastUpdated],
             'live' => ['sum' => round($liveSum), 'rowCount' => $liveRowCount, 'lastTxDate' => $liveLastDate],
             'diff' => round($liveSum) - round($cacheSum),
+            'keyDiffCount' => count($keyDiffs),
+            'topKeyDiffs' => array_slice($keyDiffs, 0, 20),
         ];
     }
 
