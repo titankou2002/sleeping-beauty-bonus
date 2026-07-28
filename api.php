@@ -454,7 +454,12 @@ try {
                     $gsClient = new GoogleSheetsClient($ssId);
                     $companySvc = new SleeperService($gsClient);
                     $res = $companySvc->rebuildSalesYearCache();
-                    $results[$name] = ['success' => true, 'msg' => $res['msg'] ?? 'OK'];
+                    $ok = $res['success'] ?? false;
+                    $results[$name] = [
+                        'success' => $ok,
+                        'msg' => $ok ? ($res['msg'] ?? 'OK') : ($res['error'] ?? $res['msg'] ?? '未知錯誤'),
+                        'updatedAt' => $res['updatedAt'] ?? null,
+                    ];
                 } catch (Exception $e) {
                     $results[$name] = ['success' => false, 'msg' => $e->getMessage()];
                 }
