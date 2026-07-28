@@ -299,26 +299,6 @@ try {
             echo json_encode($res);
             break;
 
-        case 'debug-service-account':
-            if (($_GET['token'] ?? '') !== CRON_TOKEN) { http_response_code(403); echo json_encode(['success'=>false]); break; }
-            $saFile = __DIR__ . '/service-account.json';
-            if (!is_file($saFile)) { echo json_encode(['success'=>false,'msg'=>'service-account.json 不存在']); break; }
-            $sa = json_decode(file_get_contents($saFile), true);
-            echo json_encode(['success'=>true,'client_email'=>$sa['client_email'] ?? null]);
-            break;
-
-        case 'debug-company-cache-compare':
-            if (($_GET['token'] ?? '') !== CRON_TOKEN) { http_response_code(403); echo json_encode(['success'=>false]); break; }
-            try {
-                $co = $_GET['company'] ?? 'andyga';
-                $year = (int)($_GET['year'] ?? date('Y'));
-                $month = (int)($_GET['month'] ?? date('n'));
-                echo json_encode($svc->debugCompanyCacheCompare($co, $year, $month), JSON_UNESCAPED_UNICODE);
-            } catch (Exception $e) {
-                echo json_encode(['success'=>false,'msg'=>$e->getMessage()]);
-            }
-            break;
-
         case 'debug-sales-compare':
             try {
                 $year = (int)($_GET['year'] ?? date('Y'));
