@@ -1429,7 +1429,7 @@ trait ReportTrait
             $liveMap[$key] = ($liveMap[$key] ?? 0) + $amt;
         }
 
-        // 逐鍵比對，找出快取與即時值差異最大的組合
+        // 逐鍵比對(含專案)，找出快取與即時值差異最大的組合
         $allKeys = array_unique(array_merge(array_keys($cacheMap), array_keys($liveMap)));
         $keyDiffs = [];
         foreach ($allKeys as $k) {
@@ -1441,6 +1441,30 @@ trait ReportTrait
         }
         usort($keyDiffs, function ($a, $b) { return abs($b['diff']) <=> abs($a['diff']); });
 
+        // 再比對一次：拿掉「專案」維度，只看 產品|客戶|業務 的核心差異(排除專案解析誤差造成的雜訊)
+        $cacheCoreMap = [];
+        foreach ($cacheMap as $k => $v) {
+            $parts = explode('|', $k, 4);
+            $ck = $parts[0] . '|' . $parts[1] . '|' . ($parts[3] ?? '');
+            $cacheCoreMap[$ck] = ($cacheCoreMap[$ck] ?? 0) + $v;
+        }
+        $liveCoreMap = [];
+        foreach ($liveMap as $k => $v) {
+            $parts = explode('|', $k, 4);
+            $ck = $parts[0] . '|' . $parts[1] . '|' . ($parts[3] ?? '');
+            $liveCoreMap[$ck] = ($liveCoreMap[$ck] ?? 0) + $v;
+        }
+        $allCoreKeys = array_unique(array_merge(array_keys($cacheCoreMap), array_keys($liveCoreMap)));
+        $coreDiffs = [];
+        foreach ($allCoreKeys as $k) {
+            $cv = round($cacheCoreMap[$k] ?? 0);
+            $lv = round($liveCoreMap[$k] ?? 0);
+            if ($cv !== $lv) {
+                $coreDiffs[] = ['key' => $k, 'cache' => $cv, 'live' => $lv, 'diff' => $lv - $cv];
+            }
+        }
+        usort($coreDiffs, function ($a, $b) { return abs($b['diff']) <=> abs($a['diff']); });
+
         return [
             'success' => true,
             'company' => $co, 'year' => $year, 'month' => $month,
@@ -1449,6 +1473,9 @@ trait ReportTrait
             'diff' => round($liveSum) - round($cacheSum),
             'keyDiffCount' => count($keyDiffs),
             'topKeyDiffs' => array_slice($keyDiffs, 0, 20),
+            'coreDiffCount' => count($coreDiffs),
+            'coreDiffSum' => array_sum(array_column($coreDiffs, 'diff')),
+            'topCoreDiffs' => array_slice($coreDiffs, 0, 20),
         ];
     }
 
