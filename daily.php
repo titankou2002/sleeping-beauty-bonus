@@ -33,11 +33,14 @@ require_once __DIR__ . '/config.php';
     @keyframes spin{to{transform:rotate(360deg)}}
     .loading-text{font-size:15px;color:var(--gold);font-weight:700}
 
-    /* Grand KPI */
-    .grand-kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px}
-    .gk{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:14px 16px;text-align:center}
-    .gk .lbl{font-size:11px;color:var(--muted);margin-bottom:6px}
-    .gk .val{font-size:22px;font-weight:900;color:var(--gold)}
+    /* 分公司當月/年度比較列 */
+    .co-compare{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px}
+    .cc-item{background:var(--paper);border:1px solid var(--line);border-left:3px solid var(--line);border-radius:8px;padding:12px 16px}
+    .cc-item .cc-name{font-size:13px;font-weight:800;display:block;margin-bottom:6px}
+    .cc-item .cc-stats{display:flex;gap:16px}
+    .cc-item .cc-stat{flex:1}
+    .cc-item .cc-lbl{font-size:10px;color:var(--muted);margin-bottom:2px}
+    .cc-item .cc-val{font-size:17px;font-weight:900}
 
     /* Company grid */
     .co-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
@@ -147,11 +150,7 @@ require_once __DIR__ . '/config.php';
 
   <div id="error-area" style="display:none" class="err-box"></div>
 
-  <div class="grand-kpi">
-    <div class="gk"><div class="lbl">集團今日</div><div class="val" id="g-today">—</div></div>
-    <div class="gk"><div class="lbl">集團本月</div><div class="val" id="g-month">—</div></div>
-    <div class="gk"><div class="lbl">年累計</div><div class="val" id="g-ytd">—</div></div>
-  </div>
+  <div class="co-compare" id="co-compare"></div>
 
   <div class="co-grid" id="co-grid"></div>
 </div>
@@ -228,9 +227,18 @@ async function load() {
 }
 
 function render(data) {
-  document.getElementById('g-today').textContent = fmtW(data.grandToday);
-  document.getElementById('g-month').textContent = fmtW(data.grandMonth);
-  document.getElementById('g-ytd').textContent   = fmtW(data.grandYtd);
+  const compare = document.getElementById('co-compare');
+  compare.innerHTML = data.companies.map(d => {
+    const c = COL[d.co.name] || '#aaa';
+    return `
+    <div class="cc-item" style="border-left-color:${c}">
+      <span class="cc-name" style="color:${c}">${d.co.name}</span>
+      <div class="cc-stats">
+        <div class="cc-stat"><div class="cc-lbl">當月業績</div><div class="cc-val" style="color:#60a5fa">${fmtW(d.monthTotal)}</div></div>
+        <div class="cc-stat"><div class="cc-lbl">年度業績</div><div class="cc-val" style="color:#a78bfa">${fmtW(d.ytdTotal)}</div></div>
+      </div>
+    </div>`;
+  }).join('');
 
   const grid = document.getElementById('co-grid');
   grid.innerHTML = data.companies.map(d => buildCoCard(d)).join('');
@@ -254,17 +262,17 @@ function buildCoCard(d) {
         <div class="vl" style="color:#60a5fa">${fmtW(d.monthTotal)}</div>
         <div class="yoy">同比 ${mYoy || '—'} <span style="font-size:10px;color:var(--muted)">去年 ${fmtW(d.lyMonthTotal)}</span></div>
       </div>
+      <div class="kpi-box">
+        <div class="lb">交易家數</div>
+        <div class="vl">${d.custCount || 0} <span style="font-size:11px;font-weight:600;color:var(--muted)">家</span></div>
+        <div class="yoy" style="color:var(--muted);font-size:10px">${d.displayItems.length} 筆出貨</div>
+      </div>
       <div class="kpi-box clickable" onclick="toggleMonthly(this)">
         <div class="lb">年累計</div>
         <div class="vl" style="color:#a78bfa">${fmtW(d.ytdTotal)}</div>
         <div class="yoy">同比 ${yYoy || '—'} <span style="font-size:10px;color:var(--muted)">去年 ${fmtW(d.lyYtdTotal)}</span></div>
         <div class="kpi-hint">▸ 點看各月</div>
         <div class="mb-list" onclick="event.stopPropagation()">${monthlyHtml(d.monthlyBreakdown)}</div>
-      </div>
-      <div class="kpi-box">
-        <div class="lb">交易家數</div>
-        <div class="vl">${d.custCount || 0} <span style="font-size:11px;font-weight:600;color:var(--muted)">家</span></div>
-        <div class="yoy" style="color:var(--muted);font-size:10px">${d.displayItems.length} 筆出貨</div>
       </div>
     </div>`;
 
