@@ -492,6 +492,14 @@ try {
                 }
             }
 
+            // 睡美人銷售試算表：自動補齊本年度尚未同步的月份，讓睡美人銷售頁月報表無須手動查詢即可完整
+            try {
+                $synced = $svc->syncMissingTrialMonths($nowY);
+                $snapshotResults['bonusTrial'] = empty($synced) ? 'OK (無需補齊)' : 'OK (補齊 ' . implode(',', array_keys($synced)) . ' 月)';
+            } catch (Exception $e) {
+                $snapshotResults['bonusTrial'] = 'FAIL: ' . $e->getMessage();
+            }
+
             echo json_encode(['success' => true, 'results' => $results, 'snapshot' => $snapshotResults, 'time' => date('Y-m-d H:i:s')], JSON_UNESCAPED_UNICODE);
             break;
 

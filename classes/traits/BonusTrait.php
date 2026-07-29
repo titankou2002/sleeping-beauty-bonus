@@ -334,13 +334,13 @@ trait BonusTrait
         return ['success' => true, 'data' => ['people' => $people, 'grand' => $grand]];
     }
 
-    public function getYearSummary($year)
+    // 自動補齊本年度尚未同步進試算表的月份，避免月報表出現「無資料」的空白月份
+    // （試算表原本只在使用者對某月按「查詢」時才會被動同步，未查詢過的月份會是空的）
+    // 供 getYearSummary() 頁面載入時即時補齊，以及每日排程 cron-rebuild-all 主動呼叫使用
+    public function syncMissingTrialMonths($year)
     {
         $currentMonth = (int)date('n');
         $yearStr = (string)$year;
-
-        // 自動補齊本年度尚未同步進試算表的月份，避免月報表出現「無資料」的空白月份
-        // （試算表原本只在使用者對某月按「查詢」時才會被動同步，未查詢過的月份會是空的）
         $maxMonth = $year < (int)date('Y') ? 12 : $currentMonth;
         $probe = $this->gs->readSheet(TRIAL_SHEET);
         $existingMonths = [];
@@ -353,13 +353,23 @@ trait BonusTrait
                 }
             }
         }
+        $synced = [];
         for ($m = 1; $m <= $maxMonth; $m++) {
             if (!isset($existingMonths[$m])) {
-                $this->syncTrialSheet($year, $m - 1);
+                $res = $this->syncTrialSheet($year, $m - 1);
+                $synced[$m] = $res['added'] ?? 0;
             }
         }
+        return $synced;
+    }
+
+    public function getYearSummary($year)
+    {
+        $this->syncMissingTrialMonths($year);
 
         $data = $this->gs->readSheet(TRIAL_SHEET);
+        $currentMonth = (int)date('n');
+        $yearStr = (string)$year;
 
         $months = [];
         $grandTotal = 0;
