@@ -569,7 +569,6 @@ input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-colo
           <button class="tab-btn active" id="tab-products" onclick="switchTab('products')">每日戰報</button>
           <button class="tab-btn" id="tab-reports" onclick="switchTab('reports')">銷售報表</button>
           <button class="tab-btn" id="tab-bonus" onclick="switchTab('bonus')">睡美人銷售</button>
-          <button class="tab-btn" id="tab-discontinued" onclick="switchTab('discontinued')">不續辦商品</button>
           <button class="tab-btn" id="tab-customers" onclick="switchTab('customers')">客戶分析</button>
           <button class="tab-btn" id="tab-analysis" onclick="switchTab('analysis')">新品分析</button>
           <button class="tab-btn" id="tab-reps" onclick="switchTab('reps')">業務分析</button>
@@ -753,7 +752,7 @@ function loadData() {
         apiGet('summary', { year: year, month: month }, function(res2) {
           showLoading(false);
           if (res2.success) renderSummary(res2.data, year, month, sales);
-          else document.getElementById('main-content').innerHTML = '<div class="welcome"><p style="color:var(--red)">❌ ' + res2.msg + '</p></div>';
+          else document.getElementById('bonus-sub-content').innerHTML = '<div class="welcome"><p style="color:var(--red)">❌ ' + res2.msg + '</p></div>';
         });
       }, function(err) {
         showLoading(false);
@@ -762,7 +761,7 @@ function loadData() {
     } else {
       showLoading(false);
       if (res.success) renderSummary(res.data, year, month, sales);
-      else document.getElementById('main-content').innerHTML = '<div class="welcome"><p style="color:var(--red)">❌ ' + res.msg + '</p></div>';
+      else document.getElementById('bonus-sub-content').innerHTML = '<div class="welcome"><p style="color:var(--red)">❌ ' + res.msg + '</p></div>';
     }
   }, function(err) {
     showLoading(false);
@@ -805,7 +804,7 @@ function onEditChange(rowIdx) {
 function renderSummary(data, year, month, salesFilter) {
   _changedRows = {};
   document.getElementById('btn-save').classList.add('hidden');
-  var container = document.getElementById('main-content');
+  var container = document.getElementById('bonus-sub-content');
   var people = data.people;
   var grand = data.grand;
 
@@ -1051,7 +1050,6 @@ function renderDashboardHome() {
 function switchTab(tab) {
   currentTab = tab;
   document.getElementById('tab-bonus').classList.toggle('active', tab === 'bonus');
-  document.getElementById('tab-discontinued').classList.toggle('active', tab === 'discontinued');
   document.getElementById('tab-products').classList.toggle('active', tab === 'products');
   document.getElementById('tab-reports').classList.toggle('active', tab === 'reports');
   document.getElementById('tab-customers').classList.toggle('active', tab === 'customers');
@@ -1070,10 +1068,8 @@ function switchTab(tab) {
     if (!window._strategyReport) loadStrategyReport();
     else renderStrategyReport(window._strategyReport);
   } else if (tab === 'bonus') {
-    loadDashboard();
+    renderBonusSubTabBar();
     loadSalesList();
-  } else if (tab === 'discontinued') {
-    loadDiscontinuedTab();
   } else if (tab === 'customers') {
     loadCustomerAnalysis();
   } else if (tab === 'analysis') {
@@ -1309,8 +1305,38 @@ function renderProducts() {
 }
 
 // ─── Dashboard ───
+// 睡美人銷售 tab 內部子分頁：睡美人 / 不續辦
+function renderBonusSubTabBar() {
+  var sub = window._bonusSubTab || 'sleeper';
+  var html = '<div class="prod-sub-tabs" style="margin-bottom:14px">' +
+    '<button class="sub-tab' + (sub === 'sleeper' ? ' active' : '') + '" id="bonus-sub-sleeper" onclick="switchBonusSubTab(\'sleeper\')">睡美人</button>' +
+    '<button class="sub-tab' + (sub === 'discontinued' ? ' active' : '') + '" id="bonus-sub-discontinued" onclick="switchBonusSubTab(\'discontinued\')">不續辦</button>' +
+  '</div><div id="bonus-sub-content"></div>';
+  document.getElementById('main-content').innerHTML = html;
+  document.getElementById('ctrl-bonus').classList.toggle('hidden', sub !== 'sleeper');
+  renderBonusSubTabContent();
+}
+
+function switchBonusSubTab(sub) {
+  window._bonusSubTab = sub;
+  document.getElementById('bonus-sub-sleeper').classList.toggle('active', sub === 'sleeper');
+  document.getElementById('bonus-sub-discontinued').classList.toggle('active', sub === 'discontinued');
+  document.getElementById('ctrl-bonus').classList.toggle('hidden', sub !== 'sleeper');
+  renderBonusSubTabContent();
+}
+
+function renderBonusSubTabContent() {
+  if ((window._bonusSubTab || 'sleeper') === 'discontinued') {
+    loadDiscontinuedTab();
+  } else {
+    loadDashboard();
+  }
+}
+
 function loadDashboard() {
   var year = currentYear;
+  var container = document.getElementById('bonus-sub-content');
+  if (container) container.innerHTML = '<div class="welcome"><p>載入中...</p></div>';
   apiGet('year-summary', { year: year }, function(res) {
     if (res.success) renderDashboard(res.data);
   });
@@ -1323,14 +1349,14 @@ function loadDashboard() {
 }
 
 function loadDiscontinuedTab() {
-  var container = document.getElementById('main-content');
+  var container = document.getElementById('bonus-sub-content');
   if (window._disconProducts && window._disconProducts.length) { renderDiscontinued(); return; }
-  container.innerHTML = '<div class="welcome"><p>載入中...</p></div>';
+  if (container) container.innerHTML = '<div class="welcome"><p>載入中...</p></div>';
   apiGet('discontinued-products', {}, function(res) {
     if (res.success) {
       window._disconProducts = res.data;
       renderDiscontinued();
-    } else {
+    } else if (container) {
       container.innerHTML = '<div class="welcome"><p style="color:var(--red)">❌ ' + res.msg + '</p></div>';
     }
   });
@@ -1339,7 +1365,7 @@ function loadDiscontinuedTab() {
 function renderDiscontinued() {
   var list = window._disconProducts || [];
   if (!list.length) {
-    document.getElementById('main-content').innerHTML = '<div class="welcome"><h2>暫無不續辦商品</h2></div>';
+    document.getElementById('bonus-sub-content').innerHTML = '<div class="welcome"><h2>暫無不續辦商品</h2></div>';
     return;
   }
   var totalCost = list.reduce(function(s, p) { return s + p.inventoryCost; }, 0);
@@ -1393,7 +1419,7 @@ function renderDiscontinued() {
       '</div></div>';
   });
   html += '</div></div>';
-  document.getElementById('main-content').innerHTML = html;
+  document.getElementById('bonus-sub-content').innerHTML = html;
 }
 
 function renderDashboard(d) {
@@ -1487,7 +1513,7 @@ function renderDashboard(d) {
 
   html += '<div class="dash-hint">選擇月份後按「查詢」查看明細，或切換「產品總覽」</div>';
 
-  document.getElementById('main-content').innerHTML = html;
+  document.getElementById('bonus-sub-content').innerHTML = html;
 }
 
 function loadStrategyReport() {
