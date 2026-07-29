@@ -755,14 +755,31 @@ function renderCharts(d){
     return c.monthlySales.map(n=>Math.round(n/10000));
   };
 
-  // Trend chart
-  const sbS=getSales('sleepingBeauty'), adS=getSales('andyga'), xyS=getSales('xiyena');
-  const gpS=g.monthlySales.map(n=>Math.round(n/10000));
+  // Trend chart：本年度尚未發生的月份顯示為 null（線圖自然斷開，不畫成下滑到 0）
+  // 並疊加去年同期(虛線)做 YOY 比較
+  const now=new Date(), realYear=now.getFullYear(), realMonth=now.getMonth()+1;
+  const selYear=parseInt(yearSel.value,10);
+  const cutoff=selYear===realYear?realMonth:12; // 非當年度(歷史年份)不截斷，全部視為已發生
+
+  const truncateFuture=(arr)=>arr.map((v,idx)=>idx+1<=cutoff?v:null);
+  const getLastYearSales=(key)=>{
+    const c=cos[key];
+    const hist=(c&&c.monthlyHistory)||[];
+    const entry=hist.find(h=>h.year===selYear-1);
+    if(!entry)return fill0().map(()=>null);
+    return entry.months.map(m=>Math.round((m.amount||0)/10000));
+  };
+
+  const sbS=truncateFuture(getSales('sleepingBeauty')), adS=truncateFuture(getSales('andyga')), xyS=truncateFuture(getSales('xiyena'));
+  const sbLY=getLastYearSales('sleepingBeauty'), adLY=getLastYearSales('andyga'), xyLY=getLastYearSales('xiyena');
   const ctx1=document.getElementById('trendChart').getContext('2d');
   charts.push(new Chart(ctx1,{type:'line',data:{labels,datasets:[
-    {label:'高雅瓷',data:sbS,borderColor:'#ff2a85',backgroundColor:'transparent',borderWidth:2,tension:.2,pointRadius:2},
-    {label:'安帝嘉',data:adS,borderColor:'#10b981',backgroundColor:'transparent',borderWidth:2,tension:.2,pointRadius:2},
-    {label:'喜悅納',data:xyS,borderColor:'#38bdf8',backgroundColor:'transparent',borderWidth:2,tension:.2,pointRadius:2}
+    {label:'高雅瓷',data:sbS,borderColor:'#ff2a85',backgroundColor:'transparent',borderWidth:2,tension:.2,pointRadius:2,spanGaps:false},
+    {label:'安帝嘉',data:adS,borderColor:'#10b981',backgroundColor:'transparent',borderWidth:2,tension:.2,pointRadius:2,spanGaps:false},
+    {label:'喜悅納',data:xyS,borderColor:'#38bdf8',backgroundColor:'transparent',borderWidth:2,tension:.2,pointRadius:2,spanGaps:false},
+    {label:'高雅瓷(去年)',data:sbLY,borderColor:'#ff2a85',backgroundColor:'transparent',borderWidth:1.5,borderDash:[4,3],tension:.2,pointRadius:0},
+    {label:'安帝嘉(去年)',data:adLY,borderColor:'#10b981',backgroundColor:'transparent',borderWidth:1.5,borderDash:[4,3],tension:.2,pointRadius:0},
+    {label:'喜悅納(去年)',data:xyLY,borderColor:'#38bdf8',backgroundColor:'transparent',borderWidth:1.5,borderDash:[4,3],tension:.2,pointRadius:0}
   ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#f6f1e6',font:{weight:'bold'}}}},scales:{x:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#a9a39a'}},y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#a9a39a',callback:v=>v+' 萬'}}}}}));
 
   // Share chart
