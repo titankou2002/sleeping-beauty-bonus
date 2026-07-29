@@ -569,6 +569,7 @@ input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-colo
           <button class="tab-btn active" id="tab-products" onclick="switchTab('products')">每日戰報</button>
           <button class="tab-btn" id="tab-reports" onclick="switchTab('reports')">銷售報表</button>
           <button class="tab-btn" id="tab-bonus" onclick="switchTab('bonus')">睡美人銷售</button>
+          <button class="tab-btn" id="tab-discontinued" onclick="switchTab('discontinued')">不續辦商品</button>
           <button class="tab-btn" id="tab-customers" onclick="switchTab('customers')">客戶分析</button>
           <button class="tab-btn" id="tab-analysis" onclick="switchTab('analysis')">新品分析</button>
           <button class="tab-btn" id="tab-reps" onclick="switchTab('reps')">業務分析</button>
@@ -1050,6 +1051,7 @@ function renderDashboardHome() {
 function switchTab(tab) {
   currentTab = tab;
   document.getElementById('tab-bonus').classList.toggle('active', tab === 'bonus');
+  document.getElementById('tab-discontinued').classList.toggle('active', tab === 'discontinued');
   document.getElementById('tab-products').classList.toggle('active', tab === 'products');
   document.getElementById('tab-reports').classList.toggle('active', tab === 'reports');
   document.getElementById('tab-customers').classList.toggle('active', tab === 'customers');
@@ -1070,6 +1072,8 @@ function switchTab(tab) {
   } else if (tab === 'bonus') {
     loadDashboard();
     loadSalesList();
+  } else if (tab === 'discontinued') {
+    loadDiscontinuedTab();
   } else if (tab === 'customers') {
     loadCustomerAnalysis();
   } else if (tab === 'analysis') {
@@ -1310,10 +1314,6 @@ function loadDashboard() {
   apiGet('year-summary', { year: year }, function(res) {
     if (res.success) renderDashboard(res.data);
   });
-  apiGet('discontinued-products', {}, function(res) {
-    if (res.success) window._disconProducts = res.data;
-    if (window._disconProducts && window._disconProducts.length) renderDiscontinued();
-  });
   apiGet('products', {}, function(res) {
     if (res.success) window._sleeperData = res.data;
   });
@@ -1322,8 +1322,26 @@ function loadDashboard() {
   });
 }
 
+function loadDiscontinuedTab() {
+  var container = document.getElementById('main-content');
+  if (window._disconProducts && window._disconProducts.length) { renderDiscontinued(); return; }
+  container.innerHTML = '<div class="welcome"><p>載入中...</p></div>';
+  apiGet('discontinued-products', {}, function(res) {
+    if (res.success) {
+      window._disconProducts = res.data;
+      renderDiscontinued();
+    } else {
+      container.innerHTML = '<div class="welcome"><p style="color:var(--red)">❌ ' + res.msg + '</p></div>';
+    }
+  });
+}
+
 function renderDiscontinued() {
   var list = window._disconProducts || [];
+  if (!list.length) {
+    document.getElementById('main-content').innerHTML = '<div class="welcome"><h2>暫無不續辦商品</h2></div>';
+    return;
+  }
   var totalCost = list.reduce(function(s, p) { return s + p.inventoryCost; }, 0);
   var totalPings = list.reduce(function(s, p) { return s + p.totalPings; }, 0);
   var neverSold = list.filter(function(p) { return p.daysSinceLastSale === null; }).length;
@@ -1375,7 +1393,7 @@ function renderDiscontinued() {
       '</div></div>';
   });
   html += '</div></div>';
-  document.getElementById('main-content').insertAdjacentHTML('beforeend', html);
+  document.getElementById('main-content').innerHTML = html;
 }
 
 function renderDashboard(d) {

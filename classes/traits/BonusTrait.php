@@ -336,9 +336,30 @@ trait BonusTrait
 
     public function getYearSummary($year)
     {
-        $data = $this->gs->readSheet(TRIAL_SHEET);
         $currentMonth = (int)date('n');
         $yearStr = (string)$year;
+
+        // 自動補齊本年度尚未同步進試算表的月份，避免月報表出現「無資料」的空白月份
+        // （試算表原本只在使用者對某月按「查詢」時才會被動同步，未查詢過的月份會是空的）
+        $maxMonth = $year < (int)date('Y') ? 12 : $currentMonth;
+        $probe = $this->gs->readSheet(TRIAL_SHEET);
+        $existingMonths = [];
+        if (count($probe) > 1) {
+            $pMonthIdx = array_search('月份', $probe[0]);
+            for ($i = 1; $i < count($probe); $i++) {
+                $mv = ltrim(trim($this->getVal($probe[$i], $pMonthIdx)), "'");
+                if (strpos($mv, $yearStr) === 0) {
+                    $existingMonths[(int)substr($mv, 5, 2)] = true;
+                }
+            }
+        }
+        for ($m = 1; $m <= $maxMonth; $m++) {
+            if (!isset($existingMonths[$m])) {
+                $this->syncTrialSheet($year, $m - 1);
+            }
+        }
+
+        $data = $this->gs->readSheet(TRIAL_SHEET);
 
         $months = [];
         $grandTotal = 0;
