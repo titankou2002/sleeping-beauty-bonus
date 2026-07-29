@@ -1433,7 +1433,7 @@ function renderDashboard(d) {
   names.forEach(function(n, i) { colorMap[n] = DASHBOARD_COLORS[i % DASHBOARD_COLORS.length]; });
 
   var html = '<div class="kpi-row">' +
-    '<div class="kpi-card kpi-gold"><div class="label">年度業績總計</div><div class="value">' + fmt(grandTotal) + '</div><div class="sub">元（含倍數）</div></div>' +
+    '<div class="kpi-card kpi-gold"><div class="label">年度業績總計</div><div class="value">' + fmt(grandTotal) + '</div><div class="sub">元</div></div>' +
     '<div class="kpi-card' + (rate >= 100 ? ' kpi-green' : ' kpi-gold') + '"><div class="label">目標 300 萬</div><div class="value">' + rate + '%</div><div class="sub">達成率</div></div>' +
     '<div class="kpi-card kpi-blue"><div class="label">已過月數</div><div class="value">' + (months.length ? months[months.length-1].month : '-') + '</div><div class="sub">月份</div></div>' +
     '<div class="kpi-card ' + (target - grandTotal > 0 ? 'kpi-red' : 'kpi-green') + '"><div class="label">目標差距</div><div class="value">' + fmt(Math.max(0, target - grandTotal)) + '</div><div class="sub">' + (target - grandTotal > 0 ? '尚差' : '已達成') + '</div></div>' +

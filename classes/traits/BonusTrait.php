@@ -386,7 +386,6 @@ trait BonusTrait
             $skuIdx   = array_search('編號', $h);
             $seriesIdx= array_search('系列', $h);
             $amtIdx   = array_search('金額', $h);
-            $multIdx  = array_search('倍數', $h);
 
             $monthMap = [];
             for ($i = 1; $i < count($data); $i++) {
@@ -401,20 +400,19 @@ trait BonusTrait
                 $sku   = trim($this->getVal($r, $skuIdx));
                 $series= trim($this->getVal($r, $seriesIdx));
                 $amt   = $this->optFloat($this->getVal($r, $amtIdx));
-                $mult  = $this->optFloat($this->getVal($r, $multIdx)) ?: 1;
-                $bonus = round($amt * $mult);
 
+                // 年度業績以原始金額計算，不套用倍數 — 倍數只用於計算業務個人獎金(見 renderSummary/業績金額)
                 if (!isset($monthMap[$mNum])) {
                     $monthMap[$mNum] = ['total' => 0, 'people' => []];
                 }
-                $monthMap[$mNum]['total'] += $bonus;
+                $monthMap[$mNum]['total'] += $amt;
                 if ($sales) {
                     if (!isset($monthMap[$mNum]['people'][$sales])) $monthMap[$mNum]['people'][$sales] = 0;
-                    $monthMap[$mNum]['people'][$sales] += $bonus;
+                    $monthMap[$mNum]['people'][$sales] += $amt;
                     if (!isset($peopleTotal[$sales])) $peopleTotal[$sales] = 0;
-                    $peopleTotal[$sales] += $bonus;
+                    $peopleTotal[$sales] += $amt;
                 }
-                $grandTotal += $bonus;
+                $grandTotal += $amt;
 
                 if ($cust && $amt) {
                     if (!isset($custData[$cust])) $custData[$cust] = ['total' => 0, 'series' => []];
