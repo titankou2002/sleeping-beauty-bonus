@@ -88,6 +88,10 @@ require_once __DIR__ . '/config.php';
     .modal-close{position:absolute;top:12px;right:16px;background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;padding:4px 8px;line-height:1}
     .modal-close:hover{color:var(--text)}
     .modal-title{font-size:17px;font-weight:800;color:var(--gold);margin:0 0 16px;display:flex;align-items:center;gap:8px}
+    .qmark{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:rgba(255,255,255,.1);color:var(--muted);font-size:10px;font-weight:700;cursor:help;margin-left:4px;vertical-align:middle}
+    .qmark:hover{background:var(--gold);color:#000}
+    .drill{cursor:pointer}
+    .drill:hover{text-decoration:underline;text-decoration-style:dotted}
     .health-tag{display:inline-block;padding:3px 10px;border-radius:4px;font-size:12px;font-weight:700;margin-right:6px}
     .ht-normal{background:rgba(34,197,94,.15);color:var(--green)}
     .ht-overdue{background:rgba(245,158,11,.15);color:var(--orange)}
@@ -475,16 +479,22 @@ function renderAll(d){
     const ou=ct.overdueUnconsumed||{total:0,count:0};
     const nc=ct.newContracts||{total:0,count:0};
     const consumed=ct.consumedThisMonth||0;
-    const netChange=ct.balanceNetChange||0;
     const atRiskCount=ct.atRiskCount||0;
     html+=`<div class="cc"><div class="nm"><span class="dot" style="background:${c.color}"></span>${c.name}</div>
       <div style="font-size:13px;display:flex;flex-direction:column;gap:4px">
-        <span>合約客戶 <b>${ct.active}</b> 家</span>
-        <span>正常 ${hc['正常']||0} · 觀察 ${hc['觀察']||0} · 警示 ${hc['警示']||0} · 掛點 ${hc['掛點']||0} · 待續約 ${hc['待續約']||0}</span>
-        <span>異常率 ${warnPct}%</span>
-        <span>合約月目標 <b>${fmtW(ct.monthlyTarget)}</b></span>
-        <span>簽約店實銷 <b>${fmtW(ct.signedStoreSales)}</b></span>
-        <span>①達成率 <b style="font-size:16px" class="${Number(healthPct)>=75?'up':'dn'}">${healthPct}%</b></span>
+        <span class="drill" onclick="showContractDetail('${k}')">合約客戶 <b>${ct.active}</b> 家${qm('目前正在履約中的客戶總數，五種狀態都算在內，只有真的「沖完、確定不續約」的才不算。點擊可看完整名單。')}</span>
+        <span>
+          <span class="drill" style="color:var(--green)" onclick="showContractDetail('${k}','正常')">正常 ${hc['正常']||0}</span> ·
+          <span class="drill" style="color:var(--orange)" onclick="showContractDetail('${k}','觀察')">觀察 ${hc['觀察']||0}</span> ·
+          <span class="drill" style="color:var(--red)" onclick="showContractDetail('${k}','警示')">警示 ${hc['警示']||0}</span> ·
+          <span class="drill" style="color:#888" onclick="showContractDetail('${k}','掛點')">掛點 ${hc['掛點']||0}</span> ·
+          <span class="drill" style="color:var(--blue)" onclick="showContractDetail('${k}','待續約')">待續約 ${hc['待續約']||0}</span>
+          ${qm('依「餘額剩多少」與「票期過了多久」分類：正常＝沒問題／觀察＝消化偏慢或快到期／警示＝票過期不到一年、錢還沒消化完／掛點＝票過期超過兩年，接近呆帳／待續約＝餘額用完了，該去簽下一份約。點任一狀態可看該類客戶名單。')}
+        </span>
+        <span class="drill" onclick="showContractDetail('${k}','異常')">異常率 ${warnPct}%${qm('（觀察＋警示＋掛點）÷ 合約客戶總數。數字越高，代表要處理的問題客戶越多。')}</span>
+        <span class="drill" onclick="showContractDetail('${k}','target')">效期內合約總額 <b>${fmtW(ct.monthlyTarget)}</b>${qm('把「還有票在走」的客戶（正常/觀察/警示/掛點）每張票的金額加總。待續約已經沒有票了，不算進來，因為這個月本來就不會再進錢。')}</span>
+        <span>簽約店實銷 <b>${fmtW(ct.signedStoreSales)}</b>${qm('這些簽約客戶，這個月實際出貨賣了多少錢（來自銷貨紀錄，跟合約表是兩份不同的資料）。')}</span>
+        <span>①達成率 <b style="font-size:16px" class="${Number(healthPct)>=75?'up':'dn'}">${healthPct}%</b>${qm('簽約店實銷 ÷ 效期內合約總額。這個月「該進的錢」實際進了多少的比例，100%代表剛好達標。')}</span>
       </div>
       <div style="margin-top:8px;height:8px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden;display:flex">
         <div style="width:${total>0?(((hc['正常']||0)+(hc['待續約']||0))/total*100).toFixed(0):0}%;background:var(--green)"></div>
@@ -492,10 +502,10 @@ function renderAll(d){
       </div>
       <div style="font-size:11px;color:var(--muted);margin-top:4px;display:flex;gap:12px"><span style="color:var(--green)">■ 正常/待續約</span><span style="color:var(--red)">■ 異常（觀察/警示/掛點）</span></div>
       <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08);display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;font-size:12px">
-        <div>②逾期未消化<br><b style="font-size:15px;color:${ou.total>0?'var(--red)':'var(--muted)'}">${fmtW(ou.total)}</b> <span style="color:var(--muted)">(${ou.count}家)</span></div>
-        <div>③合約餘額淨變化<br><b style="font-size:15px;color:${netChange>0?'var(--red)':'var(--green)'}">${netChange>0?'+':''}${fmtW(netChange)}</b></div>
-        <div style="color:var(--muted);font-size:11px">新簽 ${fmtW(nc.total)}（${nc.count}家）－消化 ${fmtW(consumed)}</div>
-        <div>④消化預警<br><b style="font-size:15px;color:${atRiskCount>0?'var(--orange)':'var(--muted)'}">${atRiskCount}</b> <span style="color:var(--muted)">家</span></div>
+        <div class="drill" onclick="showContractDetail('${k}','overdue')">②合約溢收${qm('票已經收完了（不會再進錢），但貨還沒出完、錢還卡在合約裡沒被用掉。這是最該優先處理的錢，因為公司已經拿到現金了，卻沒兌現成銷售。點擊看完整名單。')}<br><b style="font-size:15px;color:${ou.total>0?'var(--red)':'var(--muted)'}">${fmtW(ou.total)}</b> <span style="color:var(--muted)">(${ou.count}家)</span></div>
+        <div>③實際消化合約金${qm('這個月合約餘額實際被消化掉多少（出貨換算成合約額度扣抵的金額）。旁邊的「新簽」是這個月新收的合約金額，可對照看進出是否平衡。')}<br><b style="font-size:15px;color:var(--gold)">${fmtW(consumed)}</b></div>
+        <div style="color:var(--muted);font-size:11px">新簽 ${fmtW(nc.total)}（${nc.count}家）</div>
+        <div class="drill" onclick="showContractDetail('${k}','atrisk')">④觀察名單（賣的較慢）${qm('還沒過期、還有餘額，但照最近的消化速度推算，票到期前很可能用不完——是②的候選名單，趁還沒真的過期，可以先聯絡客戶催出貨。點擊看名單。')}<br><b style="font-size:15px;color:${atRiskCount>0?'var(--orange)':'var(--muted)'}">${atRiskCount}</b> <span style="color:var(--muted)">家</span></div>
       </div>
       <div class="link-row" style="display:flex;gap:8px;flex-wrap:wrap"><button class="detail-btn" onclick="showContractDetail('${k}')">📋 合約客戶明細</button><a class="btn-report" href="${reportUrl(k,d.year,d.month)}" target="_blank">🔗 ${c.name}月報</a></div></div>`;
   });
@@ -887,14 +897,64 @@ function showModal(html){
 }
 function closeModal(){document.getElementById('modal-root').innerHTML='';}
 
-function showContractDetail(companyKey){
+function qm(text){
+  return `<span class="qmark" title="${String(text).replace(/"/g,'&quot;')}">?</span>`;
+}
+
+function showContractDetail(companyKey,filterMode){
   if(!_groupData)return;
   const c=_groupData.companies[companyKey];
   const ct=c.contract; const detail=ct.detail||[];
   const hc=ct.healthCounts||{};
-  const buckets=['正常','觀察','警示','掛點','待續約'];
   const htClass={'正常':'ht-normal','觀察':'ht-watch','警示':'ht-warning','掛點':'ht-dead','待續約':'ht-pending'};
   const htLabel={'正常':'正常','觀察':'觀察','警示':'警示','掛點':'掛點','待續約':'待續約'};
+
+  // ②合約溢收：票已過期(dueDays<0)但餘額還沒消化完，不是單一健康度分類，用獨立列表呈現
+  if(filterMode==='overdue'){
+    const items=detail.filter(d=>d.dueDays!=null && d.dueDays<0 && d.balance>0).sort((a,b)=>b.balance-a.balance);
+    let h=`<div class="modal-title"><span class="dot" style="background:${c.color};width:12px;height:12px"></span>${c.name} — 合約溢收明細</div>`;
+    h+=`<div style="font-size:13px;color:var(--muted);margin-bottom:12px">票已收完、餘額還沒消化完的客戶，共 ${items.length} 家</div>`;
+    if(items.length===0){h+=`<div style="color:var(--muted)">目前沒有這類客戶</div>`;}
+    else{
+      h+=`<div class="tbl-wrap"><table class="tbl"><tr><th>#</th><th>健康度</th><th>客戶</th><th>餘額</th><th>逾期</th><th>月消耗</th></tr>`;
+      items.forEach((d,i)=>{
+        h+=`<tr><td>${i+1}</td><td class="${htClass[d.health]||''}">${htLabel[d.health]||d.health}</td><td>${d.name}</td>
+          <td class="r" style="color:var(--red);font-weight:700">${fmtW(d.balance)}</td>
+          <td style="font-size:11px;color:var(--red)">${d.dueText||'—'}</td>
+          <td class="r">${d.consumption>0?fmtW(d.consumption):'—'}</td></tr>`;
+      });
+      h+=`</table></div>`;
+    }
+    showModal(h);
+    return;
+  }
+
+  // ④觀察名單（賣的較慢）：來自後端已算好的 atRiskContracts
+  if(filterMode==='atrisk'){
+    const items=ct.atRiskContracts||[];
+    let h=`<div class="modal-title"><span class="dot" style="background:${c.color};width:12px;height:12px"></span>${c.name} — 觀察名單（賣的較慢）</div>`;
+    h+=`<div style="font-size:13px;color:var(--muted);margin-bottom:12px">還沒過期但照目前速度可能來不及消化完的客戶，共 ${items.length} 家</div>`;
+    if(items.length===0){h+=`<div style="color:var(--muted)">目前沒有這類客戶</div>`;}
+    else{
+      h+=`<div class="tbl-wrap"><table class="tbl"><tr><th>#</th><th>客戶</th><th>業務</th><th>餘額</th><th>本月消化</th><th>剩幾個月到期</th><th>照速度需要幾個月</th></tr>`;
+      items.forEach((a,i)=>{
+        h+=`<tr><td>${i+1}</td><td>${a.name}</td><td>${a.rep||'—'}</td>
+          <td class="r" style="font-weight:700">${fmtW(a.balance)}</td>
+          <td class="r">${a.monthlyConsumption>0?fmtW(a.monthlyConsumption):'0'}</td>
+          <td class="r">${a.remainingMonths}</td>
+          <td class="r" style="color:var(--orange)">${a.monthsNeeded!=null?a.monthsNeeded:'消化為0，無法估算'}</td></tr>`;
+      });
+      h+=`</table></div>`;
+    }
+    showModal(h);
+    return;
+  }
+
+  // 其餘：依健康度分類分組呈現（可用 filterMode 限定只看某一類）
+  let buckets=['正常','觀察','警示','掛點','待續約'];
+  if(filterMode==='異常') buckets=['觀察','警示','掛點'];
+  else if(filterMode==='target') buckets=['正常','觀察','警示','掛點'];
+  else if(buckets.includes(filterMode)) buckets=[filterMode];
 
   let h=`<div class="modal-title"><span class="dot" style="background:${c.color};width:12px;height:12px"></span>${c.name} — 合約客戶明細</div>`;
   h+=`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">`;
