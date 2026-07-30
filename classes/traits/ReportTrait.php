@@ -1694,7 +1694,7 @@ trait ReportTrait
         try {
             $gsClient = $this->getClient($ssId);
             $rows = $gsClient->readSheet('合約');
-            if (count($rows) < 2) return ['customers' => [], 'healthCounts' => [], 'active' => 0, 'monthlyTarget' => 0, 'detail' => []];
+            if (count($rows) < 2) return $this->emptyContractSummary();
 
             $h = $rows[0];
             $idxHealth = $this->findHeader($h, ['健康度']);
@@ -1735,6 +1735,19 @@ trait ReportTrait
             $detail = [];
             $monthlyTarget = 0;
             $today = new DateTime('today');
+
+            // 新增四項判斷標準用的累加變數
+            $overdueUnconsumedTotal = 0;
+            $overdueUnconsumedCount = 0;
+            $overdueTiers = [
+                '觀察' => ['count' => 0, 'amount' => 0],
+                '警示' => ['count' => 0, 'amount' => 0],
+                '掛點' => ['count' => 0, 'amount' => 0],
+            ];
+            $newContractTotal = 0;
+            $newContractCount = 0;
+            $consumedTotal = 0;
+            $atRiskList = [];
 
             for ($i = 1; $i < count($rows); $i++) {
                 $row = $rows[$i];
@@ -1790,8 +1803,49 @@ trait ReportTrait
                 if (!isset($healthCounts[$bucket])) $healthCounts[$bucket] = 0;
                 $healthCounts[$bucket]++;
 
-                if (in_array($bucket, ['正常', '觀察', '警示', '掛點', '待續約'], true)) {
+                // ①月目標達成率：待續約代表已無票在走，不列入本月應兌現的目標
+                if (in_array($bucket, ['正常', '觀察', '警示', '掛點'], true)) {
                     $monthlyTarget += $contractAmt;
+                }
+
+                // ②逾期未消化：最後一張票已過期，但合約餘額還沒消化完
+                if ($dueDays !== null && $dueDays < 0 && $bal > 0) {
+                    $overdueUnconsumedTotal += $bal;
+                    $overdueUnconsumedCount++;
+                    $od = abs($dueDays);
+                    if ($od >= 730) {
+                        $overdueTiers['掛點']['count']++;
+                        $overdueTiers['掛點']['amount'] += $bal;
+                    } elseif ($od >= 365) {
+                        $overdueTiers['警示']['count']++;
+                        $overdueTiers['警示']['amount'] += $bal;
+                    } else {
+                        $overdueTiers['觀察']['count']++;
+                        $overdueTiers['觀察']['amount'] += $bal;
+                    }
+                }
+
+                // ③合約餘額淨變化：本月新簽約金額（第一張票期落在本月）－本月消化金額
+                if ($firstDue && (int)$firstDue->format('Y') === (int)$year && (int)$firstDue->format('n') === (int)$month) {
+                    $newContractTotal += $totalContract;
+                    $newContractCount++;
+                }
+                $consumedTotal += $consumption;
+
+                // ④消化速度預警：尚未到期、仍有餘額，但照本月消化速度推算會來不及在票期內用完
+                if ($dueDays !== null && $dueDays >= 0 && $bal > 0) {
+                    $remainingMonths = $dueDays / 30;
+                    $monthsNeeded = $consumption > 0 ? ($bal / $consumption) : null;
+                    if ($consumption <= 0 || $monthsNeeded > $remainingMonths) {
+                        $atRiskList[] = [
+                            'name' => $customer,
+                            'balance' => round($bal),
+                            'monthlyConsumption' => round($consumption),
+                            'remainingMonths' => round($remainingMonths, 1),
+                            'monthsNeeded' => $monthsNeeded !== null ? round($monthsNeeded, 1) : null,
+                            'rep' => $rep,
+                        ];
+                    }
                 }
 
                 $dueText = '';
@@ -1835,10 +1889,37 @@ trait ReportTrait
                 ];
             }
             usort($detail, function ($a, $b) { return $b['balance'] <=> $a['balance']; });
-            return ['customers' => $customers, 'healthCounts' => $healthCounts, 'active' => count($customers), 'monthlyTarget' => round($monthlyTarget), 'detail' => $detail];
+            usort($atRiskList, function ($a, $b) { return $b['balance'] <=> $a['balance']; });
+            return [
+                'customers' => $customers, 'healthCounts' => $healthCounts, 'active' => count($customers),
+                'monthlyTarget' => round($monthlyTarget), 'detail' => $detail,
+                'overdueUnconsumed' => [
+                    'total' => round($overdueUnconsumedTotal), 'count' => $overdueUnconsumedCount,
+                    'tiers' => [
+                        '觀察' => ['count' => $overdueTiers['觀察']['count'], 'amount' => round($overdueTiers['觀察']['amount'])],
+                        '警示' => ['count' => $overdueTiers['警示']['count'], 'amount' => round($overdueTiers['警示']['amount'])],
+                        '掛點' => ['count' => $overdueTiers['掛點']['count'], 'amount' => round($overdueTiers['掛點']['amount'])],
+                    ],
+                ],
+                'newContracts' => ['total' => round($newContractTotal), 'count' => $newContractCount],
+                'consumedThisMonth' => round($consumedTotal),
+                'balanceNetChange' => round($newContractTotal - $consumedTotal),
+                'atRiskContracts' => array_slice($atRiskList, 0, 10),
+                'atRiskCount' => count($atRiskList),
+            ];
         } catch (Exception $e) {
-            return ['customers' => [], 'healthCounts' => [], 'active' => 0, 'monthlyTarget' => 0, 'detail' => []];
+            return $this->emptyContractSummary();
         }
+    }
+
+    private function emptyContractSummary()
+    {
+        return [
+            'customers' => [], 'healthCounts' => [], 'active' => 0, 'monthlyTarget' => 0, 'detail' => [],
+            'overdueUnconsumed' => ['total' => 0, 'count' => 0, 'tiers' => ['觀察' => ['count' => 0, 'amount' => 0], '警示' => ['count' => 0, 'amount' => 0], '掛點' => ['count' => 0, 'amount' => 0]]],
+            'newContracts' => ['total' => 0, 'count' => 0], 'consumedThisMonth' => 0, 'balanceNetChange' => 0,
+            'atRiskContracts' => [], 'atRiskCount' => 0,
+        ];
     }
 
     private function getCompanyTopProducts($ssId, $year, $month, $limit = 10)
@@ -2433,12 +2514,21 @@ trait ReportTrait
         usort($crossCompanyCustomers, function ($a, $b) { return $b['totalMonth'] <=> $a['totalMonth']; });
         $crossCompanyCustomers = array_slice($crossCompanyCustomers, 0, 10);
 
-        $contractTotal = ['active' => 0, 'monthlyTarget' => 0, 'healthCounts' => []];
+        $contractTotal = [
+            'active' => 0, 'monthlyTarget' => 0, 'healthCounts' => [],
+            'overdueUnconsumedTotal' => 0, 'overdueUnconsumedCount' => 0,
+            'newContractsTotal' => 0, 'consumedTotal' => 0, 'balanceNetChange' => 0, 'atRiskCount' => 0,
+        ];
         $contractOverlap = [];
         $contractAllCustomers = [];
         foreach ($companyIds as $key => $info) {
             $c = $allContracts[$key];
             $contractTotal['monthlyTarget'] += $c['monthlyTarget'];
+            $contractTotal['overdueUnconsumedTotal'] += $c['overdueUnconsumed']['total'] ?? 0;
+            $contractTotal['overdueUnconsumedCount'] += $c['overdueUnconsumed']['count'] ?? 0;
+            $contractTotal['newContractsTotal'] += $c['newContracts']['total'] ?? 0;
+            $contractTotal['consumedTotal'] += $c['consumedThisMonth'] ?? 0;
+            $contractTotal['atRiskCount'] += $c['atRiskCount'] ?? 0;
             foreach ($c['healthCounts'] as $bucket => $cnt) {
                 $contractTotal['healthCounts'][$bucket] = ($contractTotal['healthCounts'][$bucket] ?? 0) + $cnt;
             }
@@ -2449,6 +2539,7 @@ trait ReportTrait
             }
         }
         $contractTotal['active'] = count($contractAllCustomers);
+        $contractTotal['balanceNetChange'] = $contractTotal['newContractsTotal'] - $contractTotal['consumedTotal'];
         $overlapContracts = [];
         foreach ($contractOverlap as $custName => $coMap) {
             if (count($coMap) >= 2) {
@@ -2504,6 +2595,12 @@ trait ReportTrait
                     'detail' => $ct['detail'],
                     'signedStoreSales' => round($signedStoreSales),
                     'healthPct' => $healthPct,
+                    'overdueUnconsumed' => $ct['overdueUnconsumed'],
+                    'newContracts' => $ct['newContracts'],
+                    'consumedThisMonth' => $ct['consumedThisMonth'],
+                    'balanceNetChange' => $ct['balanceNetChange'],
+                    'atRiskContracts' => $ct['atRiskContracts'],
+                    'atRiskCount' => $ct['atRiskCount'],
                 ],
                 'quarter' => [
                     'current' => ['label' => $qKey, 'amount' => round($allQuarters[$key][$qKey] ?? 0)],

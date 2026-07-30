@@ -299,21 +299,6 @@ try {
             echo json_encode($res);
             break;
 
-        case 'debug-contract-sheet':
-            if (($_GET['token'] ?? '') !== CRON_TOKEN) { http_response_code(403); echo json_encode(['success'=>false]); break; }
-            try {
-                $rows = $gs->readSheet('合約');
-                echo json_encode([
-                    'success' => true,
-                    'rowCount' => count($rows),
-                    'header' => $rows[0] ?? [],
-                    'sample' => array_slice($rows, 1, 5),
-                ], JSON_UNESCAPED_UNICODE);
-            } catch (Exception $e) {
-                echo json_encode(['success'=>false,'msg'=>$e->getMessage()]);
-            }
-            break;
-
         case 'debug-sales-compare':
             try {
                 $year = (int)($_GET['year'] ?? date('Y'));

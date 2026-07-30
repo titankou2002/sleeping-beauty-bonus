@@ -472,6 +472,11 @@ function renderAll(d){
     const total=ct.active||1;
     const warnPct=total>0?(((hc['觀察']||0)+(hc['警示']||0)+(hc['掛點']||0))/total*100).toFixed(0):0;
     const healthPct = ct.healthPct != null ? ct.healthPct : 0;
+    const ou=ct.overdueUnconsumed||{total:0,count:0};
+    const nc=ct.newContracts||{total:0,count:0};
+    const consumed=ct.consumedThisMonth||0;
+    const netChange=ct.balanceNetChange||0;
+    const atRiskCount=ct.atRiskCount||0;
     html+=`<div class="cc"><div class="nm"><span class="dot" style="background:${c.color}"></span>${c.name}</div>
       <div style="font-size:13px;display:flex;flex-direction:column;gap:4px">
         <span>合約客戶 <b>${ct.active}</b> 家</span>
@@ -479,13 +484,19 @@ function renderAll(d){
         <span>異常率 ${warnPct}%</span>
         <span>合約月目標 <b>${fmtW(ct.monthlyTarget)}</b></span>
         <span>簽約店實銷 <b>${fmtW(ct.signedStoreSales)}</b></span>
-        <span>健康度 <b style="font-size:16px" class="${Number(healthPct)>=75?'up':'dn'}">${healthPct}%</b></span>
+        <span>①達成率 <b style="font-size:16px" class="${Number(healthPct)>=75?'up':'dn'}">${healthPct}%</b></span>
       </div>
       <div style="margin-top:8px;height:8px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden;display:flex">
         <div style="width:${total>0?(((hc['正常']||0)+(hc['待續約']||0))/total*100).toFixed(0):0}%;background:var(--green)"></div>
         <div style="width:${total>0?(((hc['觀察']||0)+(hc['警示']||0)+(hc['掛點']||0))/total*100).toFixed(0):0}%;background:var(--red)"></div>
       </div>
       <div style="font-size:11px;color:var(--muted);margin-top:4px;display:flex;gap:12px"><span style="color:var(--green)">■ 正常/待續約</span><span style="color:var(--red)">■ 異常（觀察/警示/掛點）</span></div>
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08);display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;font-size:12px">
+        <div>②逾期未消化<br><b style="font-size:15px;color:${ou.total>0?'var(--red)':'var(--muted)'}">${fmtW(ou.total)}</b> <span style="color:var(--muted)">(${ou.count}家)</span></div>
+        <div>③合約餘額淨變化<br><b style="font-size:15px;color:${netChange>0?'var(--red)':'var(--green)'}">${netChange>0?'+':''}${fmtW(netChange)}</b></div>
+        <div style="color:var(--muted);font-size:11px">新簽 ${fmtW(nc.total)}（${nc.count}家）－消化 ${fmtW(consumed)}</div>
+        <div>④消化預警<br><b style="font-size:15px;color:${atRiskCount>0?'var(--orange)':'var(--muted)'}">${atRiskCount}</b> <span style="color:var(--muted)">家</span></div>
+      </div>
       <div class="link-row" style="display:flex;gap:8px;flex-wrap:wrap"><button class="detail-btn" onclick="showContractDetail('${k}')">📋 合約客戶明細</button><a class="btn-report" href="${reportUrl(k,d.year,d.month)}" target="_blank">🔗 ${c.name}月報</a></div></div>`;
   });
   html+=`</div>`;
