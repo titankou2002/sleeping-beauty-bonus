@@ -474,7 +474,12 @@ function renderAll(d){
     const c=cos[k]; const ct=c.contract;
     const hc=ct.healthCounts||{};
     const total=ct.active||1;
-    const warnPct=total>0?(((hc['觀察']||0)+(hc['警示']||0)+(hc['掛點']||0))/total*100).toFixed(0):0;
+    // 簡化二分法：正常/待續約/觀察 視為還OK，只有警示/掛點才算不好
+    const okCount=(hc['正常']||0)+(hc['待續約']||0)+(hc['觀察']||0);
+    const badCount=(hc['警示']||0)+(hc['掛點']||0);
+    const okPct=total>0?(okCount/total*100).toFixed(0):0;
+    const badPct=total>0?(badCount/total*100).toFixed(0):0;
+    const warnPct=badPct;
     const healthPct = ct.healthPct != null ? ct.healthPct : 0;
     const ou=ct.overdueUnconsumed||{total:0,count:0};
     const nc=ct.newContracts||{total:0,count:0};
@@ -491,16 +496,19 @@ function renderAll(d){
           <span class="drill" style="color:var(--blue)" onclick="showContractDetail('${k}','待續約')">待續約 ${hc['待續約']||0}</span>
           ${qm('依「餘額剩多少」與「票期過了多久」分類：正常＝沒問題／觀察＝消化偏慢或快到期／警示＝票過期不到一年、錢還沒消化完／掛點＝票過期超過兩年，接近呆帳／待續約＝餘額用完了，該去簽下一份約。點任一狀態可看該類客戶名單。')}
         </span>
-        <span class="drill" onclick="showContractDetail('${k}','異常')">異常率 ${warnPct}%${qm('（觀察＋警示＋掛點）÷ 合約客戶總數。數字越高，代表要處理的問題客戶越多。')}</span>
+        <span class="drill" onclick="showContractDetail('${k}','異常')">異常率 ${warnPct}%${qm('（警示＋掛點）÷ 合約客戶總數。觀察名單雖然要留意，但還不到異常的程度，故不計入。數字越高，代表要處理的問題客戶越多。')}</span>
         <span class="drill" onclick="showContractDetail('${k}','target')">效期內合約總額 <b>${fmtW(ct.monthlyTarget)}</b>${qm('把「還有票在走」的客戶（正常/觀察/警示/掛點）每張票的金額加總。待續約已經沒有票了，不算進來，因為這個月本來就不會再進錢。')}</span>
         <span>簽約店實銷 <b>${fmtW(ct.signedStoreSales)}</b>${qm('這些簽約客戶，這個月實際出貨賣了多少錢（來自銷貨紀錄，跟合約表是兩份不同的資料）。')}</span>
         <span>①達成率 <b style="font-size:16px" class="${Number(healthPct)>=75?'up':'dn'}">${healthPct}%</b>${qm('簽約店實銷 ÷ 效期內合約總額。這個月「該進的錢」實際進了多少的比例，100%代表剛好達標。')}</span>
       </div>
       <div style="margin-top:8px;height:8px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden;display:flex">
-        <div style="width:${total>0?(((hc['正常']||0)+(hc['待續約']||0))/total*100).toFixed(0):0}%;background:var(--green)"></div>
-        <div style="width:${total>0?(((hc['觀察']||0)+(hc['警示']||0)+(hc['掛點']||0))/total*100).toFixed(0):0}%;background:var(--red)"></div>
+        <div style="width:${okPct}%;background:var(--green)"></div>
+        <div style="width:${badPct}%;background:var(--red)"></div>
       </div>
-      <div style="font-size:11px;color:var(--muted);margin-top:4px;display:flex;gap:12px"><span style="color:var(--green)">■ 正常/待續約</span><span style="color:var(--red)">■ 異常（觀察/警示/掛點）</span></div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;display:flex;gap:12px">
+        <span class="drill" style="color:var(--green)" onclick="showContractDetail('${k}','ok')">■ 還OK（正常/待續約/觀察） ${okPct}%</span>
+        <span class="drill" style="color:var(--red)" onclick="showContractDetail('${k}','異常')">■ 不好（警示/掛點） ${badPct}%</span>
+      </div>
       <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08);display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;font-size:12px">
         <div class="drill" onclick="showContractDetail('${k}','overdue')">②合約溢收${qm('票已經收完了（不會再進錢），但貨還沒出完、錢還卡在合約裡沒被用掉。這是最該優先處理的錢，因為公司已經拿到現金了，卻沒兌現成銷售。點擊看完整名單。')}<br><b style="font-size:15px;color:${ou.total>0?'var(--red)':'var(--muted)'}">${fmtW(ou.total)}</b> <span style="color:var(--muted)">(${ou.count}家)</span></div>
         <div>③實際消化合約金${qm('這個月合約餘額實際被消化掉多少（出貨換算成合約額度扣抵的金額）。旁邊的「新簽」是這個月新收的合約金額，可對照看進出是否平衡。')}<br><b style="font-size:15px;color:var(--gold)">${fmtW(consumed)}</b></div>
@@ -952,7 +960,8 @@ function showContractDetail(companyKey,filterMode){
 
   // 其餘：依健康度分類分組呈現（可用 filterMode 限定只看某一類）
   let buckets=['正常','觀察','警示','掛點','待續約'];
-  if(filterMode==='異常') buckets=['觀察','警示','掛點'];
+  if(filterMode==='異常') buckets=['警示','掛點'];
+  else if(filterMode==='ok') buckets=['正常','待續約','觀察'];
   else if(filterMode==='target') buckets=['正常','觀察','警示','掛點'];
   else if(buckets.includes(filterMode)) buckets=[filterMode];
 
