@@ -110,19 +110,6 @@ class SleeperService
         return $size;
     }
 
-    private function normalizeContractHealthLabel($health)
-    {
-        $health = trim((string)$health);
-        if ($health === '') return ['bucket' => '未分類', 'note' => ''];
-        if (mb_strpos($health, '嚴重') !== false) return ['bucket' => '嚴重', 'note' => ''];
-        if (mb_strpos($health, '逾期') !== false) return ['bucket' => '逾期', 'note' => ''];
-        if (mb_strpos($health, '待續') !== false) return ['bucket' => '待續', 'note' => ''];
-        if (mb_strpos($health, '已續') !== false) return ['bucket' => '已續', 'note' => ''];
-        if (mb_strpos($health, '正常') !== false) return ['bucket' => '正常', 'note' => ''];
-        if (mb_strpos($health, '未續約') !== false) return ['bucket' => '其它未續約', 'note' => $health];
-        return ['bucket' => '未分類', 'note' => $health];
-    }
-
     private function isLogisticsAddress($address)
     {
         $address = trim((string)$address);

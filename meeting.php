@@ -239,6 +239,7 @@
     .health-card.is-warn .n, .health-line.is-warn .status { color: #facc15; }
     .health-card.is-good .n, .health-line.is-good .status { color: var(--green); }
     .health-card.is-info .n, .health-line.is-info .status { color: var(--blue); }
+    .qmark{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:rgba(255,255,255,.1);color:var(--muted);font-size:10px;font-weight:700;cursor:help;margin-left:4px;vertical-align:middle}
     .rank-board {
       display: flex;
       flex-direction: column;
@@ -1839,23 +1840,32 @@
       `;
     }
 
+    function qm(text) {
+      return `<span class="qmark" title="${String(text).replace(/"/g, '&quot;')}">?</span>`;
+    }
+
     function buildContractSheet(d) {
-      const s = (d.contracts || {}).summary || {};
-      const health = (d.contracts || {}).healthCounts || [];
-      const notes = (d.contracts || {}).notes || [];
-      const detailGroups = (d.contracts || {}).detailGroups || {};
+      const c = d.contracts || {};
+      const s = c.summary || {};
+      const health = c.healthCounts || [];
+      const detailGroups = c.detailGroups || {};
       const healthMap = {};
       health.forEach(row => { healthMap[row.name] = row.count; });
-      const overdueSevereCount = (healthMap['逾期'] || 0) + (healthMap['嚴重'] || 0);
-      const overdueSevereRows = detailGroups.overdueSevere || [];
-      const pendingRows = detailGroups.pendingRenewal || [];
-      const renewedRows = detailGroups.renewed || [];
-      const otherOpenRows = detailGroups.otherOpen || [];
+      const total = s.active || 1;
+      const okCount = (healthMap['正常'] || 0) + (healthMap['待續約'] || 0) + (healthMap['觀察'] || 0);
+      const badCount = (healthMap['警示'] || 0) + (healthMap['掛點'] || 0);
+      const okPct = total > 0 ? Math.round(okCount / total * 100) : 0;
+      const badPct = total > 0 ? Math.round(badCount / total * 100) : 0;
+      const ou = c.overdueUnconsumed || { total: 0, count: 0 };
+      const nc = c.newContracts || { total: 0, count: 0 };
+      const consumed = c.consumedThisMonth || 0;
+      const netChange = c.balanceNetChange || 0;
+      const atRiskCount = c.atRiskCount || 0;
+
       const contractLineClass = health => {
-        const text = String(health || '');
-        if (text.includes('嚴重')) return 'is-danger';
-        if (text.includes('逾期') || text.includes('待續')) return 'is-warn';
-        if (text.includes('已續')) return 'is-info';
+        if (health === '警示' || health === '掛點') return 'is-danger';
+        if (health === '觀察') return 'is-warn';
+        if (health === '待續約') return 'is-info';
         return 'is-good';
       };
       const buildContractLines = rows => `
@@ -1869,91 +1879,60 @@
           `).join('') || '<div class="hint">本期無資料</div>'}
         </div>
       `;
+      const bucketCard = (bucket, cls, groupKey, hint) => `
+        <details class="health-card ${cls} expander">
+          <summary>
+            <div>
+              <div class="k">${bucket}</div>
+              <div class="n">${fmtInt(healthMap[bucket] || 0)}</div>
+              <div class="d">${hint}</div>
+            </div>
+            <div class="expander-icon">⌄</div>
+          </summary>
+          <div class="expander-body">${buildContractLines(detailGroups[groupKey] || [])}</div>
+        </details>
+      `;
+
       return `
         <section class="sheet">
           <div class="sheet-title">合約狀況</div>
           <div class="section-pad">${advisorSlot('contract')}${advisorSlot('inventory')}</div>
           <div class="mini-grid">
-            <div class="mini-card"><h3>合約總數</h3><div class="v">${fmtInt(s.active)}</div></div>
+            <div class="mini-card"><h3>合約總數${qm('目前正在履約中的客戶總數，五種狀態都算在內，只有真的「沖完、確定不續約」的才不算。')}</h3><div class="v">${fmtInt(s.active)}</div></div>
             <div class="mini-card"><h3>45 天內到期</h3><div class="v">${fmtInt(s.expiringSoon)}</div></div>
-            <div class="mini-card"><h3>合約餘額</h3><div class="v">${fmtWan(s.balance)}</div></div>
+            <div class="mini-card"><h3>合約餘額${qm('所有還在履約中的客戶，目前尚未消化完的合約金額總和。')}</h3><div class="v">${fmtWan(s.balance)}</div></div>
           </div>
+
+          <div class="mini-grid" style="margin-top:8px">
+            <div class="mini-card"><h3>效期內合約總額${qm('把「還有票在走」的客戶（正常/觀察/警示/掛點）每張票的金額加總。待續約已經沒有票了，不算進來，因為這個月本來就不會再進錢。')}</h3><div class="v">${fmtWan(s.signedMonthlyTarget)}</div></div>
+            <div class="mini-card"><h3>②合約溢收${qm('票已經收完了（不會再進錢），但貨還沒出完、錢還卡在合約裡沒被用掉。這是最該優先處理的錢，因為公司已經拿到現金了，卻沒兌現成銷售。')}</h3><div class="v" style="color:${ou.total > 0 ? 'var(--red)' : 'var(--muted)'}">${fmtWan(ou.total)}</div><div class="d">${ou.count} 家</div></div>
+            <div class="mini-card"><h3>③實際消化合約金${qm('這個月合約餘額實際被消化掉多少（出貨換算成合約額度扣抵的金額）。新簽 ' + fmtWan(nc.total) + '（' + nc.count + '家），淨變化 ' + (netChange >= 0 ? '+' : '') + fmtWan(netChange) + '。')}</h3><div class="v" style="color:var(--gold)">${fmtWan(consumed)}</div></div>
+            <div class="mini-card"><h3>④觀察名單（賣的較慢）${qm('還沒過期、還有餘額，但照最近的消化速度推算，票到期前很可能用不完——是②的候選名單，趁還沒真的過期，可以先聯絡客戶催出貨。')}</h3><div class="v" style="color:${atRiskCount > 0 ? '#facc15' : 'var(--muted)'}">${fmtInt(atRiskCount)}</div><div class="d">家</div></div>
+          </div>
+
+          <div style="margin:10px 12px 4px;height:8px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden;display:flex">
+            <div style="width:${okPct}%;background:var(--green)"></div>
+            <div style="width:${badPct}%;background:var(--red)"></div>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin:0 12px 12px;display:flex;gap:12px">
+            <span style="color:var(--green)">■ 還OK（正常/待續約/觀察） ${okPct}%</span>
+            <span style="color:var(--red)">■ 不好（警示/掛點） ${badPct}%</span>
+          </div>
+
           <div class="health-grid" style="grid-template-columns:repeat(3,minmax(0,1fr));">
-            <details class="health-card is-good expander">
-              <summary>
-                <div>
-                  <div class="k">正常</div>
-                  <div class="n">${fmtInt(healthMap['正常'] || 0)}</div>
-                  <div class="d">點開看正常客戶</div>
-                </div>
-                <div class="expander-icon">⌄</div>
-              </summary>
-              <div class="expander-body">${buildContractLines((detailGroups.normal || []))}</div>
-            </details>
-            <details class="health-card is-warn expander">
-              <summary>
-                <div>
-                  <div class="k">逾期</div>
-                  <div class="n">${fmtInt(healthMap['逾期'] || 0)}</div>
-                  <div class="d">點開看客戶 / 逾期天數</div>
-                </div>
-                <div class="expander-icon">⌄</div>
-              </summary>
-              <div class="expander-body">${buildContractLines(overdueSevereRows.filter(r => String(r.health || '').includes('逾期')))}</div>
-            </details>
-            <details class="health-card is-danger expander">
-              <summary>
-                <div>
-                  <div class="k">嚴重</div>
-                  <div class="n">${fmtInt(healthMap['嚴重'] || 0)}</div>
-                  <div class="d">點開看客戶 / 嚴重逾期</div>
-                </div>
-                <div class="expander-icon">⌄</div>
-              </summary>
-              <div class="expander-body">${buildContractLines(overdueSevereRows.filter(r => String(r.health || '').includes('嚴重')))}</div>
-            </details>
-            <details class="health-card is-warn expander">
-              <summary>
-                <div>
-                  <div class="k">待續約</div>
-                  <div class="n">${fmtInt(healthMap['待續'] || 0)}</div>
-                  <div class="d">點開看客戶 / 待續時間</div>
-                </div>
-                <div class="expander-icon">⌄</div>
-              </summary>
-              <div class="expander-body">${buildContractLines(pendingRows)}</div>
-            </details>
-            <details class="health-card is-info expander">
-              <summary>
-                <div>
-                  <div class="k">已續約</div>
-                  <div class="n">${fmtInt(healthMap['已續'] || 0)}</div>
-                  <div class="d">點開看已續約客戶</div>
-                </div>
-                <div class="expander-icon">⌄</div>
-              </summary>
-              <div class="expander-body">${buildContractLines(renewedRows)}</div>
-            </details>
+            ${bucketCard('正常', 'is-good', 'normal', '點開看正常客戶')}
+            ${bucketCard('觀察', 'is-warn', 'otherOpen', '點開看需留意的客戶')}
+            ${bucketCard('待續約', 'is-info', 'pendingRenewal', '點開看待續約客戶')}
           </div>
           <details class="expander" style="margin:0 12px 12px">
             <summary>
               <div>
-                <div class="expander-title">未續約 / 另列說明</div>
-                <div class="expander-sub">把其它未續約與沖完未續約說明集中在這裡。</div>
+                <div class="expander-title">警示／掛點（不好）</div>
+                <div class="expander-sub">最後一張票已過期、餘額還沒消化完的客戶。</div>
               </div>
-              <div class="expander-meta">${fmtInt((healthMap['其它未續約'] || 0) + notes.reduce((sum, r) => sum + Number(r.count || 0), 0))}<span class="expander-icon">⌄</span></div>
+              <div class="expander-meta">${fmtInt(badCount)}<span class="expander-icon">⌄</span></div>
             </summary>
-            <div class="expander-body">
-              ${buildContractLines(otherOpenRows)}
-              <div class="table-wrap" style="margin-top:12px">
-                <table>
-                  <thead><tr><th>其它沖完未續約說明</th><th>筆數</th></tr></thead>
-                  <tbody>
-                    ${notes.map(r => `<tr><td>${escapeHtml(r.name)}</td><td class="num">${fmtInt(r.count)}</td></tr>`).join('') || '<tr><td colspan="2" class="center">本期無額外說明</td></tr>'}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <div class="expander-body">${buildContractLines(detailGroups.overdueSevere || [])}</div>
           </details>
         </section>
       `;

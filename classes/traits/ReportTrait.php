@@ -630,166 +630,80 @@ trait ReportTrait
         ];
     }
 
+    // 高雅瓷自家月報表(meeting.php)用的合約摘要。原本靠人工填的「健康度」文字欄位分類，
+    // 現在改為與集團月報(getCompanyContractSummary)完全一致的公式驅動分類，
+    // 並補上②合約溢收／③實際消化合約金／④觀察名單，回傳結構盡量維持相容以免影響既有呼叫端。
     private function getContractMeetingSummary($year, $month)
     {
-        $rows = $this->gs->readSheet('合約');
-        if (count($rows) < 2) {
-            return [
-                'healthCounts' => [],
-                'summary' => ['active' => 0, 'expiringSoon' => 0, 'overdue' => 0, 'balance' => 0, 'signedMonthlyTarget' => 0],
-                'topRisk' => [],
-                'notes' => [],
-                'signedCustomers' => [],
-                'detailGroups' => [
-                    'normal' => [],
-                    'overdueSevere' => [],
-                    'pendingRenewal' => [],
-                    'renewed' => [],
-                    'otherOpen' => []
-                ]
-            ];
-        }
+        $ct = $this->getCompanyContractSummary(SS_ID_MAIN, $year, $month);
 
-        $h = $rows[0];
-        $idxHealth = $this->findHeader($h, ['健康度']);
-        $idxCustomer = $this->findHeader($h, ['客戶']);
-        $idxContractAmt = $this->findHeader($h, ['合約內容']);
-        $idxLastDue = $this->findHeader($h, ['最後一張票期']);
-        $idxBalance = -1;
-        foreach ($h as $i => $col) {
-            if (mb_strpos((string)$col, '餘額') !== false) $idxBalance = $i;
-        }
-        $idxSales = $this->findHeader($h, ['業務']);
-
-        $healthCounts = [
-            '正常' => ['name' => '正常', 'count' => 0],
-            '逾期' => ['name' => '逾期', 'count' => 0],
-            '嚴重' => ['name' => '嚴重', 'count' => 0],
-            '待續' => ['name' => '待續', 'count' => 0],
-            '已續' => ['name' => '已續', 'count' => 0],
-            '其它未續約' => ['name' => '其它未續約', 'count' => 0],
-            '未分類' => ['name' => '未分類', 'count' => 0]
-        ];
-        $topRisk = [];
-        $notes = [];
-        $detailGroups = [
-            'normal' => [],
-            'overdueSevere' => [],
-            'pendingRenewal' => [],
-            'renewed' => [],
-            'otherOpen' => []
-        ];
-        $active = 0;
-        $expiringSoon = 0;
+        $detail = $ct['detail'] ?? [];
+        $balanceTotal = array_sum(array_column($detail, 'balance'));
         $overdue = 0;
-        $balance = 0;
-        $signedMonthlyTarget = 0;
-        $signedCustomers = [];
+        $expiringSoon = 0;
         $targetMonth = new DateTime(sprintf('%04d-%02d-01', $year, $month));
-        $today = new DateTime('today');
+        $detailGroups = ['normal' => [], 'overdueSevere' => [], 'pendingRenewal' => [], 'renewed' => [], 'otherOpen' => []];
+        $topRisk = [];
 
-        for ($i = 1; $i < count($rows); $i++) {
-            $row = $rows[$i];
-            $health = trim($this->getVal($row, $idxHealth));
-            $customer = $this->displayCustomerName($this->getVal($row, $idxCustomer));
-            $bal = $idxBalance !== -1 ? $this->optFloat($this->getVal($row, $idxBalance)) : 0;
-            $sales = trim($this->getVal($row, $idxSales));
-            if ($customer === '未知客戶') continue;
+        foreach ($detail as $d) {
+            if (in_array($d['health'], ['警示', '掛點'], true)) $overdue++;
+            if ($d['dueDays'] !== null && $d['dueDays'] >= 0 && $d['dueDays'] <= 45) $expiringSoon++;
 
-            $healthMeta = $this->normalizeContractHealthLabel($health);
-            $bucket = $healthMeta['bucket'];
-            if (!isset($healthCounts[$bucket])) $healthCounts[$bucket] = ['name' => $bucket, 'count' => 0];
-            $healthCounts[$bucket]['count'] += 1;
-            $active += 1;
-            $balance += $bal;
-            $contractAmt = $idxContractAmt !== -1 ? $this->optFloat($this->getVal($row, $idxContractAmt)) : 0;
-            if (in_array($bucket, ['正常', '逾期', '嚴重', '待續', '已續'], true)) {
-                $signedMonthlyTarget += $contractAmt;
-                $signedCustomers[$customer] = true;
-            }
-            if (in_array($bucket, ['逾期', '嚴重'], true)) $overdue += 1;
-
-            $due = $this->parseDate($this->getVal($row, $idxLastDue));
-            if ($due) {
-                $diffDays = (int)$targetMonth->diff($due)->format('%r%a');
-                if ($diffDays >= 0 && $diffDays <= 45) $expiringSoon += 1;
-            }
-
-            $elapsedText = '未填票期';
-            if ($due) {
-                $todayDiff = (int)$today->diff($due)->format('%r%a');
-                if ($todayDiff < 0) $elapsedText = '逾期 ' . abs($todayDiff) . ' 天';
-                elseif ($todayDiff > 0) $elapsedText = $todayDiff . ' 天後到期';
-                else $elapsedText = '今天到期';
-            }
-
-            if ($healthMeta['note'] !== '') {
-                $notes[$healthMeta['note']] = isset($notes[$healthMeta['note']]) ? $notes[$healthMeta['note']] + 1 : 1;
-            }
-
-            $detailRow = [
-                'customer' => $customer,
-                'health' => $bucket,
-                'balance' => $bal,
-                'sales' => $sales,
-                'lastDue' => $due ? $due->format('Y/m/d') : '',
-                'elapsed' => $elapsedText,
-                'note' => $healthMeta['note']
+            $row = [
+                'customer' => $d['name'],
+                'health' => $d['health'],
+                'balance' => $d['balance'],
+                'sales' => $d['rep'],
+                'lastDue' => $d['lastDue'],
+                'elapsed' => $d['dueText'] ?: '未填票期',
+                'note' => '',
             ];
+            if (in_array($d['health'], ['警示', '掛點'], true)) $detailGroups['overdueSevere'][] = $row;
+            elseif ($d['health'] === '待續約') $detailGroups['pendingRenewal'][] = $row;
+            elseif ($d['health'] === '正常') $detailGroups['normal'][] = $row;
+            elseif ($d['health'] === '觀察') $detailGroups['otherOpen'][] = $row;
 
-            if (in_array($bucket, ['逾期', '嚴重'], true)) $detailGroups['overdueSevere'][] = $detailRow;
-            elseif ($bucket === '待續') $detailGroups['pendingRenewal'][] = $detailRow;
-            elseif ($bucket === '已續') $detailGroups['renewed'][] = $detailRow;
-            elseif ($bucket === '正常') $detailGroups['normal'][] = $detailRow;
-            elseif ($bucket === '其它未續約') $detailGroups['otherOpen'][] = $detailRow;
-
-            if (in_array($bucket, ['逾期', '嚴重', '待續'], true) || $bal > 300000) {
-                $topRisk[] = [
-                    'customer' => $customer,
-                    'health' => $bucket,
-                    'balance' => $bal,
-                    'sales' => $sales,
-                    'lastDue' => $due ? $due->format('Y/m/d') : ''
-                ];
+            if (in_array($d['health'], ['警示', '掛點', '待續約'], true) || $d['balance'] > 300000) {
+                $topRisk[] = $row;
             }
         }
-
-        usort($topRisk, function ($a, $b) {
-            return ($b['balance'] <=> $a['balance']);
-        });
+        usort($topRisk, function ($a, $b) { return $b['balance'] <=> $a['balance']; });
         foreach ($detailGroups as &$group) {
-            usort($group, function ($a, $b) {
-                return ($b['balance'] <=> $a['balance']);
-            });
+            usort($group, function ($a, $b) { return $b['balance'] <=> $a['balance']; });
         }
         unset($group);
-        $noteRows = [];
-        foreach ($notes as $text => $count) {
-            $noteRows[] = ['name' => $text, 'count' => $count];
+
+        $healthCounts = [];
+        foreach (['正常', '觀察', '警示', '掛點', '待續約'] as $b) {
+            $healthCounts[] = ['name' => $b, 'count' => $ct['healthCounts'][$b] ?? 0];
         }
-        usort($noteRows, function ($a, $b) {
-            return ($b['count'] <=> $a['count']);
-        });
 
         return [
-            'healthCounts' => array_values($healthCounts),
+            'healthCounts' => $healthCounts,
             'summary' => [
-                'active' => $active,
+                'active' => $ct['active'],
                 'expiringSoon' => $expiringSoon,
                 'overdue' => $overdue,
-                'balance' => $balance,
-                'signedMonthlyTarget' => $signedMonthlyTarget
+                'balance' => round($balanceTotal),
+                'signedMonthlyTarget' => $ct['monthlyTarget'],
             ],
             'topRisk' => array_slice($topRisk, 0, 10),
-            'notes' => array_slice($noteRows, 0, 12),
-            'signedCustomers' => array_values(array_keys($signedCustomers)),
+            'notes' => [],
+            'signedCustomers' => array_keys($ct['customers']),
             'detailGroups' => [
                 'normal' => array_slice($detailGroups['normal'], 0, 30),
                 'overdueSevere' => array_slice($detailGroups['overdueSevere'], 0, 30),
                 'pendingRenewal' => array_slice($detailGroups['pendingRenewal'], 0, 30),
                 'renewed' => array_slice($detailGroups['renewed'], 0, 30),
-                'otherOpen' => array_slice($detailGroups['otherOpen'], 0, 30)
-            ]
+                'otherOpen' => array_slice($detailGroups['otherOpen'], 0, 30),
+            ],
+            // 新增：與集團月報一致的四項判斷標準
+            'overdueUnconsumed' => $ct['overdueUnconsumed'],
+            'newContracts' => $ct['newContracts'],
+            'consumedThisMonth' => $ct['consumedThisMonth'],
+            'balanceNetChange' => $ct['balanceNetChange'],
+            'atRiskContracts' => $ct['atRiskContracts'],
+            'atRiskCount' => $ct['atRiskCount'],
         ];
     }
 
