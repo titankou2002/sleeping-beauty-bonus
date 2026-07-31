@@ -1113,7 +1113,8 @@
   <script>
     const API_BASE = 'api.php';
     const now = new Date();
-    const defaultMeetingDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    // 25號以後預設本月報表，25號以前預設上個月（月中資料量還不夠參考）
+    const defaultMeetingDate = now.getDate() >= 25 ? new Date(now.getFullYear(), now.getMonth(), 1) : new Date(now.getFullYear(), now.getMonth() - 1, 1);
     let currentMeetingTab = 'monthly';
     const yearSel = document.getElementById('year');
     const monthSel = document.getElementById('month');

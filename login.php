@@ -5,12 +5,17 @@ if (session_status() === PHP_SESSION_NONE) {
 
 require_once __DIR__ . '/config.php';
 
+// redirect 白名單：只允許導向這幾頁，避免開放式轉址
+$allowedRedirects = ['daily.php', 'group_meeting.php', 'index.php', 'meeting.php'];
+$redirectParam = $_POST['redirect'] ?? ($_GET['redirect'] ?? '');
+$redirectTarget = in_array($redirectParam, $allowedRedirects, true) ? $redirectParam : 'daily.php';
+
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = $_POST['password'] ?? '';
     if ($password === ACCESS_PASSWORD) {
         $_SESSION['war_room_auth'] = true;
-        header("Location: daily.php");
+        header("Location: $redirectTarget");
         exit;
     } else {
         $error = '密碼錯誤，請重新輸入';
@@ -150,6 +155,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <?php endif; ?>
     
     <form method="POST">
+      <input type="hidden" name="redirect" value="<?= htmlspecialchars($redirectTarget) ?>">
       <div class="form-group">
         <label for="password">戰情密碼</label>
         <input type="password" id="password" name="password" required autofocus placeholder="••••">

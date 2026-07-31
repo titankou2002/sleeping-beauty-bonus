@@ -174,7 +174,8 @@ const CO_COLORS = {sleepingBeauty:'#ff2a85',andyga:'#10b981',xiyena:'#38bdf8'};
 const CO_PILL = {sleepingBeauty:'pill-sb',andyga:'pill-ad',xiyena:'pill-xy'};
 
 const now = new Date();
-const def = new Date(now.getFullYear(), now.getMonth()-1, 1);
+// 25號以後預設本月報表，25號以前預設上個月（月中資料量還不夠參考）
+const def = now.getDate() >= 25 ? new Date(now.getFullYear(), now.getMonth(), 1) : new Date(now.getFullYear(), now.getMonth()-1, 1);
 const yearSel = document.getElementById('year');
 const monthSel = document.getElementById('month');
 for(let y=now.getFullYear();y>=2024;y--) yearSel.innerHTML+=`<option value="${y}">${y}年</option>`;

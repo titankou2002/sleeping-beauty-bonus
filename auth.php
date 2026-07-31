@@ -31,7 +31,8 @@ if (!$authenticated) {
         ]);
         exit;
     } else {
-        header('Location: login.php');
+        $currentPage = basename($_SERVER['SCRIPT_NAME'] ?? '');
+        header('Location: login.php?redirect=' . urlencode($currentPage));
         exit;
     }
 }
