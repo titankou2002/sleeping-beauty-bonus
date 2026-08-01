@@ -13,6 +13,8 @@ class SleeperService
     ReportTrait;
 
     private static $salesMerge = ['薛佶姈' => '高弘治', '陳育瑋' => '陳勁多'];
+    // 漢樺/波爾泰（僅高雅瓷）合併多店為單一客戶名，實際由這三位業務均分經營
+    private static $hanhuaSplitReps = ['謝博皓', '潘右森', '陳勁多'];
     private $areaMap = null;
     private static $customerSuffixes = [
         '企業股份有限公司', '開發有限公司', '股份有限公司', '有限公司',

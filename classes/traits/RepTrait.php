@@ -237,15 +237,13 @@ trait RepTrait
             }
         } catch (Exception $e) {}
 
-        // 漢樺/波爾泰合併多店為單一客戶名，實際由這三位業務均分經營，業績需三等分分別歸入三人
-        $hanhuaSplitReps = ['謝博皓', '潘右森', '陳勁多'];
-
         $reps = [];
         foreach ($custMonthly as $cust => $yrData) {
-            $isHanhua = mb_strpos($cust, '漢樺') !== false;
+            // 漢樺/波爾泰（僅高雅瓷）合併多店為單一客戶名，實際由三位業務均分經營，業績需三等分分別歸入三人
+            $isHanhua = mb_strpos($cust, '漢樺') !== false && $this->gs->getSsId() === SS_ID_MAIN;
             // 客戶歸屬以「業務分區」表為準；未列於業務分區者才退回用成交金額推斷
-            $repList = $isHanhua ? $hanhuaSplitReps : [$custRepMapFromSheet[$cust] ?? $custMainRep[$cust] ?? '未分配'];
-            $weight = $isHanhua ? 1 / count($hanhuaSplitReps) : 1.0;
+            $repList = $isHanhua ? self::$hanhuaSplitReps : [$custRepMapFromSheet[$cust] ?? $custMainRep[$cust] ?? '未分配'];
+            $weight = $isHanhua ? 1 / count(self::$hanhuaSplitReps) : 1.0;
 
             $tyAmtRaw = array_sum($custMonthly[$cust][$thisYear] ?? []);
             $lyFullAmt = array_sum($custMonthly[$cust][$lastYear] ?? []);

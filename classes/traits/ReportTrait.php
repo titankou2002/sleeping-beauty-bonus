@@ -283,10 +283,14 @@ trait ReportTrait
             $series = !empty($profile) ? trim(($profile['seriesCn'] ?? '') ?: ($profile['series'] ?? '')) : (isset($metaMap[$sku]) ? trim($metaMap[$sku]['series']) : '');
             if ($series === '') $series = '未分類';
 
-            if (!isset($buckets[$bucketName]['sales'][$sales])) $buckets[$bucketName]['sales'][$sales] = ['name' => $sales, 'amount' => 0, 'pings' => 0, 'count' => 0];
-            $buckets[$bucketName]['sales'][$sales]['amount'] += $amount;
-            $buckets[$bucketName]['sales'][$sales]['pings'] += $pings;
-            $buckets[$bucketName]['sales'][$sales]['count'] += $txCount;
+            // 漢樺/波爾泰（僅高雅瓷）實際由三位業務均分經營，業績需三等分歸入三人，而非全數算給單一業務
+            $salesReps = ($customer === '漢樺' && $this->gs->getSsId() === SS_ID_MAIN) ? self::$hanhuaSplitReps : [$sales];
+            foreach ($salesReps as $repName) {
+                if (!isset($buckets[$bucketName]['sales'][$repName])) $buckets[$bucketName]['sales'][$repName] = ['name' => $repName, 'amount' => 0, 'pings' => 0, 'count' => 0];
+                $buckets[$bucketName]['sales'][$repName]['amount'] += $amount / count($salesReps);
+                $buckets[$bucketName]['sales'][$repName]['pings'] += $pings / count($salesReps);
+                $buckets[$bucketName]['sales'][$repName]['count'] += $txCount / count($salesReps);
+            }
 
             if (!isset($buckets[$bucketName]['customers'][$customer])) $buckets[$bucketName]['customers'][$customer] = ['name' => $customer, 'amount' => 0, 'pings' => 0, 'count' => 0];
             $buckets[$bucketName]['customers'][$customer]['amount'] += $amount;
