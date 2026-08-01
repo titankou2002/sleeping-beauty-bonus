@@ -100,7 +100,15 @@ try {
             try {
                 $year = (int)($_GET['year'] ?? date('Y'));
                 $month = (int)($_GET['month'] ?? date('n'));
-                $res = $svc->getMeetingReport($year, $month);
+                $companyIds = [
+                    'sleepingBeauty' => SS_ID_MAIN,
+                    'andyga' => SS_ID_ANDYGA,
+                    'xiyena' => SS_ID_XIYENA,
+                ];
+                $companyKey = $_GET['company'] ?? 'sleepingBeauty';
+                $ssId = $companyIds[$companyKey] ?? SS_ID_MAIN;
+                $companySvc = $ssId === SS_ID_MAIN ? $svc : new SleeperService(new GoogleSheetsClient($ssId));
+                $res = $companySvc->getMeetingReport($year, $month);
                 echo json_encode($res);
             } catch (Exception $e) {
                 $trace = array_map(function($f){ return basename($f['file'] ?? '?') . ':' . ($f['line'] ?? '?'); }, array_filter($e->getTrace(), fn($f) => isset($f['file'])));
@@ -409,7 +417,15 @@ try {
             }
             set_time_limit(120);
             ini_set('memory_limit', '256M');
-            $res = $svc->rebuildSalesYearCache($years);
+            $companyIds = [
+                'sleepingBeauty' => [SS_ID_MAIN, SALES_SHEET],
+                'andyga' => [SS_ID_ANDYGA, SALES_SHEET],
+                'xiyena' => [SS_ID_XIYENA, '月報表'],
+            ];
+            $companyKey = $_POST['company'] ?? $_GET['company'] ?? 'sleepingBeauty';
+            [$ssId, $sheetName] = $companyIds[$companyKey] ?? $companyIds['sleepingBeauty'];
+            $companySvc = $ssId === SS_ID_MAIN ? $svc : new SleeperService(new GoogleSheetsClient($ssId));
+            $res = $companySvc->rebuildSalesYearCache($years, $sheetName);
             echo json_encode($res);
             break;
 

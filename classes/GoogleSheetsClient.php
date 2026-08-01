@@ -10,6 +10,11 @@ class GoogleSheetsClient
     private $sheetValueCache = [];
     private static $cacheDir = null;
 
+    public function getSsId()
+    {
+        return $this->ssId;
+    }
+
     public function __construct($ssId = null)
     {
         $this->ssId = $ssId ?: SS_ID_MAIN;

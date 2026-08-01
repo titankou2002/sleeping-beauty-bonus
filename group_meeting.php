@@ -166,8 +166,6 @@ function toggleOverlapRows() {
 }
 
 const URL_SB_REPORT = 'meeting.php';
-const URL_AD_REPORT = '<?= URL_ANDYGA_REPORT ?>';
-const URL_XY_REPORT = '<?= URL_XIYENA_REPORT ?>';
 const CO_KEYS = ['sleepingBeauty','andyga','xiyena'];
 const CO_LABELS = {sleepingBeauty:'高雅瓷',andyga:'安帝嘉',xiyena:'喜悅納'};
 const CO_COLORS = {sleepingBeauty:'#ff2a85',andyga:'#10b981',xiyena:'#38bdf8'};
@@ -190,9 +188,7 @@ function fmtN(n){if(n==null)return'-';return Math.round(n).toLocaleString('zh-TW
 function fmtYoy(v){if(v==null)return'-';if(v>0)return`<span class="up">▲ +${v.toFixed(1)}%</span>`;if(v<0)return`<span class="dn">▼ ${v.toFixed(1)}%</span>`;return`<span style="color:var(--muted)">${v.toFixed(1)}%</span>`}
 function pct(a,b){return b>0?((a/b)*100).toFixed(1):0}
 function reportUrl(key,y,m){
-  if(key==='sleepingBeauty')return`${URL_SB_REPORT}?year=${y}&month=${m}`;
-  if(key==='andyga')return`${URL_AD_REPORT}&year=${y}&month=${m}`;
-  return`${URL_XY_REPORT}&year=${y}&month=${m}`;
+  return`${URL_SB_REPORT}?company=${key}&year=${y}&month=${m}`;
 }
 
 let groupAiExplainLoading = false;

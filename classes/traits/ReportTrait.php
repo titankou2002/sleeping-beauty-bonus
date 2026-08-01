@@ -3,6 +3,12 @@
 trait ReportTrait
 {
 
+    // 目前實例綁定公司的「原始銷售明細」工作表名稱（喜悅納與其他兩家不同）
+    private function getSalesSheetName()
+    {
+        return $this->gs->getSsId() === SS_ID_XIYENA ? '月報表' : SALES_SHEET;
+    }
+
     private function getStrategyPeriodMeta($mode, $year, $period)
     {
         $mode = in_array($mode, ['month', 'quarter', 'half', 'year'], true) ? $mode : 'month';
@@ -188,7 +194,7 @@ trait ReportTrait
                         }
                     }
                     if (!$hasMonth) {
-                        $this->rebuildSalesYearCache([$year]);
+                        $this->rebuildSalesYearCache([$year], $this->getSalesSheetName());
                     }
                 }
             }
@@ -630,12 +636,12 @@ trait ReportTrait
         ];
     }
 
-    // 高雅瓷自家月報表(meeting.php)用的合約摘要。原本靠人工填的「健康度」文字欄位分類，
-    // 現在改為與集團月報(getCompanyContractSummary)完全一致的公式驅動分類，
+    // 自家月報表(meeting.php)用的合約摘要，抓的是「目前這個 SleeperService 實例綁定的公司」而非固定高雅瓷。
+    // 與集團月報(getCompanyContractSummary)完全一致的公式驅動分類，
     // 並補上②合約溢收／③實際消化合約金／④觀察名單，回傳結構盡量維持相容以免影響既有呼叫端。
     private function getContractMeetingSummary($year, $month)
     {
-        $ct = $this->getCompanyContractSummary(SS_ID_MAIN, $year, $month);
+        $ct = $this->getCompanyContractSummary($this->gs->getSsId(), $year, $month);
 
         $detail = $ct['detail'] ?? [];
         $balanceTotal = array_sum(array_column($detail, 'balance'));
@@ -736,7 +742,7 @@ trait ReportTrait
                         }
                     }
                     if (!$hasMonth) {
-                        $this->rebuildSalesYearCache([$year]);
+                        $this->rebuildSalesYearCache([$year], $this->getSalesSheetName());
                     }
                 }
             }

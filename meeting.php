@@ -1095,9 +1095,14 @@
     <div class="topbar">
       <div class="title-wrap">
         <div class="brand-logo">T</div>
-        <h1>高雅瓷月報表 <span style="font-size:12px;font-weight:400;color:var(--muted);letter-spacing:0">v<?= date('ymd.Hi', filemtime(__FILE__)) ?></span></h1>
+        <h1 id="page-h1">月報表 <span style="font-size:12px;font-weight:400;color:var(--muted);letter-spacing:0">v<?= date('ymd.Hi', filemtime(__FILE__)) ?></span></h1>
       </div>
       <div class="controls">
+        <select id="company">
+          <option value="sleepingBeauty">高雅瓷</option>
+          <option value="andyga">安帝嘉</option>
+          <option value="xiyena">喜悅納</option>
+        </select>
         <select id="year"></select>
         <select id="month"></select>
         <button onclick="loadMeeting()">載入會議報表</button>
@@ -1117,8 +1122,10 @@
     // 25號以後預設本月報表，25號以前預設上個月（月中資料量還不夠參考）
     const defaultMeetingDate = now.getDate() >= 25 ? new Date(now.getFullYear(), now.getMonth(), 1) : new Date(now.getFullYear(), now.getMonth() - 1, 1);
     let currentMeetingTab = 'monthly';
+    const COMPANY_NAMES = { sleepingBeauty: '高雅瓷', andyga: '安帝嘉', xiyena: '喜悅納' };
     const yearSel = document.getElementById('year');
     const monthSel = document.getElementById('month');
+    const companySel = document.getElementById('company');
     for (let y = now.getFullYear(); y >= 2024; y--) {
       yearSel.innerHTML += `<option value="${y}">${y} 年</option>`;
     }
@@ -1127,6 +1134,17 @@
     }
     yearSel.value = defaultMeetingDate.getFullYear();
     monthSel.value = defaultMeetingDate.getMonth() + 1;
+    const urlParams = new URLSearchParams(location.search);
+    if (COMPANY_NAMES[urlParams.get('company')]) companySel.value = urlParams.get('company');
+    if (urlParams.get('year')) yearSel.value = urlParams.get('year');
+    if (urlParams.get('month')) monthSel.value = urlParams.get('month');
+    function currentCompanyName() { return COMPANY_NAMES[companySel.value] || '高雅瓷'; }
+    function updatePageTitle() {
+      document.title = currentCompanyName() + '月報表';
+      document.getElementById('page-h1').childNodes[0].nodeValue = currentCompanyName() + '月報表 ';
+    }
+    companySel.addEventListener('change', () => { updatePageTitle(); loadMeeting(); });
+    updatePageTitle();
 
     function truncNum(n) {
       n = Number(n || 0);
@@ -1223,7 +1241,7 @@
       const s = d.summary || {};
       return `
         <section class="sheet">
-          <div class="sheet-title">高雅瓷-${d.label} 會議總覽</div>
+          <div class="sheet-title">${currentCompanyName()}-${d.label} 會議總覽</div>
           <div class="section-pad">${advisorSlot('kpi')}</div>
           <div class="kpi-grid">
             <div class="kpi-cell soft">
@@ -2169,7 +2187,7 @@
 
     function rebuildCacheMeeting() {
       document.getElementById('cache-info-meeting').textContent = '同步中...';
-      fetch(API_BASE + '?action=rebuild-cache', {method:'POST'}).then(r=>r.json()).then(res=>{
+      fetch(API_BASE + '?action=rebuild-cache&company=' + encodeURIComponent(companySel.value), {method:'POST'}).then(r=>r.json()).then(res=>{
         if(res.success){
           document.getElementById('cache-info-meeting').textContent = '同步完成！' + res.cacheRows + ' 筆';
           loadCacheInfoMeeting();
@@ -2190,7 +2208,8 @@
       document.getElementById('app').innerHTML = '<div class="sheet"><div class="sheet-title">載入中…</div></div>';
       apiGet('meeting-report', {
         year: yearSel.value,
-        month: monthSel.value
+        month: monthSel.value,
+        company: companySel.value
       }).then(res => {
         if (!res.success) {
           document.getElementById('app').innerHTML = '<div class="sheet"><div class="sheet-title">載入失敗</div><div class="section-pad">' + escapeHtml(res.msg || '未知錯誤') + '</div></div>';
