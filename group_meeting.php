@@ -285,9 +285,11 @@ function renderAll(d){
       return;
     }
     const shareP = g.kpis.sales>0 ? pct(kp.sales||0,g.kpis.sales)+'%' : '-';
+    const sleeperLine = (c.sleeperSales||c.sleeperYtdSales) ? `<div class="mt" style="color:var(--muted)"><span>睡美人當月 ${fmtW(c.sleeperSales)}(${c.sleeperPct}%)</span><span>年度累計 ${fmtW(c.sleeperYtdSales)}(${c.sleeperYtdPct}%)</span></div>` : '';
     html+=`<div class="cc"><div class="nm"><span class="dot" style="background:${c.color}"></span>${c.name}</div>
       <div class="v1">${fmtW(kp.sales)}</div><div class="s1">${fmtYoy(kp.salesYoyPct)}</div>
       <div class="mt"><span>坪數 ${fmtP(kp.pings)} · 佔集團 ${shareP}</span><span>合約 ${c.contract.active} 家 · 目標 ${fmtW(c.contract.monthlyTarget)}</span></div>
+      ${sleeperLine}
       <div class="link-row"><a class="btn-report" href="${reportUrl(k,y,m)}" target="_blank">🔗 開啟${c.name}月報</a></div></div>`;
   });
   html+=`</div></div>`;

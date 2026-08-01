@@ -1265,6 +1265,58 @@ trait ReportTrait
         ];
     }
 
+    // 本月及年度累計睡美人(含不續辦)業績與佔比，供集團比較的各公司卡片使用
+    private function getCompanySleeperStats($ssId, $year, $month)
+    {
+        try {
+            $gsClient = $this->getClient($ssId);
+            $cacheRows = $gsClient->readSheet(CACHE_SHEET);
+            $empty = ['sleeperSales' => 0, 'sleeperPct' => 0, 'sleeperYtdSales' => 0, 'sleeperYtdPct' => 0];
+            if (count($cacheRows) < 2) return $empty;
+            $h = $cacheRows[0];
+            $idx = [
+                'year' => $this->findHeader($h, ['年度']),
+                'month' => $this->findHeader($h, ['月份']),
+                'code' => $this->findHeader($h, ['產品編號']),
+                'amount' => $this->findHeader($h, ['銷售金額']),
+            ];
+            if ($idx['year'] === -1 || $idx['month'] === -1 || $idx['code'] === -1 || $idx['amount'] === -1) {
+                return $empty;
+            }
+            $profiles = $this->getProductProfileMap($gsClient);
+            $total = 0;
+            $sleeperTotal = 0;
+            $ytdTotal = 0;
+            $ytdSleeperTotal = 0;
+            for ($i = 1; $i < count($cacheRows); $i++) {
+                $row = $cacheRows[$i];
+                $rowYear = (int)$this->getVal($row, $idx['year']);
+                $rowMonth = (int)$this->getVal($row, $idx['month']);
+                if ($rowYear !== (int)$year) continue;
+                $amount = $this->optFloat($this->getVal($row, $idx['amount']));
+                $sku = $this->cleanSku($this->getVal($row, $idx['code']));
+                $profile = $profiles[$sku] ?? [];
+                $isSleeper = !empty($profile['isSleeper']) || !empty($profile['isDiscontinued']);
+                if ($rowMonth === (int)$month) {
+                    $total += $amount;
+                    if ($isSleeper) $sleeperTotal += $amount;
+                }
+                if ($rowMonth <= (int)$month) {
+                    $ytdTotal += $amount;
+                    if ($isSleeper) $ytdSleeperTotal += $amount;
+                }
+            }
+            return [
+                'sleeperSales' => round($sleeperTotal),
+                'sleeperPct' => $total > 0 ? round($sleeperTotal / $total * 100, 1) : 0,
+                'sleeperYtdSales' => round($ytdSleeperTotal),
+                'sleeperYtdPct' => $ytdTotal > 0 ? round($ytdSleeperTotal / $ytdTotal * 100, 1) : 0,
+            ];
+        } catch (Exception $e) {
+            return ['sleeperSales' => 0, 'sleeperPct' => 0, 'sleeperYtdSales' => 0, 'sleeperYtdPct' => 0];
+        }
+    }
+
     private function getCompanyReportStats($ssId, $year, $month)
     {
         try {
@@ -2273,6 +2325,7 @@ trait ReportTrait
         $allQuarters = [];
         $allReps = [];
         $allInventory = [];
+        $allSleeper = [];
 
         foreach ($companyIds as $key => $info) {
             $basicStats[$key] = $this->getCompanyReportStats($info['id'], $year, $month);
@@ -2282,6 +2335,7 @@ trait ReportTrait
             $allQuarters[$key] = $this->getCompanyQuarterStats($info['id'], $year, $month);
             $allReps[$key] = $this->getCompanySalesRepStats($info['id'], $year, $month);
             $allInventory[$key] = $this->getCompanyInventoryBreakdown($info['id']);
+            $allSleeper[$key] = $this->getCompanySleeperStats($info['id'], $year, $month);
         }
 
         // Get series ranking per company
@@ -2502,6 +2556,10 @@ trait ReportTrait
                 'topProducts' => $topProds,
                 'seriesRanking' => $allSeriesRanks[$key] ?? [],
                 'monthlyHistory' => $allMonthlyHistory[$key] ?? [],
+                'sleeperSales' => $allSleeper[$key]['sleeperSales'] ?? 0,
+                'sleeperPct' => $allSleeper[$key]['sleeperPct'] ?? 0,
+                'sleeperYtdSales' => $allSleeper[$key]['sleeperYtdSales'] ?? 0,
+                'sleeperYtdPct' => $allSleeper[$key]['sleeperYtdPct'] ?? 0,
                 'contract' => [
                     'active' => $ct['active'],
                     'monthlyTarget' => $ct['monthlyTarget'],
