@@ -237,10 +237,28 @@ trait RepTrait
             }
         } catch (Exception $e) {}
 
+        // 漢樺/波爾泰合併多店為單一客戶名，實際由這三位業務均分經營，業績需三等分分別歸入三人
+        $hanhuaSplitReps = ['謝博皓', '潘右森', '陳勁多'];
+
         $reps = [];
         foreach ($custMonthly as $cust => $yrData) {
+            $isHanhua = mb_strpos($cust, '漢樺') !== false;
             // 客戶歸屬以「業務分區」表為準；未列於業務分區者才退回用成交金額推斷
-            $rep = $custRepMapFromSheet[$cust] ?? $custMainRep[$cust] ?? '未分配';
+            $repList = $isHanhua ? $hanhuaSplitReps : [$custRepMapFromSheet[$cust] ?? $custMainRep[$cust] ?? '未分配'];
+            $weight = $isHanhua ? 1 / count($hanhuaSplitReps) : 1.0;
+
+            $tyAmtRaw = array_sum($custMonthly[$cust][$thisYear] ?? []);
+            $lyFullAmt = array_sum($custMonthly[$cust][$lastYear] ?? []);
+            $currentMonth = (int)$now->format('n');
+            $lySamePeriodAmt = 0;
+            for ($m = 1; $m <= $currentMonth; $m++) {
+                $lySamePeriodAmt += $custMonthly[$cust][$lastYear][$m] ?? 0;
+            }
+            $tyAmt = $tyAmtRaw * $weight;
+            $lyFullAmt *= $weight;
+            $lySamePeriodAmt *= $weight;
+
+            foreach ($repList as $rep) {
             if (!isset($reps[$rep])) {
                 $reps[$rep] = [
                     'name' => $rep, 'area' => $repAreaMap[$rep] ?? $areaMap[$rep] ?? '',
@@ -249,19 +267,7 @@ trait RepTrait
                 ];
             }
             $reps[$rep]['customerCount']++;
-            $tyAmtRaw = array_sum($custMonthly[$cust][$thisYear] ?? []);
-            $lyFullAmt = array_sum($custMonthly[$cust][$lastYear] ?? []);
-            $currentMonth = (int)$now->format('n');
-            $lySamePeriodAmt = 0;
-            for ($m = 1; $m <= $currentMonth; $m++) {
-                $lySamePeriodAmt += $custMonthly[$cust][$lastYear][$m] ?? 0;
-            }
-            $weight = 1.0;
-            if (mb_strpos($cust, '漢樺') !== false) $weight = 1/3;
-            $tyAmt = $tyAmtRaw * $weight;
-            $lyFullAmt *= $weight;
-            $lySamePeriodAmt *= $weight;
-            $reps[$rep]['totalAmount'] += $custTotal[$cust] ?? 0;
+            $reps[$rep]['totalAmount'] += ($custTotal[$cust] ?? 0) * $weight;
             $reps[$rep]['totalThisYear'] += $tyAmt;
             $reps[$rep]['totalLastYear'] += $lySamePeriodAmt;
 
@@ -328,7 +334,7 @@ trait RepTrait
             $targetAchieve = ($custTarget > 0) ? round($tyAmt / $custTarget * 100, 1) : null;
             $reps[$rep]['customers'][] = [
                 'name' => $cust, 'health' => $health,
-                'totalAmount' => round($custTotal[$cust] ?? 0),
+                'totalAmount' => round(($custTotal[$cust] ?? 0) * $weight),
                 'thisYearAmount' => round($tyAmt), 'lastYearAmount' => round($lyFullAmt),
                 'lastYearSamePeriod' => round($lySamePeriodAmt),
                 'achieveRate' => $achieveRate,
@@ -342,6 +348,7 @@ trait RepTrait
                 'visits' => array_slice($visits, 0, 10),
                 'notes' => array_slice($notes, 0, 10),
             ];
+            }
         }
 
         foreach ($reps as &$rep) {
