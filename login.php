@@ -5,10 +5,14 @@ if (session_status() === PHP_SESSION_NONE) {
 
 require_once __DIR__ . '/config.php';
 
-// redirect 白名單：只允許導向這幾頁，避免開放式轉址
+// redirect 白名單：只驗證頁面檔名本身，避免開放式轉址；驗證通過後才把查詢字串接回去（例如 meeting.php?company=andyga）
 $allowedRedirects = ['daily.php', 'group_meeting.php', 'index.php', 'meeting.php'];
 $redirectParam = $_POST['redirect'] ?? ($_GET['redirect'] ?? '');
-$redirectTarget = in_array($redirectParam, $allowedRedirects, true) ? $redirectParam : 'daily.php';
+$redirectPage = parse_url($redirectParam, PHP_URL_PATH) ?: '';
+$redirectQuery = parse_url($redirectParam, PHP_URL_QUERY) ?: '';
+$redirectTarget = in_array($redirectPage, $allowedRedirects, true)
+    ? $redirectPage . ($redirectQuery !== '' ? '?' . $redirectQuery : '')
+    : 'daily.php';
 
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

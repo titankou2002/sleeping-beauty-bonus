@@ -32,7 +32,9 @@ if (!$authenticated) {
         exit;
     } else {
         $currentPage = basename($_SERVER['SCRIPT_NAME'] ?? '');
-        header('Location: login.php?redirect=' . urlencode($currentPage));
+        $queryString = $_SERVER['QUERY_STRING'] ?? '';
+        $currentTarget = $currentPage . ($queryString !== '' ? '?' . $queryString : '');
+        header('Location: login.php?redirect=' . urlencode($currentTarget));
         exit;
     }
 }
