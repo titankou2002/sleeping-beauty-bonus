@@ -1695,10 +1695,11 @@
     }
 
     // 把整段 <section class="sheet">...<div class="sheet-title">X</div>...</section> 轉成預設收合的 <details>，標題變成可點的 summary
+    // 支援單一或多個(如業務銷售排行內含兩張獨立sheet)並存的情況，逐一轉換
     function collapseByDefault(html) {
       return html
-        .replace(/(<section class="sheet">\s*)<div class="sheet-title">([\s\S]*?)<\/div>/, '$1<details class="sheet-collapse"><summary class="sheet-title">$2</summary>')
-        .replace(/<\/section>\s*$/, '</details></section>');
+        .replace(/(<section class="sheet">\s*)<div class="sheet-title">([\s\S]*?)<\/div>/g, '$1<details class="sheet-collapse"><summary class="sheet-title">$2</summary>')
+        .replace(/<\/section>/g, '</details></section>');
     }
 
     function buildDonutCard(title, rows, total, kind, valueFmt) {
@@ -2106,11 +2107,11 @@
         buildBrandCountrySheet(d) +
         collapseByDefault(buildMonthCompareSheet(d)) +
         collapseByDefault(buildThreeYearCompareSheet(d, false)) +
-        buildTopSheets(d) +
-        buildSeriesSheet(d) +
+        collapseByDefault(buildTopSheets(d)) +
+        collapseByDefault(buildSeriesSheet(d)) +
         collapseByDefault(buildHotProductsSheet(d)) +
         collapseByDefault(buildCategorySheet(d)) +
-        (companySel.value === 'sleepingBeauty' ? buildFieldSheet(d) : '');
+        (companySel.value === 'sleepingBeauty' ? collapseByDefault(buildFieldSheet(d)) : '');
       document.getElementById('app').innerHTML = monthlyView;
       loadSignedHealthHistory();
     }

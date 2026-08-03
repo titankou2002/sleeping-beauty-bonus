@@ -324,7 +324,7 @@ trait ReportTrait
                 if (!isset($buckets[$bucketName]['projectTotal'])) $buckets[$bucketName]['projectTotal'] = 0;
                 $buckets[$bucketName]['projectTotal'] += $amount;
             }
-            if ($profile && (!empty($profile['isSleeper']) || !empty($profile['isDiscontinued']))) {
+            if ($profile && !empty($profile['isSleeper'])) {
                 $buckets[$bucketName]['sleeperTotal'] += $amount;
             }
         }
@@ -819,7 +819,7 @@ trait ReportTrait
 
             if ($rowYear === $year) {
                 $monthTotals[$rowMonth]['current'] += $amount;
-                if ($profile && (!empty($profile['isSleeper']) || !empty($profile['isDiscontinued']))) {
+                if ($profile && !empty($profile['isSleeper'])) {
                     $monthSleeperTotals[$rowMonth] += $amount;
                 }
             }
@@ -865,7 +865,7 @@ trait ReportTrait
                 }
                 $salesCustomerBreakdown[$sales]['customers'][$customer]['amount'] += $amount;
             }
-            if ($profile && (!empty($profile['isSleeper']) || !empty($profile['isDiscontinued']))) {
+            if ($profile && !empty($profile['isSleeper'])) {
                 $meetingSleeperTotal += $amount;
             }
             if ($projectName !== '') {
@@ -1314,7 +1314,7 @@ trait ReportTrait
                 $amount = $this->optFloat($this->getVal($row, $idx['amount']));
                 $sku = $this->cleanSku($this->getVal($row, $idx['code']));
                 $profile = $profiles[$sku] ?? [];
-                $isSleeper = !empty($profile['isSleeper']) || !empty($profile['isDiscontinued']);
+                $isSleeper = !empty($profile['isSleeper']);
                 if ($rowMonth === (int)$month) {
                     $total += $amount;
                     if ($isSleeper) $sleeperTotal += $amount;
