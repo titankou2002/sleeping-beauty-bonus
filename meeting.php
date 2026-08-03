@@ -1218,6 +1218,31 @@
                 <div class="kpi-sub">年度累計 ${fmtWan(ytdSleeper)} <span class="kpi-pct share">(${fmtPct(ytdSleeperPct)})</span></div>
               </summary>
               <div class="kpi-expand-body">
+                <div class="hint" style="margin-bottom:8px">本月睡美人業績依系列拆分（下方縮排為系列內各品項）：</div>
+                <div class="table-wrap" style="margin-bottom:14px">
+                  ${(d.sleeperSeriesBreakdown || []).length ? `
+                  <table>
+                    <thead><tr><th>系列</th><th>金額</th><th>佔比</th></tr></thead>
+                    <tbody>
+                      ${(d.sleeperSeriesBreakdown || []).map(row => `
+                        <tr>
+                          <td class="center">${escapeHtml(row.series)}</td>
+                          <td class="num">${fmtWan(row.amount)}</td>
+                          <td class="num">${fmtPct(row.pct)}</td>
+                        </tr>
+                        ${(row.skus || []).map(sk => `
+                          <tr style="opacity:.7;font-size:12px">
+                            <td class="center">└ ${escapeHtml(sk.name || sk.sku)}</td>
+                            <td class="num">${fmtWan(sk.amount)}</td>
+                            <td class="num"></td>
+                          </tr>
+                        `).join('')}
+                      `).join('')}
+                    </tbody>
+                  </table>
+                  ` : '<div class="hint">本月無睡美人銷售明細</div>'}
+                </div>
+                <div class="hint" style="margin-bottom:8px">本年度逐月睡美人業績：</div>
                 <div class="table-wrap">
                   <table>
                     <thead><tr><th>月份</th><th>睡美人業績</th><th>佔當月比例</th></tr></thead>

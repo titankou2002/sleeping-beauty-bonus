@@ -397,6 +397,26 @@ trait DataTrait
                 'latestInDate' => $idxLatestIn !== -1 ? trim($this->getVal($row, $idxLatestIn)) : ''
             ];
         }
+
+        // 睡美人的權威名單是「睡美人」工作表(SLEEPER_SHEET)，價目表的睡美人欄位只是補充標記，
+        // 光看價目表那個欄位會漏掉大部分已經在睡美人名單裡、但價目表沒勾的品項
+        try {
+            $sleeperData = $gs->readSheet(SLEEPER_SHEET);
+            if (count($sleeperData) >= 2) {
+                $sH = $sleeperData[0];
+                $sSku = $this->findHeader($sH, ['編號', '產品編號', '品號']);
+                if ($sSku !== -1) {
+                    for ($i = 1; $i < count($sleeperData); $i++) {
+                        $sku = $this->cleanSku($this->getVal($sleeperData[$i], $sSku));
+                        if (!$sku) continue;
+                        if (!isset($map[$sku])) $map[$sku] = [];
+                        $map[$sku]['isSleeper'] = true;
+                    }
+                }
+            }
+        } catch (Exception $e) {
+        }
+
         return $map;
     }
 

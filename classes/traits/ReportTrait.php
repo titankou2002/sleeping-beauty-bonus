@@ -792,6 +792,7 @@ trait ReportTrait
         $meetingCurrentTxCount = 0;
         $meetingSleeperTotal = 0;
         $meetingProjectTotal = 0;
+        $sleeperSeriesBreakdown = [];
         $currentCustomerAmounts = [];
         $countryRanks = [];
         $customerDetails = [];
@@ -867,6 +868,19 @@ trait ReportTrait
             }
             if ($profile && !empty($profile['isSleeper'])) {
                 $meetingSleeperTotal += $amount;
+                $sleeperSeriesCn = trim(($profile['seriesCn'] ?? '') ?: ($profile['series'] ?? '')) ?: '未分類系列';
+                if (!isset($sleeperSeriesBreakdown[$sleeperSeriesCn])) {
+                    $sleeperSeriesBreakdown[$sleeperSeriesCn] = ['series' => $sleeperSeriesCn, 'amount' => 0, 'skus' => []];
+                }
+                $sleeperSeriesBreakdown[$sleeperSeriesCn]['amount'] += $amount;
+                if (!isset($sleeperSeriesBreakdown[$sleeperSeriesCn]['skus'][$sku])) {
+                    $sleeperSeriesBreakdown[$sleeperSeriesCn]['skus'][$sku] = [
+                        'sku' => $sku,
+                        'name' => trim(($profile['productName'] ?? '') . ' ' . ($profile['size'] ?? '')),
+                        'amount' => 0
+                    ];
+                }
+                $sleeperSeriesBreakdown[$sleeperSeriesCn]['skus'][$sku]['amount'] += $amount;
             }
             if ($projectName !== '') {
                 $meetingProjectTotal += $amount;
@@ -1110,6 +1124,19 @@ trait ReportTrait
         }
         $meetingSalesYoyPct = $meetingYoyTotal > 0 ? (($meetingCurrentTotal - $meetingYoyTotal) / $meetingYoyTotal * 100) : 0;
         $meetingSleeperPct = $meetingCurrentTotal > 0 ? ($meetingSleeperTotal / $meetingCurrentTotal * 100) : 0;
+        uasort($sleeperSeriesBreakdown, function ($a, $b) { return $b['amount'] <=> $a['amount']; });
+        $sleeperSeriesBreakdownOut = array_values(array_map(function ($row) use ($meetingSleeperTotal) {
+            $skus = array_values($row['skus']);
+            usort($skus, function ($a, $b) { return $b['amount'] <=> $a['amount']; });
+            foreach ($skus as &$sk) { $sk['amount'] = round($sk['amount']); }
+            unset($sk);
+            return [
+                'series' => $row['series'],
+                'amount' => round($row['amount']),
+                'pct' => $meetingSleeperTotal > 0 ? round($row['amount'] / $meetingSleeperTotal * 100, 1) : 0,
+                'skus' => $skus
+            ];
+        }, $sleeperSeriesBreakdown));
         $meetingProjectPct = $meetingCurrentTotal > 0 ? ($meetingProjectTotal / $meetingCurrentTotal * 100) : 0;
         $catchUpPct = $meetingYoyTotal > 0 ? ($meetingCurrentTotal / $meetingYoyTotal * 100) : 0;
         $signedCustomerLookup = [];
@@ -1262,6 +1289,7 @@ trait ReportTrait
                     'shipCustomerCount' => $shipCustomerTotal
                 ],
                 'monthCompare' => $rows,
+                'sleeperSeriesBreakdown' => $sleeperSeriesBreakdownOut,
                 'threeYearCompare' => $threeYearCompare,
                 'threeYearCumulative' => $threeYearCumulative,
                 'brandSales' => array_values($brandSales),
@@ -1283,7 +1311,7 @@ trait ReportTrait
         ];
     }
 
-    // 本月及年度累計睡美人(含不續辦)業績與佔比，供集團比較的各公司卡片使用
+    // 本月及年度累計睡美人業績與佔比（只算標記睡美人的品項，不含不續辦），供集團比較的各公司卡片使用
     private function getCompanySleeperStats($ssId, $year, $month)
     {
         try {
