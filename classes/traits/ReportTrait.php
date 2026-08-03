@@ -778,9 +778,11 @@ trait ReportTrait
 
         $monthTotals = [];
         $monthSleeperTotals = [];
+        $monthlySleeperSkuBreakdown = [];
         for ($m = 1; $m <= 12; $m++) {
             $monthTotals[$m] = ['current' => 0, 'previous' => 0];
             $monthSleeperTotals[$m] = 0;
+            $monthlySleeperSkuBreakdown[$m] = [];
         }
         $threeYearMonthTotals = [];
         for ($y = $year - 2; $y <= $year; $y++) {
@@ -822,6 +824,15 @@ trait ReportTrait
                 $monthTotals[$rowMonth]['current'] += $amount;
                 if ($profile && !empty($profile['isSleeper'])) {
                     $monthSleeperTotals[$rowMonth] += $amount;
+                    if (!isset($monthlySleeperSkuBreakdown[$rowMonth][$sku])) {
+                        $monthlySleeperSkuBreakdown[$rowMonth][$sku] = [
+                            'sku' => $sku,
+                            'name' => trim(($profile['productName'] ?? '') . ' ' . ($profile['size'] ?? '')),
+                            'size' => trim($profile['size'] ?? ''),
+                            'amount' => 0
+                        ];
+                    }
+                    $monthlySleeperSkuBreakdown[$rowMonth][$sku]['amount'] += $amount;
                 }
             }
             if ($rowYear === ($year - 1)) $monthTotals[$rowMonth]['previous'] += $amount;
