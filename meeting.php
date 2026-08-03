@@ -1184,9 +1184,9 @@
           <div class="kpi-grid">
             <details class="kpi-cell soft kpi-expand">
               <summary>
-                <div class="kpi-label">年度業績 <span class="kpi-caret">⌄</span></div>
-                <div class="kpi-value red">${fmtWan(ytdCurr)} <span class="kpi-pct ${trendClass(ytdPct)}" style="font-size:13px">${fmtPct(ytdPct)}</span></div>
-                <div class="kpi-sub">${d.year} 年 1~${d.month} 月累計</div>
+                <div class="kpi-label">當月業績 <span class="kpi-caret">⌄</span></div>
+                <div class="kpi-value red">${fmtWan(s.sales)}</div>
+                <div class="kpi-sub">年度累計 ${fmtWan(ytdCurr)} <span class="kpi-pct ${trendClass(ytdPct)}">${fmtPct(ytdPct)}</span></div>
               </summary>
               <div class="kpi-expand-body">
                 <div class="table-wrap">
@@ -1390,6 +1390,10 @@
               </div>
             </div>
           </details>
+        </section>
+      ` + buildContractSheet(d) + `
+        <section class="sheet">
+          <div class="sheet-title">出貨家數結構</div>
           <div class="bucket-grid section-pad">
             <div class="stack-col">
               ${buildDonutCard('出貨家數結構', donutRows, totalHomes, '依出貨家數', fmtInt)}
@@ -2142,7 +2146,6 @@
       const monthlyView =
         buildKpiSheet(d) +
         buildHealthShipmentSheet(d) +
-        buildContractSheet(d) +
         buildBrandCountrySheet(d) +
         collapseByDefault(buildMonthCompareSheet(d)) +
         collapseByDefault(buildThreeYearCompareSheet(d, false)) +
