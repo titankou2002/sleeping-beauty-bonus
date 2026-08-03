@@ -10,7 +10,8 @@
     :root {
       --bg: #0a0a0a;
       --paper: #111111;
-      --grid: rgba(194,157,102,0.28);
+      --accent-rgb: 194,157,102;
+      --grid: rgba(var(--accent-rgb),0.28);
       --line: rgba(255,255,255,0.10);
       --soft: rgba(255,255,255,0.03);
       --text: #f6f1e6;
@@ -26,7 +27,7 @@
     body {
       margin: 0;
       font-family: "Noto Sans TC", "PingFang TC", sans-serif;
-      background: radial-gradient(circle at top, rgba(194,157,102,0.10), transparent 30%), var(--bg);
+      background: radial-gradient(circle at top, rgba(var(--accent-rgb),0.10), transparent 30%), var(--bg);
       color: var(--text);
     }
     .page {
@@ -81,13 +82,13 @@
       min-width: 112px;
     }
     .mode-btn.is-active {
-      background: linear-gradient(180deg, rgba(194,157,102,0.36), rgba(194,157,102,0.16));
+      background: linear-gradient(180deg, rgba(var(--accent-rgb),0.36), rgba(var(--accent-rgb),0.16));
       border-color: rgba(240,203,132,0.7);
       color: var(--accent-strong);
     }
     select, button, a.btn-link {
       height: 42px;
-      border: 1px solid rgba(194,157,102,0.45);
+      border: 1px solid rgba(var(--accent-rgb),0.45);
       background: rgba(255,255,255,0.04);
       color: var(--text);
       font-size: 14px;
@@ -100,7 +101,7 @@
     }
     button {
       cursor: pointer;
-      background: linear-gradient(180deg, rgba(194,157,102,0.2), rgba(194,157,102,0.1));
+      background: linear-gradient(180deg, rgba(var(--accent-rgb),0.2), rgba(var(--accent-rgb),0.1));
     }
     .sheet {
       background: var(--paper);
@@ -115,7 +116,7 @@
       font-size: 22px;
       font-weight: 900;
       border-bottom: 1px solid var(--grid);
-      background: linear-gradient(180deg, rgba(194,157,102,0.14), rgba(194,157,102,0.05));
+      background: linear-gradient(180deg, rgba(var(--accent-rgb),0.14), rgba(var(--accent-rgb),0.05));
     }
     .kpi-grid {
       display: grid;
@@ -152,7 +153,7 @@
     .kpi-pct.down { color: var(--green); }
     .kpi-pct.flat { color: var(--text); }
     .kpi-pct.share { color: var(--accent-strong); }
-    .yellow { background: linear-gradient(180deg, rgba(194,157,102,0.24), rgba(194,157,102,0.10)); }
+    .yellow { background: linear-gradient(180deg, rgba(var(--accent-rgb),0.24), rgba(var(--accent-rgb),0.10)); }
     .soft { background: rgba(255,255,255,0.02); }
     .table-wrap {
       overflow-x: auto;
@@ -168,7 +169,7 @@
       vertical-align: top;
     }
     th {
-      background: rgba(194,157,102,0.12);
+      background: rgba(var(--accent-rgb),0.12);
       text-align: center;
       font-weight: 900;
     }
@@ -270,7 +271,7 @@
     .rank-fill {
       height: 100%;
       border-radius: 999px;
-      background: linear-gradient(90deg, rgba(194,157,102,0.65), var(--accent-strong));
+      background: linear-gradient(90deg, rgba(var(--accent-rgb),0.65), var(--accent-strong));
     }
     .rank-val {
       text-align: right;
@@ -297,8 +298,8 @@
     .pill {
       display: inline-block;
       padding: 3px 8px;
-      border: 1px solid rgba(194,157,102,0.35);
-      background: rgba(194,157,102,0.10);
+      border: 1px solid rgba(var(--accent-rgb),0.35);
+      background: rgba(var(--accent-rgb),0.10);
       font-size: 11px;
       font-weight: 800;
     }
@@ -370,7 +371,7 @@
       min-height: 6px;
     }
     .bar.prev { background: rgba(255,255,255,0.18); }
-    .bar.curr { background: linear-gradient(180deg, var(--accent-strong), rgba(194,157,102,0.35)); }
+    .bar.curr { background: linear-gradient(180deg, var(--accent-strong), rgba(var(--accent-rgb),0.35)); }
     .bar.curr.up { background: linear-gradient(180deg, rgba(74,222,128,0.95), rgba(34,197,94,0.35)); }
     .bar.curr.down { background: linear-gradient(180deg, rgba(248,113,113,0.95), rgba(239,68,68,0.35)); }
     .bar-chart.triple {
@@ -599,14 +600,14 @@
       width: 56px;
       height: 56px;
       border-radius: 16px;
-      border: 1px solid rgba(194,157,102,0.4);
+      border: 1px solid rgba(var(--accent-rgb),0.4);
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 22px;
       font-weight: 900;
       color: var(--accent-strong);
-      background: rgba(194,157,102,0.08);
+      background: rgba(var(--accent-rgb),0.08);
     }
     .series-title {
       font-size: 18px;
@@ -745,7 +746,7 @@
       gap: 6px;
       padding: 3px 8px;
       border-radius: 999px;
-      border: 1px solid rgba(194,157,102,0.35);
+      border: 1px solid rgba(var(--accent-rgb),0.35);
       color: var(--accent-strong);
       font-size: 11px;
       font-weight: 800;
@@ -947,48 +948,6 @@
     .cover-ok { color: #86efac; }
     .cover-spread { color: #facc15; }
     .cover-breath { animation: breathe 1.8s ease-in-out infinite; }
-    .advisor-slot { margin-bottom: 12px; }
-    .advisor-card {
-      border: 1px solid var(--line);
-      border-left: 4px solid var(--accent-strong);
-      border-radius: 12px;
-      padding: 12px 14px;
-      background: rgba(255,255,255,0.025);
-    }
-    .advisor-card.lv-good { border-left-color: #4ade80; }
-    .advisor-card.lv-warn { border-left-color: #facc15; }
-    .advisor-card.lv-danger { border-left-color: #f87171; }
-    .advisor-card.lv-info { border-left-color: #60a5fa; }
-    .advisor-title {
-      font-size: 14px;
-      font-weight: 900;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      cursor: pointer;
-      list-style: none;
-    }
-    .advisor-title::-webkit-details-marker { display: none; }
-    .advisor-title::before { content: '▸'; font-size: 11px; }
-    .advisor-card[open] .advisor-title::before { content: '▾'; }
-    .advisor-card.lv-good .advisor-title { color: #4ade80; }
-    .advisor-card.lv-warn .advisor-title { color: #facc15; }
-    .advisor-card.lv-danger .advisor-title { color: #f87171; }
-    .advisor-card.lv-info .advisor-title { color: #60a5fa; }
-    .advisor-points {
-      margin: 6px 0 0;
-      padding-left: 18px;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-    .advisor-points li {
-      font-size: 13px;
-      line-height: 1.6;
-      color: var(--text);
-    }
-    .advisor-points strong { color: var(--accent-strong); }
-    .advisor-loading { font-size: 12px; }
     @keyframes breathe {
       0%, 100% { opacity: 1; transform: scale(1); }
       50% { opacity: .6; transform: scale(1.03); }
@@ -1106,7 +1065,7 @@
         <select id="year"></select>
         <select id="month"></select>
         <button onclick="loadMeeting()">載入會議報表</button>
-        <button onclick="rebuildCacheMeeting()" style="background:rgba(194,157,102,.15);border-color:rgba(194,157,102,.5);color:var(--accent-strong)">🔄 同步快取</button>
+        <button onclick="rebuildCacheMeeting()" style="background:rgba(var(--accent-rgb),.15);border-color:rgba(var(--accent-rgb),.5);color:var(--accent-strong)">🔄 同步快取</button>
         <span id="cache-info-meeting" style="font-size:11px;color:var(--muted)"></span>
         <a class="btn-link" style="color:var(--accent-strong);" href="group_meeting.php">集團比較表</a>
         <a class="btn-link" href="index.php">回戰情室</a>
@@ -1143,7 +1102,19 @@
       document.title = currentCompanyName() + '月報表';
       document.getElementById('page-h1').childNodes[0].nodeValue = currentCompanyName() + '月報表 ';
     }
-    companySel.addEventListener('change', () => { updatePageTitle(); loadMeeting(); });
+    const COMPANY_THEMES = {
+      sleepingBeauty: { rgb: '194,157,102', accent: '#c29d66', accentStrong: '#f0cb84' },
+      andyga: { rgb: '34,197,94', accent: '#22c55e', accentStrong: '#4ade80' },
+      xiyena: { rgb: '56,189,248', accent: '#38bdf8', accentStrong: '#7dd3fc' }
+    };
+    function applyCompanyTheme() {
+      const t = COMPANY_THEMES[companySel.value] || COMPANY_THEMES.sleepingBeauty;
+      document.documentElement.style.setProperty('--accent-rgb', t.rgb);
+      document.documentElement.style.setProperty('--accent', t.accent);
+      document.documentElement.style.setProperty('--accent-strong', t.accentStrong);
+    }
+    companySel.addEventListener('change', () => { applyCompanyTheme(); updatePageTitle(); loadMeeting(); });
+    applyCompanyTheme();
     updatePageTitle();
 
     function truncNum(n) {
@@ -1181,54 +1152,6 @@
       return colors[i % colors.length];
     }
 
-    function boldify(s) {
-      return escapeHtml(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-    }
-    function advisorSlot(key) {
-      return `<div class="advisor-slot" data-advisor-key="${key}"><div class="advisor-loading hint">💡 顧問解讀載入中…</div></div>`;
-    }
-    function renderAdvisorCard(section) {
-      if (!section) return '<div class="hint">暫無顧問解讀</div>';
-      const level = ['good', 'warn', 'danger', 'info'].includes(section.level) ? section.level : 'info';
-      return `
-        <details class="advisor-card lv-${level}">
-          <summary class="advisor-title">💡 顧問解讀：${escapeHtml(section.title || '')}</summary>
-          <ul class="advisor-points">
-            ${(section.points || []).map(p => `<li>${boldify(p)}</li>`).join('')}
-          </ul>
-        </details>
-      `;
-    }
-    const advisorCache = {};
-    function fillAdvisorSlots(sections) {
-      document.querySelectorAll('.advisor-slot').forEach(el => {
-        const key = el.getAttribute('data-advisor-key');
-        el.innerHTML = renderAdvisorCard(sections[key]);
-      });
-    }
-    function loadAdvisor(year, month) {
-      const cacheKey = year + '-' + month;
-      if (advisorCache[cacheKey]) {
-        fillAdvisorSlots(advisorCache[cacheKey]);
-        return;
-      }
-      apiGet('ai-advisor', { year, month }).then(res => {
-        if (!res.success) {
-          document.querySelectorAll('.advisor-slot').forEach(el => {
-            el.innerHTML = '<div class="hint">顧問解讀載入失敗：' + escapeHtml(res.msg || '未知錯誤') + '</div>';
-          });
-          return;
-        }
-        const sections = (res.data || {}).sections || {};
-        advisorCache[cacheKey] = sections;
-        fillAdvisorSlots(sections);
-      }).catch(err => {
-        document.querySelectorAll('.advisor-slot').forEach(el => {
-          el.innerHTML = '<div class="hint">顧問解讀載入失敗：' + escapeHtml(String(err)) + '</div>';
-        });
-      });
-    }
-
     function apiGet(action, params) {
       let url = API_BASE + '?action=' + action;
       Object.keys(params || {}).forEach(k => {
@@ -1242,7 +1165,6 @@
       return `
         <section class="sheet">
           <div class="sheet-title">${currentCompanyName()}-${d.label} 會議總覽</div>
-          <div class="section-pad">${advisorSlot('kpi')}</div>
           <div class="kpi-grid">
             <div class="kpi-cell soft">
               <div class="kpi-label">本月業績</div>
@@ -1285,7 +1207,6 @@
       return `
         <section class="sheet">
           <div class="sheet-title">年度月銷比較</div>
-          <div class="section-pad">${advisorSlot('monthlyCompare')}</div>
           <div class="section-pad">
             <div class="mini-grid" style="margin-bottom:16px">
               <div class="mini-card"><h3>同期 1~${d.month} 月去年</h3><div class="v">${fmtWan(cumPrev)}</div><div class="hint">${d.year - 1} / 1~${d.month} 月</div></div>
@@ -1324,7 +1245,7 @@
             <div class="chart-card">
               <div class="chart-legend">
                 <span class="legend-chip"><span class="legend-swatch" style="background:rgba(255,255,255,0.18)"></span>${d.year - 1}</span>
-                <span class="legend-chip"><span class="legend-swatch" style="background:linear-gradient(180deg, var(--accent-strong), rgba(194,157,102,0.35))"></span>${d.year}</span>
+                <span class="legend-chip"><span class="legend-swatch" style="background:linear-gradient(180deg, var(--accent-strong), rgba(var(--accent-rgb),0.35))"></span>${d.year}</span>
               </div>
               <div class="bar-chart">
                 <div class="bar-axis">
@@ -1367,7 +1288,6 @@
       return `
         <section class="sheet">
           <div class="sheet-title">簽約健康度與出貨家數</div>
-          <div class="section-pad">${advisorSlot('health')}</div>
           <div class="mini-grid">
             <div class="mini-card"><h3>每月簽約總額</h3><div class="v">${fmtWan(s.signedMonthlyTarget)}</div><div class="hint">依合約健康名單統計</div></div>
             <div class="mini-card"><h3>簽約店家實銷</h3><div class="v">${fmtWan(s.signedStoreSales)}</div><div class="hint">本月簽約店實際銷售</div></div>
@@ -1451,7 +1371,6 @@
       return `
         <section class="sheet">
           <div class="sheet-title">國別與廠牌分析</div>
-          <div class="section-pad">${advisorSlot('brandCountry')}</div>
           <div class="chart-grid">
             ${buildDonutCard('義大利 / 西班牙', brandRows.map(r => ({...r, name: r.name || '未分類'})), total, '依銷售金額')}
             <div class="chart-card">
@@ -1556,7 +1475,6 @@
       return `
         <section class="sheet">
           <div class="sheet-title">近三年月銷比較</div>
-          <div class="section-pad">${advisorSlot('threeYear')}</div>
           <div class="chart-grid">
             <div class="chart-card">
               <div class="table-wrap">
@@ -1679,7 +1597,6 @@
         <section class="sheet">
           <div class="sheet-title">${d.year}.${d.month} 熱銷系列分析</div>
           <div class="section-pad">
-            ${advisorSlot('series')}
             <div class="hint" style="margin-bottom:12px">點系列名稱看 SKU 明細，再點 SKU 看客戶銷售明細。</div>
           </div>
           <div class="series-card-list">
@@ -1778,7 +1695,6 @@
         <section class="sheet">
           <div class="sheet-title">產品大類與尺寸分析</div>
           <div class="section-pad">
-            ${advisorSlot('category')}
             ${buildDonutCard('產品大類占比', rows, (d.summary || {}).sales || 0, '依銷售金額')}
           </div>
           <details class="expander">
@@ -1914,7 +1830,6 @@
       return `
         <section class="sheet">
           <div class="sheet-title">合約狀況</div>
-          <div class="section-pad">${advisorSlot('contract')}${advisorSlot('inventory')}</div>
           <div class="mini-grid">
             <div class="mini-card"><h3>合約總數${qm('目前正在履約中的客戶總數，五種狀態都算在內，只有真的「沖完、確定不續約」的才不算。')}</h3><div class="v">${fmtInt(s.active)}</div></div>
             <div class="mini-card"><h3>45 天內到期</h3><div class="v">${fmtInt(s.expiringSoon)}</div></div>
@@ -1964,7 +1879,6 @@
       return `
         <section class="sheet">
           <div class="sheet-title">外勤與客戶經營</div>
-          <div class="section-pad">${advisorSlot('field')}</div>
           <div class="mini-grid">
             <div class="mini-card"><h3>本期拜訪次數</h3><div class="v">${fmtInt(s.totalVisits)}</div></div>
             <div class="mini-card"><h3>拜訪客戶數</h3><div class="v">${fmtInt(s.visitedCustomers)}</div></div>
@@ -2014,7 +1928,6 @@
           <section class="sheet">
             <div class="sheet-title">前 10 大客戶分析</div>
             <div class="section-pad">
-              ${advisorSlot('topCustomers')}
               <div class="hint" style="margin-bottom:12px">按客戶名下探中文系列、SKU、片數、金額與佔比，依案名與金額排序。</div>
               <div class="top-grid">
                 ${(d.topCustomers || []).map(item => `
@@ -2048,7 +1961,6 @@
           <section class="sheet">
             <div class="sheet-title">業務銷售排行</div>
             <div class="section-pad">
-              ${advisorSlot('topSales')}
               <div class="sales-grid">
                 ${(d.topSales || []).map(item => {
                   const meta = coverMeta(item.top80CustomerCount || 0);
@@ -2150,7 +2062,6 @@
         buildContractSheet(d) +
         buildFieldSheet(d);
       document.getElementById('app').innerHTML = monthlyView;
-      loadAdvisor(d.year, d.month);
       loadSignedHealthHistory();
     }
 

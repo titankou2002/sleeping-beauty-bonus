@@ -191,42 +191,6 @@ function reportUrl(key,y,m){
   return`${URL_SB_REPORT}?company=${key}&year=${y}&month=${m}`;
 }
 
-let groupAiExplainLoading = false;
-let groupAiExplainCached = {};
-
-function toggleGroupAiExplain(){
-  const el=document.getElementById('group-ai-explain');
-  if(!el)return;
-  if(el.style.display!=='none'){
-    el.style.display='none';
-    return;
-  }
-  el.style.display='block';
-  if(groupAiExplainCached[yearSel.value+'-'+monthSel.value]){
-    el.innerHTML=groupAiExplainCached[yearSel.value+'-'+monthSel.value];
-    return;
-  }
-  if(groupAiExplainLoading)return;
-  groupAiExplainLoading=true;
-  el.innerHTML='<div style="text-align:center;color:var(--muted)"><div class="spinner" style="width:24px;height:24px;margin:0 auto 8px"></div>AI 分析中...</div>';
-  const y=yearSel.value, m=monthSel.value;
-  fetch(`api.php?action=group-ai-explain&year=${y}&month=${m}`)
-    .then(r=>r.json())
-    .then(res=>{
-      groupAiExplainLoading=false;
-      if(res.success){
-        const html='<div style="white-space:pre-wrap">'+escapeHtml(res.reply)+'</div>';
-        groupAiExplainCached[y+'-'+m]=html;
-        el.innerHTML=html;
-      } else {
-        el.innerHTML='<div style="color:var(--red)">⚠ 分析失敗：'+(res.msg||'')+'</div>';
-      }
-    })
-    .catch(err=>{
-      groupAiExplainLoading=false;
-      el.innerHTML='<div style="color:var(--red)">⚠ 連線錯誤</div>';
-    });
-}
 
 function loadReport(){
   document.getElementById('loading').classList.remove('hidden');
@@ -261,10 +225,7 @@ function renderAll(d){
   <details style="margin-top:12px"><summary style="cursor:pointer;font-size:12px;color:var(--muted)">📈 各月營收趨勢（分公司顏色）</summary>
     <div class="chart-wrap" style="height:280px;margin-top:12px"><canvas id="monthlyStackChart"></canvas></div>
   </details>
-  <div style="margin-top:16px;text-align:center">
-    <button class="detail-btn" onclick="toggleGroupAiExplain()" style="font-size:13px;padding:6px 18px">🤖 AI 白話分析</button>
-    <div id="group-ai-explain" style="display:none;margin-top:12px;padding:16px;background:rgba(194,157,102,.06);border:1px solid rgba(194,157,102,.2);border-radius:8px;font-size:14px;line-height:1.8;text-align:left"></div>
-  </div></div>`;
+  </div>`;
 
   // === 2. 各公司比較 ===
   html+=`<div class="section"><div class="section-title">📑 各公司比較</div>
