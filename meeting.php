@@ -118,9 +118,13 @@
       border-bottom: 1px solid var(--grid);
       background: linear-gradient(180deg, rgba(var(--accent-rgb),0.14), rgba(var(--accent-rgb),0.05));
     }
+    .sheet-collapse > summary.sheet-title { cursor: pointer; list-style: none; }
+    .sheet-collapse > summary.sheet-title::-webkit-details-marker { display: none; }
+    .sheet-collapse > summary.sheet-title::after { content: '⌄'; float: right; color: var(--muted); transition: transform 0.15s; }
+    .sheet-collapse[open] > summary.sheet-title::after { transform: rotate(180deg); }
     .kpi-grid {
       display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
     }
     .kpi-cell {
       border-right: 1px solid var(--line);
@@ -131,7 +135,12 @@
       flex-direction: column;
       justify-content: space-between;
     }
-    .kpi-cell:nth-child(4n) { border-right: 0; }
+    .kpi-cell:nth-child(3n) { border-right: 0; }
+    .kpi-cell.kpi-expand summary { cursor: pointer; list-style: none; }
+    .kpi-cell.kpi-expand summary::-webkit-details-marker { display: none; }
+    .kpi-caret { font-size: 11px; color: var(--muted); display: inline-block; transition: transform 0.15s; }
+    .kpi-cell.kpi-expand[open] .kpi-caret { transform: rotate(180deg); }
+    .kpi-expand-body { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); max-height: 260px; overflow-y: auto; }
     .kpi-label {
       color: var(--muted);
       font-size: 13px;
@@ -1031,7 +1040,7 @@
     @media (max-width: 640px) {
       .page { padding: 12px; }
       .kpi-grid, .mini-grid, .health-grid { grid-template-columns: 1fr; }
-      .kpi-cell:nth-child(4n) { border-right: 1px solid var(--line); }
+      .kpi-cell:nth-child(3n) { border-right: 1px solid var(--line); }
       .series-line, .chart-grid, .analysis-grid { grid-template-columns: 1fr; }
       .donut-wrap { flex-direction: column; align-items: flex-start; }
       .rank-row { grid-template-columns: 1fr; }
@@ -1162,35 +1171,69 @@
 
     function buildKpiSheet(d) {
       const s = d.summary || {};
+      const mc = (d.monthCompare || []).filter(r => r.month <= d.month);
+      const ytdCurr = mc.reduce((sum, r) => sum + (r.current || 0), 0);
+      const ytdPrev = mc.reduce((sum, r) => sum + (r.previous || 0), 0);
+      const ytdPct = ytdPrev > 0 ? ((ytdCurr - ytdPrev) / ytdPrev * 100) : 0;
+      const ytdSleeper = mc.reduce((sum, r) => sum + (r.sleeperCurrent || 0), 0);
+      const ytdSleeperPct = ytdCurr > 0 ? (ytdSleeper / ytdCurr * 100) : 0;
+      const monthDelta = (s.sales || 0) - (s.salesYoyBase || 0);
       return `
         <section class="sheet">
           <div class="sheet-title">${currentCompanyName()}-${d.label} 會議總覽</div>
           <div class="kpi-grid">
-            <div class="kpi-cell soft">
-              <div class="kpi-label">本月業績</div>
-              <div class="kpi-value red">${fmtWan(s.sales)}</div>
-              <div class="kpi-sub">本月銷售金額</div>
-            </div>
+            <details class="kpi-cell soft kpi-expand">
+              <summary>
+                <div class="kpi-label">年度業績 <span class="kpi-caret">⌄</span></div>
+                <div class="kpi-value red">${fmtWan(ytdCurr)} <span class="kpi-pct ${trendClass(ytdPct)}" style="font-size:13px">${fmtPct(ytdPct)}</span></div>
+                <div class="kpi-sub">${d.year} 年 1~${d.month} 月累計</div>
+              </summary>
+              <div class="kpi-expand-body">
+                <div class="table-wrap">
+                  <table>
+                    <thead><tr><th>月份</th><th>業績</th><th>YOY</th></tr></thead>
+                    <tbody>
+                      ${mc.map(r => `
+                        <tr>
+                          <td class="center">${r.month}月</td>
+                          <td class="num">${fmtWan(r.current)}</td>
+                          <td class="num"><span class="yoy-tag ${trendClass(r.yoyPct)}">${fmtPct(r.yoyPct)}</span></td>
+                        </tr>
+                      `).join('')}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </details>
             <div class="kpi-cell soft">
               <div class="kpi-label">去年同期</div>
               <div class="kpi-value">${fmtWan(s.salesYoyBase)}</div>
-              <div class="kpi-sub">YOY <span class="kpi-pct ${trendClass(s.salesYoyPct)}">${fmtPct(s.salesYoyPct)}</span></div>
+              <div class="kpi-sub">YOY <span class="kpi-pct ${trendClass(s.salesYoyPct)}">${fmtPct(s.salesYoyPct)}</span> <span class="kpi-pct ${trendClass(monthDelta)}">${fmtWan(monthDelta)}</span></div>
             </div>
-            <div class="kpi-cell">
-              <div class="kpi-label">坪數 / 交易筆數</div>
-              <div class="kpi-value">${fmtInt(s.pings)} / ${fmtInt(s.txCount)}</div>
-              <div class="kpi-sub">坪 / 筆</div>
-            </div>
-            <div class="kpi-cell yellow">
-              <div class="kpi-label">睡美人業績</div>
-              <div class="kpi-value">${fmtWan(s.sleeperSales)}</div>
-              <div class="kpi-sub">佔總業績 <span class="kpi-pct share">${fmtPct(s.sleeperPct)}</span></div>
-            </div>
-            <div class="kpi-cell">
-              <div class="kpi-label">專案銷售</div>
-              <div class="kpi-value">${fmtWan(s.projectSales)}</div>
-              <div class="kpi-sub">佔總業績 <span class="kpi-pct share">${fmtPct(s.projectPct)}</span></div>
-            </div>
+            <details class="kpi-cell yellow kpi-expand">
+              <summary>
+                <div class="kpi-label">睡美人業績 <span class="kpi-caret">⌄</span></div>
+                <div class="kpi-value">${fmtWan(s.sleeperSales)}</div>
+                <div class="kpi-sub">佔總業績 <span class="kpi-pct share">${fmtPct(s.sleeperPct)}</span></div>
+                <div class="kpi-sub">年度累計 ${fmtWan(ytdSleeper)} <span class="kpi-pct share">(${fmtPct(ytdSleeperPct)})</span></div>
+              </summary>
+              <div class="kpi-expand-body">
+                <div class="table-wrap">
+                  <table>
+                    <thead><tr><th>月份</th><th>睡美人業績</th><th>佔當月比例</th></tr></thead>
+                    <tbody>
+                      ${mc.map(r => `
+                        <tr>
+                          <td class="center">${r.month}月</td>
+                          <td class="num">${fmtWan(r.sleeperCurrent)}</td>
+                          <td class="num">${fmtPct((r.current || 0) > 0 ? (r.sleeperCurrent || 0) / r.current * 100 : 0)}</td>
+                        </tr>
+                      `).join('')}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </details>
           </div>
         </section>
       `;
@@ -1651,6 +1694,13 @@
       `;
     }
 
+    // 把整段 <section class="sheet">...<div class="sheet-title">X</div>...</section> 轉成預設收合的 <details>，標題變成可點的 summary
+    function collapseByDefault(html) {
+      return html
+        .replace(/(<section class="sheet">\s*)<div class="sheet-title">([\s\S]*?)<\/div>/, '$1<details class="sheet-collapse"><summary class="sheet-title">$2</summary>')
+        .replace(/<\/section>\s*$/, '</details></section>');
+    }
+
     function buildDonutCard(title, rows, total, kind, valueFmt) {
       const list = (rows || []).slice(0, 6);
       const safeTotal = Math.max(1, Number(total || 0));
@@ -2052,15 +2102,15 @@
       const monthlyView =
         buildKpiSheet(d) +
         buildHealthShipmentSheet(d) +
+        buildContractSheet(d) +
         buildBrandCountrySheet(d) +
-        buildMonthCompareSheet(d) +
-        buildThreeYearCompareSheet(d, false) +
+        collapseByDefault(buildMonthCompareSheet(d)) +
+        collapseByDefault(buildThreeYearCompareSheet(d, false)) +
         buildTopSheets(d) +
         buildSeriesSheet(d) +
-        buildHotProductsSheet(d) +
-        buildCategorySheet(d) +
-        buildContractSheet(d) +
-        buildFieldSheet(d);
+        collapseByDefault(buildHotProductsSheet(d)) +
+        collapseByDefault(buildCategorySheet(d)) +
+        (companySel.value === 'sleepingBeauty' ? buildFieldSheet(d) : '');
       document.getElementById('app').innerHTML = monthlyView;
       loadSignedHealthHistory();
     }

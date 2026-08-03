@@ -777,8 +777,10 @@ trait ReportTrait
         ];
 
         $monthTotals = [];
+        $monthSleeperTotals = [];
         for ($m = 1; $m <= 12; $m++) {
             $monthTotals[$m] = ['current' => 0, 'previous' => 0];
+            $monthSleeperTotals[$m] = 0;
         }
         $threeYearMonthTotals = [];
         for ($y = $year - 2; $y <= $year; $y++) {
@@ -815,7 +817,12 @@ trait ReportTrait
             $txCount = (int)$this->getVal($row, $idx['count']);
             $profile = $profiles[$sku] ?? [];
 
-            if ($rowYear === $year) $monthTotals[$rowMonth]['current'] += $amount;
+            if ($rowYear === $year) {
+                $monthTotals[$rowMonth]['current'] += $amount;
+                if ($profile && (!empty($profile['isSleeper']) || !empty($profile['isDiscontinued']))) {
+                    $monthSleeperTotals[$rowMonth] += $amount;
+                }
+            }
             if ($rowYear === ($year - 1)) $monthTotals[$rowMonth]['previous'] += $amount;
             if (isset($threeYearMonthTotals[$rowYear])) $threeYearMonthTotals[$rowYear][$rowMonth] += $amount;
             if ($rowYear === ($year - 1) && $rowMonth === $month) {
@@ -1089,7 +1096,8 @@ trait ReportTrait
                 'month' => $m,
                 'current' => $cur,
                 'previous' => $prev,
-                'yoyPct' => $prev > 0 ? (($cur - $prev) / $prev * 100) : 0
+                'yoyPct' => $prev > 0 ? (($cur - $prev) / $prev * 100) : 0,
+                'sleeperCurrent' => $monthSleeperTotals[$m]
             ];
         }
 
