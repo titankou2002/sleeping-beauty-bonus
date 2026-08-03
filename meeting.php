@@ -1225,15 +1225,15 @@
                 <div class="kpi-sub">去年同期 ${fmtWan(ytdPrev)} <span class="kpi-pct ${trendClass(ytdCurr - ytdPrev)}">${fmtWan(ytdCurr - ytdPrev)}</span></div>
               </summary>
               <div class="kpi-expand-body">
-                <div class="hint" style="margin-bottom:8px">近三年累計至${d.month}月比較（平均取前兩年）：</div>
+                <div class="hint" style="margin-bottom:8px">近三年累計至${d.month}月比較（今年 vs 各年度）：</div>
                 <div class="table-wrap">
                   <table>
-                    <thead><tr><th>年度</th><th>累計至${d.month}月</th><th>與平均差額</th></tr></thead>
+                    <thead><tr><th>年度</th><th>累計至${d.month}月</th><th>今年比差額</th></tr></thead>
                     <tbody>
-                      <tr><td class="center">${d.year - 2}</td><td class="num">${fmtWan(y2)}</td><td class="num">—</td></tr>
-                      <tr><td class="center">${d.year - 1}</td><td class="num">${fmtWan(y1)}</td><td class="num">—</td></tr>
-                      <tr><td class="center">前兩年平均</td><td class="num">${fmtWan(avg2y)}</td><td class="num">—</td></tr>
-                      <tr><td class="center">${d.year}（今年）</td><td class="num">${fmtWan(y0)}</td><td class="num"><span class="yoy-tag ${trendClass(avgDelta)}">${fmtWan(avgDelta)} (${fmtPct(avgPct)})</span></td></tr>
+                      <tr><td class="center">${d.year - 2}</td><td class="num">${fmtWan(y2)}</td><td class="num"><span class="yoy-tag ${trendClass(y0 - y2)}">${fmtWan(y0 - y2)} (${fmtPct(y2 > 0 ? (y0 - y2) / y2 * 100 : 0)})</span></td></tr>
+                      <tr><td class="center">${d.year - 1}</td><td class="num">${fmtWan(y1)}</td><td class="num"><span class="yoy-tag ${trendClass(y0 - y1)}">${fmtWan(y0 - y1)} (${fmtPct(y1 > 0 ? (y0 - y1) / y1 * 100 : 0)})</span></td></tr>
+                      <tr><td class="center">前兩年平均</td><td class="num">${fmtWan(avg2y)}</td><td class="num"><span class="yoy-tag ${trendClass(avgDelta)}">${fmtWan(avgDelta)} (${fmtPct(avgPct)})</span></td></tr>
+                      <tr><td class="center">${d.year}（今年）</td><td class="num">${fmtWan(y0)}</td><td class="num">—</td></tr>
                     </tbody>
                   </table>
                 </div>
