@@ -1137,6 +1137,7 @@ trait ReportTrait
         }
 
         $contractSummary = $this->getContractMeetingSummary($year, $month);
+        $inventoryBreakdown = $this->getCompanyInventoryBreakdown($this->gs->getSsId());
         $summary = $strategy['summary'];
         $fieldCurrent = $strategy['fieldActivity'] ?? ['summary' => []];
         $visitMap = [];
@@ -1329,6 +1330,7 @@ trait ReportTrait
                 'sizeRanking' => array_values($sizeRanks),
                 'topProductsDetailed' => array_slice(array_values($topProducts), 0, 12),
                 'contracts' => $contractSummary,
+                'inventoryBreakdown' => $inventoryBreakdown,
                 'fieldActivity' => $fieldCurrent,
                 'insights' => $strategy['insights'] ?? []
             ]

@@ -124,7 +124,7 @@
     .sheet-collapse[open] > summary.sheet-title::after { transform: rotate(180deg); }
     .kpi-grid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
     }
     .kpi-cell {
       border-right: 1px solid var(--line);
@@ -135,7 +135,7 @@
       flex-direction: column;
       justify-content: space-between;
     }
-    .kpi-cell:nth-child(3n) { border-right: 0; }
+    .kpi-cell:nth-child(4n) { border-right: 0; }
     .kpi-cell.kpi-expand summary { cursor: pointer; list-style: none; }
     .kpi-cell.kpi-expand summary::-webkit-details-marker { display: none; }
     .kpi-caret { font-size: 11px; color: var(--muted); display: inline-block; transition: transform 0.15s; }
@@ -1040,7 +1040,7 @@
     @media (max-width: 640px) {
       .page { padding: 12px; }
       .kpi-grid, .mini-grid, .health-grid { grid-template-columns: 1fr; }
-      .kpi-cell:nth-child(3n) { border-right: 1px solid var(--line); }
+      .kpi-cell:nth-child(4n) { border-right: 1px solid var(--line); }
       .series-line, .chart-grid, .analysis-grid { grid-template-columns: 1fr; }
       .donut-wrap { flex-direction: column; align-items: flex-start; }
       .rank-row { grid-template-columns: 1fr; }
@@ -1178,6 +1178,17 @@
       const ytdSleeper = mc.reduce((sum, r) => sum + (r.sleeperCurrent || 0), 0);
       const ytdSleeperPct = ytdCurr > 0 ? (ytdSleeper / ytdCurr * 100) : 0;
       const monthDelta = (s.sales || 0) - (s.salesYoyBase || 0);
+      const tyc = d.threeYearCumulative || [];
+      const tycByYear = {};
+      tyc.forEach(y => { tycByYear[y.year] = (y.months && y.months.length) ? (y.months[y.months.length - 1].amount || 0) : 0; });
+      const y2 = tycByYear[d.year - 2] || 0;
+      const y1 = tycByYear[d.year - 1] || 0;
+      const y0 = tycByYear[d.year] || 0;
+      const avg2y = (y2 + y1) / 2;
+      const avgDelta = y0 - avg2y;
+      const avgPct = avg2y > 0 ? (avgDelta / avg2y * 100) : 0;
+      const inv = d.inventoryBreakdown || {};
+      const invTotal = (inv.total || {}).cost || 0;
       return `
         <section class="sheet">
           <div class="sheet-title">${currentCompanyName()}-${d.label} 會議總覽</div>
@@ -1185,18 +1196,20 @@
             <details class="kpi-cell soft kpi-expand">
               <summary>
                 <div class="kpi-label">當月業績 <span class="kpi-caret">⌄</span></div>
-                <div class="kpi-value red">${fmtWan(s.sales)}</div>
-                <div class="kpi-sub">年度累計 ${fmtWan(ytdCurr)} <span class="kpi-pct ${trendClass(ytdPct)}">${fmtPct(ytdPct)}</span></div>
+                <div class="kpi-value red">${fmtWan(s.sales)} <span class="kpi-pct ${trendClass(s.salesYoyPct)}" style="font-size:13px">${fmtPct(s.salesYoyPct)}</span></div>
+                <div class="kpi-sub">去年同期 ${fmtWan(s.salesYoyBase)} <span class="kpi-pct ${trendClass(monthDelta)}">${fmtWan(monthDelta)}</span></div>
               </summary>
               <div class="kpi-expand-body">
+                <div class="hint" style="margin-bottom:8px">${d.year} 年 1~${d.month} 月逐月業績與去年YOY對比：</div>
                 <div class="table-wrap">
                   <table>
-                    <thead><tr><th>月份</th><th>業績</th><th>YOY</th></tr></thead>
+                    <thead><tr><th>月份</th><th>業績</th><th>去年同期</th><th>YOY</th></tr></thead>
                     <tbody>
                       ${mc.map(r => `
                         <tr>
                           <td class="center">${r.month}月</td>
                           <td class="num">${fmtWan(r.current)}</td>
+                          <td class="num">${fmtWan(r.previous)}</td>
                           <td class="num"><span class="yoy-tag ${trendClass(r.yoyPct)}">${fmtPct(r.yoyPct)}</span></td>
                         </tr>
                       `).join('')}
@@ -1205,11 +1218,27 @@
                 </div>
               </div>
             </details>
-            <div class="kpi-cell soft">
-              <div class="kpi-label">去年同期</div>
-              <div class="kpi-value">${fmtWan(s.salesYoyBase)}</div>
-              <div class="kpi-sub">YOY <span class="kpi-pct ${trendClass(s.salesYoyPct)}">${fmtPct(s.salesYoyPct)}</span> <span class="kpi-pct ${trendClass(monthDelta)}">${fmtWan(monthDelta)}</span></div>
-            </div>
+            <details class="kpi-cell soft kpi-expand">
+              <summary>
+                <div class="kpi-label">年度業績 <span class="kpi-caret">⌄</span></div>
+                <div class="kpi-value red">${fmtWan(ytdCurr)} <span class="kpi-pct ${trendClass(ytdPct)}" style="font-size:13px">${fmtPct(ytdPct)}</span></div>
+                <div class="kpi-sub">去年同期 ${fmtWan(ytdPrev)} <span class="kpi-pct ${trendClass(ytdCurr - ytdPrev)}">${fmtWan(ytdCurr - ytdPrev)}</span></div>
+              </summary>
+              <div class="kpi-expand-body">
+                <div class="hint" style="margin-bottom:8px">近三年累計至${d.month}月比較（平均取前兩年）：</div>
+                <div class="table-wrap">
+                  <table>
+                    <thead><tr><th>年度</th><th>累計至${d.month}月</th><th>與平均差額</th></tr></thead>
+                    <tbody>
+                      <tr><td class="center">${d.year - 2}</td><td class="num">${fmtWan(y2)}</td><td class="num">—</td></tr>
+                      <tr><td class="center">${d.year - 1}</td><td class="num">${fmtWan(y1)}</td><td class="num">—</td></tr>
+                      <tr><td class="center">前兩年平均</td><td class="num">${fmtWan(avg2y)}</td><td class="num">—</td></tr>
+                      <tr><td class="center">${d.year}（今年）</td><td class="num">${fmtWan(y0)}</td><td class="num"><span class="yoy-tag ${trendClass(avgDelta)}">${fmtWan(avgDelta)} (${fmtPct(avgPct)})</span></td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </details>
             <details class="kpi-cell yellow kpi-expand">
               <summary>
                 <div class="kpi-label">睡美人業績 <span class="kpi-caret">⌄</span></div>
@@ -1270,6 +1299,36 @@
                       </div>
                     </details>
                   `).join('')}
+                </div>
+              </div>
+            </details>
+            <details class="kpi-cell kpi-expand">
+              <summary>
+                <div class="kpi-label">存貨金額 <span class="kpi-caret">⌄</span></div>
+                <div class="kpi-value">${fmtWan(invTotal)}</div>
+                <div class="kpi-sub">${fmtInt((inv.total || {}).skuCount)} 個品項 / ${fmtInt((inv.total || {}).pings)} 坪</div>
+              </summary>
+              <div class="kpi-expand-body">
+                <div class="hint" style="margin-bottom:8px">庫存金額依睡美人/不續辦/正常貨拆分：</div>
+                <div class="table-wrap">
+                  <table>
+                    <thead><tr><th>類別</th><th>庫存金額</th><th>佔比</th><th>坪數</th></tr></thead>
+                    <tbody>
+                      ${['normal', 'sleeper', 'discontinued'].map(t => {
+                        const row = inv[t] || { cost: 0, pings: 0, skuCount: 0 };
+                        const label = { normal: '正常貨', sleeper: '睡美人', discontinued: '不續辦' }[t];
+                        const pct = invTotal > 0 ? (row.cost / invTotal * 100) : 0;
+                        return `
+                        <tr>
+                          <td class="center">${label}</td>
+                          <td class="num">${fmtWan(row.cost)}</td>
+                          <td class="num">${fmtPct(pct)}</td>
+                          <td class="num">${fmtInt(row.pings)}</td>
+                        </tr>
+                        `;
+                      }).join('')}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </details>
