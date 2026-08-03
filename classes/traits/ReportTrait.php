@@ -877,6 +877,7 @@ trait ReportTrait
                     $sleeperSeriesBreakdown[$sleeperSeriesCn]['skus'][$sku] = [
                         'sku' => $sku,
                         'name' => trim(($profile['productName'] ?? '') . ' ' . ($profile['size'] ?? '')),
+                        'size' => trim($profile['size'] ?? ''),
                         'amount' => 0
                     ];
                 }
@@ -1106,12 +1107,21 @@ trait ReportTrait
         for ($m = 1; $m <= 12; $m++) {
             $cur = $monthTotals[$m]['current'];
             $prev = $monthTotals[$m]['previous'];
+            $monthSleeperTotal = $monthSleeperTotals[$m];
+            $monthSkus = array_values($monthlySleeperSkuBreakdown[$m]);
+            usort($monthSkus, function ($a, $b) { return $b['amount'] <=> $a['amount']; });
+            foreach ($monthSkus as &$msk) {
+                $msk['amount'] = round($msk['amount']);
+                $msk['pct'] = $monthSleeperTotal > 0 ? round($msk['amount'] / $monthSleeperTotal * 100, 1) : 0;
+            }
+            unset($msk);
             $rows[] = [
                 'month' => $m,
                 'current' => $cur,
                 'previous' => $prev,
                 'yoyPct' => $prev > 0 ? (($cur - $prev) / $prev * 100) : 0,
-                'sleeperCurrent' => $monthSleeperTotals[$m]
+                'sleeperCurrent' => $monthSleeperTotal,
+                'sleeperSkus' => $monthSkus
             ];
         }
 
@@ -1128,7 +1138,10 @@ trait ReportTrait
         $sleeperSeriesBreakdownOut = array_values(array_map(function ($row) use ($meetingSleeperTotal) {
             $skus = array_values($row['skus']);
             usort($skus, function ($a, $b) { return $b['amount'] <=> $a['amount']; });
-            foreach ($skus as &$sk) { $sk['amount'] = round($sk['amount']); }
+            foreach ($skus as &$sk) {
+                $sk['amount'] = round($sk['amount']);
+                $sk['pct'] = $meetingSleeperTotal > 0 ? round($sk['amount'] / $meetingSleeperTotal * 100, 1) : 0;
+            }
             unset($sk);
             return [
                 'series' => $row['series'],

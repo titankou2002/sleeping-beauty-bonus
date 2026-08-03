@@ -1218,44 +1218,58 @@
                 <div class="kpi-sub">年度累計 ${fmtWan(ytdSleeper)} <span class="kpi-pct share">(${fmtPct(ytdSleeperPct)})</span></div>
               </summary>
               <div class="kpi-expand-body">
-                <div class="hint" style="margin-bottom:8px">本月睡美人業績依系列拆分（下方縮排為系列內各品項）：</div>
+                <div class="hint" style="margin-bottom:8px">本月睡美人業績明細（依金額排序）：</div>
                 <div class="table-wrap" style="margin-bottom:14px">
-                  ${(d.sleeperSeriesBreakdown || []).length ? `
-                  <table>
-                    <thead><tr><th>系列</th><th>金額</th><th>佔比</th></tr></thead>
-                    <tbody>
-                      ${(d.sleeperSeriesBreakdown || []).map(row => `
-                        <tr>
-                          <td class="center">${escapeHtml(row.series)}</td>
-                          <td class="num">${fmtWan(row.amount)}</td>
-                          <td class="num">${fmtPct(row.pct)}</td>
-                        </tr>
-                        ${(row.skus || []).map(sk => `
-                          <tr style="opacity:.7;font-size:12px">
-                            <td class="center">└ ${escapeHtml(sk.name || sk.sku)}</td>
+                  ${(() => {
+                    const allSkus = (d.sleeperSeriesBreakdown || [])
+                      .flatMap(row => row.skus || [])
+                      .sort((a, b) => (b.amount || 0) - (a.amount || 0));
+                    if (!allSkus.length) return '<div class="hint">本月無睡美人銷售明細</div>';
+                    return `
+                    <table>
+                      <thead><tr><th>編號</th><th>尺寸</th><th>金額</th><th>佔比</th></tr></thead>
+                      <tbody>
+                        ${allSkus.map(sk => `
+                          <tr>
+                            <td class="center">${escapeHtml(sk.sku || '')}</td>
+                            <td class="center">${escapeHtml(sk.size || '')}</td>
                             <td class="num">${fmtWan(sk.amount)}</td>
-                            <td class="num"></td>
+                            <td class="num">${fmtPct(sk.pct)}</td>
                           </tr>
                         `).join('')}
-                      `).join('')}
-                    </tbody>
-                  </table>
-                  ` : '<div class="hint">本月無睡美人銷售明細</div>'}
+                      </tbody>
+                    </table>
+                    `;
+                  })()}
                 </div>
-                <div class="hint" style="margin-bottom:8px">本年度逐月睡美人業績：</div>
+                <div class="hint" style="margin-bottom:8px">本年度逐月睡美人業績（點月份可下探當月品項拆分）：</div>
                 <div class="table-wrap">
-                  <table>
-                    <thead><tr><th>月份</th><th>睡美人業績</th><th>佔當月比例</th></tr></thead>
-                    <tbody>
-                      ${mc.map(r => `
-                        <tr>
-                          <td class="center">${r.month}月</td>
-                          <td class="num">${fmtWan(r.sleeperCurrent)}</td>
-                          <td class="num">${fmtPct((r.current || 0) > 0 ? (r.sleeperCurrent || 0) / r.current * 100 : 0)}</td>
-                        </tr>
-                      `).join('')}
-                    </tbody>
-                  </table>
+                  ${mc.map(r => `
+                    <details style="margin-bottom:4px">
+                      <summary style="cursor:pointer;display:flex;gap:12px;padding:4px 0">
+                        <span style="min-width:48px">${r.month}月 ⌄</span>
+                        <span class="num" style="flex:1">${fmtWan(r.sleeperCurrent)}</span>
+                        <span class="num" style="min-width:60px">${fmtPct((r.current || 0) > 0 ? (r.sleeperCurrent || 0) / r.current * 100 : 0)}</span>
+                      </summary>
+                      <div class="table-wrap" style="margin:6px 0 10px 12px">
+                        ${(r.sleeperSkus || []).length ? `
+                        <table>
+                          <thead><tr><th>編號</th><th>尺寸</th><th>金額</th><th>佔比</th></tr></thead>
+                          <tbody>
+                            ${(r.sleeperSkus || []).map(sk => `
+                              <tr>
+                                <td class="center">${escapeHtml(sk.sku || '')}</td>
+                                <td class="center">${escapeHtml(sk.size || '')}</td>
+                                <td class="num">${fmtWan(sk.amount)}</td>
+                                <td class="num">${fmtPct(sk.pct)}</td>
+                              </tr>
+                            `).join('')}
+                          </tbody>
+                        </table>
+                        ` : '<div class="hint">當月無睡美人銷售明細</div>'}
+                      </div>
+                    </details>
+                  `).join('')}
                 </div>
               </div>
             </details>
