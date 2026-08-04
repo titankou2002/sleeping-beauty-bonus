@@ -1989,11 +1989,11 @@
           <div class="mini-grid">
             <div class="mini-card"><h3>合約總數${qm('目前正在履約中的客戶總數，五種狀態都算在內，只有真的「沖完、確定不續約」的才不算。')}</h3><div class="v">${fmtInt(s.active)}</div>${metricNote('履約中客戶總數，反映合作客群規模，沒有絕對好壞。', '')}</div>
             <div class="mini-card"><h3>45 天內到期</h3><div class="v">${fmtInt(s.expiringSoon)}</div>${metricNote('45天內票期到期、需要優先追蹤續約的客戶數。', '愈低愈好')}</div>
-            <div class="mini-card"><h3>合約餘額${qm('所有還在履約中的客戶，目前尚未消化完的合約金額總和。')}</h3><div class="v">${fmtWan(s.balance)}</div>${metricNote('所有客戶尚未消化完的合約金額總和，本身不是壞事，但要配合下方消化速度一起看。', '')}</div>
+            <div class="mini-card"><h3>合約餘額${qm('不論票期是否已到，目前我們收了多少客戶的預收儲值金，還沒被出貨扣抵掉。')}</h3><div class="v">${fmtWan(s.balance)}</div>${metricNote('不論票期是否已兌現，我們目前收了多少客戶的預收儲值金。', '')}</div>
           </div>
 
           <div class="mini-grid" style="margin-top:8px">
-            <div class="mini-card"><h3>效期內合約總額${qm('把「還有票在走」的客戶（正常/觀察/警示/掛點）每張票的金額加總。待續約已經沒有票了，不算進來，因為這個月本來就不會再進錢。')}</h3><div class="v">${fmtWan(s.signedMonthlyTarget)}</div>${metricNote('本月理論上應達成的合約目標金額，是對照用的目標值。', '')}</div>
+            <div class="mini-card"><h3>效期內合約總額${qm('把「還有票在走」的客戶（正常/觀察/警示/掛點）每張票的金額加總。待續約已經沒有票了，不算進來，因為這個月本來就不會再進錢。')}</h3><div class="v">${fmtWan(s.signedMonthlyTarget)}</div>${metricNote('本月應兌現合約金額。', '')}</div>
             <div class="mini-card"><h3>②合約溢收${qm('票已經收完了（不會再進錢），但貨還沒出完、錢還卡在合約裡沒被用掉。這是最該優先處理的錢，因為公司已經拿到現金了，卻沒兌現成銷售。')}</h3><div class="v" style="color:${ou.total > 0 ? 'var(--red)' : 'var(--muted)'}">${fmtWan(ou.total)}</div><div class="d">${ou.count} 家</div>${metricNote('票已收完但貨還沒出完、卡在合約裡的錢，最該優先處理。', '愈低愈好')}</div>
             <div class="mini-card"><h3>③實際消化合約金${qm('這個月合約餘額實際被消化掉多少（出貨換算成合約額度扣抵的金額）。新簽 ' + fmtWan(nc.total) + '（' + nc.count + '家），淨變化 ' + (netChange >= 0 ? '+' : '') + fmtWan(netChange) + '。')}</h3><div class="v" style="color:var(--gold)">${fmtWan(consumed)}</div>${metricNote('本月合約餘額被實際消化（出貨扣抵）的金額，代表合約執行速度。', '愈高愈好')}</div>
             <div class="mini-card"><h3>④觀察名單（賣的較慢）${qm('還沒過期、還有餘額，但照最近的消化速度推算，票到期前很可能用不完——是②的候選名單，趁還沒真的過期，可以先聯絡客戶催出貨。')}</h3><div class="v" style="color:${atRiskCount > 0 ? '#facc15' : 'var(--muted)'}">${fmtInt(atRiskCount)}</div><div class="d">家</div>${metricNote('照消化速度推算，票到期前可能用不完的候選名單，可提前追出貨。', '愈低愈好')}</div>
