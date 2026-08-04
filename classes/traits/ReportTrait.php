@@ -700,6 +700,10 @@ trait ReportTrait
             'topRisk' => array_slice($topRisk, 0, 10),
             'notes' => [],
             'signedCustomers' => array_keys($ct['customers']),
+            // 合約金還沒消化完的客戶（排除待續約，因為待續約代表已無合約餘額），供「實際消化合約金」用本月即時銷貨資料估算
+            'consumingCustomers' => array_keys(array_filter($ct['customers'], function ($info) {
+                return ($info['health'] ?? '') !== '待續約';
+            })),
             'detailGroups' => [
                 'normal' => array_slice($detailGroups['normal'], 0, 30),
                 'overdueSevere' => array_slice($detailGroups['overdueSevere'], 0, 30),
@@ -1181,6 +1185,18 @@ trait ReportTrait
         });
         $signedTarget = $contractSummary['summary']['signedMonthlyTarget'] ?? 0;
         $signedHealthPct = $signedTarget > 0 ? ($signedStoreSales / $signedTarget * 100) : 0;
+
+        // ③實際消化合約金改用本月即時銷貨資料估算，避免依賴人工月結餘額欄位造成delay：
+        // 合約還沒消化完的客戶（排除待續約）本月實際買了多少，視為本月消化掉的合約金額
+        $consumingCustomerLookup = [];
+        foreach (($contractSummary['consumingCustomers'] ?? []) as $cust) {
+            $consumingCustomerLookup[$cust] = true;
+        }
+        $consumedRealtime = 0;
+        foreach ($currentCustomerAmounts as $cust => $amount) {
+            if (isset($consumingCustomerLookup[$cust])) $consumedRealtime += $amount;
+        }
+        $contractSummary['consumedThisMonth'] = round($consumedRealtime);
 
         $shipmentBuckets = [
             ['name' => '5萬內', 'min' => 0, 'max' => 50000, 'count' => 0, 'amount' => 0],

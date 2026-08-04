@@ -1995,7 +1995,7 @@
           <div class="mini-grid" style="margin-top:8px">
             <div class="mini-card"><h3>效期內合約總額${qm('把「還有票在走」的客戶（正常/觀察/警示/掛點）每張票的金額加總。待續約已經沒有票了，不算進來，因為這個月本來就不會再進錢。')}</h3><div class="v">${fmtWan(s.signedMonthlyTarget)}</div>${metricNote('本月應兌現合約金額。', '')}</div>
             <div class="mini-card"><h3>②合約溢收${qm('票已經收完了（不會再進錢），但貨還沒出完、錢還卡在合約裡沒被用掉。這是最該優先處理的錢，因為公司已經拿到現金了，卻沒兌現成銷售。')}</h3><div class="v" style="color:${ou.total > 0 ? 'var(--red)' : 'var(--muted)'}">${fmtWan(ou.total)}</div><div class="d">${ou.count} 家</div>${metricNote('票已收完但貨還沒出完、卡在合約裡的錢，最該優先處理。', '愈低愈好')}</div>
-            <div class="mini-card"><h3>③實際消化合約金${qm('這個月合約餘額實際被消化掉多少（出貨換算成合約額度扣抵的金額）。新簽 ' + fmtWan(nc.total) + '（' + nc.count + '家），淨變化 ' + (netChange >= 0 ? '+' : '') + fmtWan(netChange) + '。')}</h3><div class="v" style="color:var(--gold)">${fmtWan(consumed)}</div>${metricNote('本月合約餘額被實際消化（出貨扣抵）的金額，代表合約執行速度。', '愈高愈好')}</div>
+            <div class="mini-card"><h3>③實際消化合約金${qm('合約還沒消化完的客戶（正常/觀察/警示/掛點，不含待續約），本月實際買了多少，視為消化掉的合約金額估算值。改用本月即時銷貨資料計算，不再依賴人工更新的月結餘額欄位，數字不會delay。新簽 ' + fmtWan(nc.total) + '（' + nc.count + '家），淨變化 ' + (netChange >= 0 ? '+' : '') + fmtWan(netChange) + '。')}</h3><div class="v" style="color:var(--gold)">${fmtWan(consumed)}</div>${metricNote('合約還沒消化完的客戶本月實際買了多少，用即時銷貨資料估算，不再依賴人工月結餘額欄位。', '愈高愈好')}</div>
             <div class="mini-card"><h3>④觀察名單（賣的較慢）${qm('還沒過期、還有餘額，但照最近的消化速度推算，票到期前很可能用不完——是②的候選名單，趁還沒真的過期，可以先聯絡客戶催出貨。')}</h3><div class="v" style="color:${atRiskCount > 0 ? '#facc15' : 'var(--muted)'}">${fmtInt(atRiskCount)}</div><div class="d">家</div>${metricNote('照消化速度推算，票到期前可能用不完的候選名單，可提前追出貨。', '愈低愈好')}</div>
           </div>
 
