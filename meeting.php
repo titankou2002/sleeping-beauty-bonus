@@ -212,6 +212,10 @@
       font-size: 28px;
       font-weight: 900;
     }
+    .mini-card.mini-expand summary { cursor: pointer; list-style: none; }
+    .mini-card.mini-expand summary::-webkit-details-marker { display: none; }
+    .mini-card.mini-expand[open] .kpi-caret { transform: rotate(180deg); }
+    .mini-expand-body { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); max-height: 240px; overflow-y: auto; }
     .health-grid {
       display: grid;
       grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -1934,11 +1938,37 @@
       return `<div class="hint" style="margin-top:4px;line-height:1.5">${escapeHtml(text)}${judge ? `<span style="color:var(--accent-strong);font-weight:700"> ${escapeHtml(judge)}</span>` : ''}</div>`;
     }
 
+    function miniDrillTable(rows, cols) {
+      if (!rows || !rows.length) return '<div class="hint">本期無資料</div>';
+      return `
+        <table>
+          <thead><tr>${cols.map(col => `<th>${escapeHtml(col.label)}</th>`).join('')}</tr></thead>
+          <tbody>
+            ${rows.map(r => `<tr>${cols.map(col => `<td class="${col.num ? 'num' : 'center'}">${col.get(r)}</td>`).join('')}</tr>`).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+    function miniDrillCard(opts) {
+      return `
+        <details class="mini-card mini-expand">
+          <summary>
+            <h3>${opts.title}<span class="kpi-caret">⌄</span></h3>
+            <div class="v"${opts.valueStyle ? ` style="${opts.valueStyle}"` : ''}>${opts.value}</div>
+            ${opts.extra ? `<div class="d">${opts.extra}</div>` : ''}
+            ${metricNote(opts.note, opts.judge || '')}
+          </summary>
+          <div class="mini-expand-body">${opts.body}</div>
+        </details>
+      `;
+    }
+
     function buildContractSheet(d) {
       const c = d.contracts || {};
       const s = c.summary || {};
       const health = c.healthCounts || [];
       const detailGroups = c.detailGroups || {};
+      const detail = c.contractDetail || [];
       const healthMap = {};
       health.forEach(row => { healthMap[row.name] = row.count; });
       const total = s.active || 1;
@@ -1951,6 +1981,12 @@
       const consumed = c.consumedThisMonth || 0;
       const netChange = c.balanceNetChange || 0;
       const atRiskCount = c.atRiskCount || 0;
+      const consumingSales = c.consumingCustomerSales || [];
+      const expiringSoonRows = detail.filter(r => r.dueDays !== null && r.dueDays >= 0 && r.dueDays <= 45);
+      const balanceRows = detail.filter(r => (r.balance || 0) > 0);
+      const targetRows = detail.filter(r => ['正常', '觀察', '警示', '掛點'].includes(r.health));
+      const overdueUnconsumedRows = detail.filter(r => r.dueDays !== null && r.dueDays < 0 && (r.balance || 0) > 0);
+      const atRiskRows = c.atRiskContracts || [];
 
       const contractLineClass = health => {
         if (health === '警示' || health === '掛點') return 'is-danger';
@@ -1987,16 +2023,87 @@
         <section class="sheet">
           <div class="sheet-title">合約狀況</div>
           <div class="mini-grid">
-            <div class="mini-card"><h3>合約總數${qm('目前正在履約中的客戶總數，五種狀態都算在內，只有真的「沖完、確定不續約」的才不算。')}</h3><div class="v">${fmtInt(s.active)}</div>${metricNote('履約中客戶總數，反映合作客群規模，沒有絕對好壞。', '')}</div>
-            <div class="mini-card"><h3>45 天內到期</h3><div class="v">${fmtInt(s.expiringSoon)}</div>${metricNote('45天內票期到期、需要優先追蹤續約的客戶數。', '愈低愈好')}</div>
-            <div class="mini-card"><h3>合約餘額${qm('不論票期是否已到，目前我們收了多少客戶的預收儲值金，還沒被出貨扣抵掉。')}</h3><div class="v">${fmtWan(s.balance)}</div>${metricNote('不論票期是否已兌現，我們目前收了多少客戶的預收儲值金。', '')}</div>
+            ${miniDrillCard({
+              title: '合約總數' + qm('目前正在履約中的客戶總數，五種狀態都算在內，只有真的「沖完、確定不續約」的才不算。'),
+              value: fmtInt(s.active),
+              note: '履約中客戶總數，反映合作客群規模，沒有絕對好壞。',
+              body: miniDrillTable(detail, [
+                { label: '客戶', get: r => escapeHtml(r.name) },
+                { label: '狀態', get: r => escapeHtml(r.health) },
+                { label: '餘額', get: r => fmtWan(r.balance), num: true }
+              ])
+            })}
+            ${miniDrillCard({
+              title: '45 天內到期',
+              value: fmtInt(s.expiringSoon),
+              note: '45天內票期到期、需要優先追蹤續約的客戶數。',
+              judge: '愈低愈好',
+              body: miniDrillTable(expiringSoonRows, [
+                { label: '客戶', get: r => escapeHtml(r.name) },
+                { label: '到期', get: r => escapeHtml(r.dueText) },
+                { label: '餘額', get: r => fmtWan(r.balance), num: true }
+              ])
+            })}
+            ${miniDrillCard({
+              title: '合約餘額' + qm('不論票期是否已到，目前我們收了多少客戶的預收儲值金，還沒被出貨扣抵掉。'),
+              value: fmtWan(s.balance),
+              note: '不論票期是否已兌現，我們目前收了多少客戶的預收儲值金。',
+              body: miniDrillTable(balanceRows, [
+                { label: '客戶', get: r => escapeHtml(r.name) },
+                { label: '狀態', get: r => escapeHtml(r.health) },
+                { label: '餘額', get: r => fmtWan(r.balance), num: true }
+              ])
+            })}
           </div>
 
           <div class="mini-grid" style="margin-top:8px">
-            <div class="mini-card"><h3>效期內合約總額${qm('把「還有票在走」的客戶（正常/觀察/警示/掛點）每張票的金額加總。待續約已經沒有票了，不算進來，因為這個月本來就不會再進錢。')}</h3><div class="v">${fmtWan(s.signedMonthlyTarget)}</div>${metricNote('本月應兌現合約金額。', '')}</div>
-            <div class="mini-card"><h3>②合約溢收${qm('票已經收完了（不會再進錢），但貨還沒出完、錢還卡在合約裡沒被用掉。這是最該優先處理的錢，因為公司已經拿到現金了，卻沒兌現成銷售。')}</h3><div class="v" style="color:${ou.total > 0 ? 'var(--red)' : 'var(--muted)'}">${fmtWan(ou.total)}</div><div class="d">${ou.count} 家</div>${metricNote('票已收完但貨還沒出完、卡在合約裡的錢，最該優先處理。', '愈低愈好')}</div>
-            <div class="mini-card"><h3>③實際消化合約金${qm('合約還沒消化完的客戶（正常/觀察/警示/掛點，不含待續約），本月實際買了多少，視為消化掉的合約金額估算值。改用本月即時銷貨資料計算，不再依賴人工更新的月結餘額欄位，數字不會delay。新簽 ' + fmtWan(nc.total) + '（' + nc.count + '家），淨變化 ' + (netChange >= 0 ? '+' : '') + fmtWan(netChange) + '。')}</h3><div class="v" style="color:var(--gold)">${fmtWan(consumed)}</div>${metricNote('合約還沒消化完的客戶本月實際買了多少，用即時銷貨資料估算，不再依賴人工月結餘額欄位。', '愈高愈好')}</div>
-            <div class="mini-card"><h3>④觀察名單（賣的較慢）${qm('還沒過期、還有餘額，但照最近的消化速度推算，票到期前很可能用不完——是②的候選名單，趁還沒真的過期，可以先聯絡客戶催出貨。')}</h3><div class="v" style="color:${atRiskCount > 0 ? '#facc15' : 'var(--muted)'}">${fmtInt(atRiskCount)}</div><div class="d">家</div>${metricNote('照消化速度推算，票到期前可能用不完的候選名單，可提前追出貨。', '愈低愈好')}</div>
+            ${miniDrillCard({
+              title: '效期內合約總額' + qm('把「還有票在走」的客戶（正常/觀察/警示/掛點）每張票的金額加總。待續約已經沒有票了，不算進來，因為這個月本來就不會再進錢。'),
+              value: fmtWan(s.signedMonthlyTarget),
+              note: '本月應兌現合約金額。',
+              body: miniDrillTable(targetRows, [
+                { label: '客戶', get: r => escapeHtml(r.name) },
+                { label: '狀態', get: r => escapeHtml(r.health) },
+                { label: '單張票面額', get: r => fmtWan(r.target), num: true }
+              ])
+            })}
+            ${miniDrillCard({
+              title: '②合約溢收' + qm('票已經收完了（不會再進錢），但貨還沒出完、錢還卡在合約裡沒被用掉。這是最該優先處理的錢，因為公司已經拿到現金了，卻沒兌現成銷售。'),
+              value: fmtWan(ou.total),
+              valueStyle: `color:${ou.total > 0 ? 'var(--red)' : 'var(--muted)'}`,
+              extra: `${ou.count} 家`,
+              note: '票已收完但貨還沒出完、卡在合約裡的錢，最該優先處理。',
+              judge: '愈低愈好',
+              body: miniDrillTable(overdueUnconsumedRows, [
+                { label: '客戶', get: r => escapeHtml(r.name) },
+                { label: '逾期', get: r => escapeHtml(r.dueText) },
+                { label: '餘額', get: r => fmtWan(r.balance), num: true }
+              ])
+            })}
+            ${miniDrillCard({
+              title: '③實際消化合約金' + qm('合約還沒消化完的客戶（正常/觀察/警示/掛點，不含待續約），本月實際買了多少，視為消化掉的合約金額估算值。改用本月即時銷貨資料計算，不再依賴人工更新的月結餘額欄位，數字不會delay。新簽 ' + fmtWan(nc.total) + '（' + nc.count + '家），淨變化 ' + (netChange >= 0 ? '+' : '') + fmtWan(netChange) + '。'),
+              value: fmtWan(consumed),
+              valueStyle: 'color:var(--gold)',
+              note: '合約還沒消化完的客戶本月實際買了多少，用即時銷貨資料估算，不再依賴人工月結餘額欄位。',
+              judge: '愈高愈好',
+              body: miniDrillTable(consumingSales, [
+                { label: '客戶', get: r => escapeHtml(r.name) },
+                { label: '本月購買金額', get: r => fmtWan(r.amount), num: true }
+              ])
+            })}
+            ${miniDrillCard({
+              title: '④觀察名單（賣的較慢）' + qm('還沒過期、還有餘額，但照最近的消化速度推算，票到期前很可能用不完——是②的候選名單，趁還沒真的過期，可以先聯絡客戶催出貨。'),
+              value: fmtInt(atRiskCount),
+              valueStyle: `color:${atRiskCount > 0 ? '#facc15' : 'var(--muted)'}`,
+              extra: '家',
+              note: '照消化速度推算，票到期前可能用不完的候選名單，可提前追出貨。',
+              judge: '愈低愈好',
+              body: miniDrillTable(atRiskRows, [
+                { label: '客戶', get: r => escapeHtml(r.name) },
+                { label: '餘額', get: r => fmtWan(r.balance), num: true },
+                { label: '本月消化速度', get: r => fmtWan(r.monthlyConsumption), num: true }
+              ])
+            })}
           </div>
 
           <div style="margin:10px 12px 4px;height:8px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden;display:flex">

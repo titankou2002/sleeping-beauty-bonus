@@ -704,6 +704,8 @@ trait ReportTrait
             'consumingCustomers' => array_keys(array_filter($ct['customers'], function ($info) {
                 return ($info['health'] ?? '') !== '待續約';
             })),
+            // 完整逐客戶明細，供各卡片下探用（合約總數/45天內到期/合約餘額/效期內合約總額/②合約溢收）
+            'contractDetail' => $ct['detail'] ?? [],
             'detailGroups' => [
                 'normal' => array_slice($detailGroups['normal'], 0, 30),
                 'overdueSevere' => array_slice($detailGroups['overdueSevere'], 0, 30),
@@ -1193,10 +1195,16 @@ trait ReportTrait
             $consumingCustomerLookup[$cust] = true;
         }
         $consumedRealtime = 0;
+        $consumingCustomerSales = [];
         foreach ($currentCustomerAmounts as $cust => $amount) {
-            if (isset($consumingCustomerLookup[$cust])) $consumedRealtime += $amount;
+            if (isset($consumingCustomerLookup[$cust])) {
+                $consumedRealtime += $amount;
+                $consumingCustomerSales[] = ['name' => $cust, 'amount' => round($amount)];
+            }
         }
+        usort($consumingCustomerSales, function ($a, $b) { return $b['amount'] <=> $a['amount']; });
         $contractSummary['consumedThisMonth'] = round($consumedRealtime);
+        $contractSummary['consumingCustomerSales'] = $consumingCustomerSales;
 
         $shipmentBuckets = [
             ['name' => '5萬內', 'min' => 0, 'max' => 50000, 'count' => 0, 'amount' => 0],
