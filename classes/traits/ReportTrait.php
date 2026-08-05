@@ -932,7 +932,6 @@ trait ReportTrait
                 }
                 $countryBrandRanks[$country][$brand]['seriesRows'][$seriesName]['amount'] += $amount;
                 $countryBrandRanks[$country][$brand]['seriesRows'][$seriesName]['pings'] += $pings;
-            }
 
             $seriesKey = ($profile['brand'] ?? '') . '|' . ($profile['series'] ?? '') . '|' . ($profile['seriesCn'] ?? '');
             if (!isset($seriesRanks[$seriesKey])) {
