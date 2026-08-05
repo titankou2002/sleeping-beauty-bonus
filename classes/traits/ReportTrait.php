@@ -816,7 +816,8 @@ trait ReportTrait
             $row = $cacheRows[$i];
             $rowYear = (int)$this->getVal($row, $idx['year']);
             $rowMonth = (int)$this->getVal($row, $idx['month']);
-            $sku = $this->cleanSku($this->getVal($row, $idx['sku']));
+            $rawSku = trim($this->getVal($row, $idx['sku']));
+            $sku = $this->cleanSku($rawSku);
             $customer = $idx['customer'] !== -1 ? $this->displayCustomerName($this->getVal($row, $idx['customer'])) : '未知客戶';
             $projectName = $idx['project'] !== -1 ? trim($this->getVal($row, $idx['project'])) : '';
             $sales = $idx['sales'] !== -1 ? $this->normalizeSalesRep($this->getVal($row, $idx['sales'])) : '未指定';
@@ -825,7 +826,9 @@ trait ReportTrait
             $amount = $this->optFloat($this->getVal($row, $idx['amount']));
             $pings = $this->optFloat($this->getVal($row, $idx['pings']));
             $txCount = (int)$this->getVal($row, $idx['count']);
-            $profile = $profiles[$sku] ?? [];
+            $normKey = preg_replace('/[\s\-_]+/u', '', $sku);
+            $profile = $profiles[$sku] ?? ($normKey !== '' ? ($profiles[$normKey] ?? []) : []);
+            $displaySku = !empty($profile['canonicalSku']) ? $profile['canonicalSku'] : ($rawSku ?: $sku);
 
             if ($rowYear === $year) {
                 $monthTotals[$rowMonth]['current'] += $amount;
@@ -951,9 +954,9 @@ trait ReportTrait
             }
             $seriesRanks[$seriesKey]['totalPings'] += $pings;
             $seriesRanks[$seriesKey]['totalAmount'] += $amount;
-            if (!isset($seriesRanks[$seriesKey]['items'][$sku])) {
-                $seriesRanks[$seriesKey]['items'][$sku] = [
-                    'sku' => $sku,
+            if (!isset($seriesRanks[$seriesKey]['items'][$displaySku])) {
+                $seriesRanks[$seriesKey]['items'][$displaySku] = [
+                    'sku' => $displaySku,
                     'name' => trim(($profile['productName'] ?? '') . ' ' . ($profile['size'] ?? '')),
                     'pings' => 0,
                     'amount' => 0,
@@ -961,18 +964,18 @@ trait ReportTrait
                     'customers' => []
                 ];
             }
-            $seriesRanks[$seriesKey]['items'][$sku]['pings'] += $pings;
-            $seriesRanks[$seriesKey]['items'][$sku]['amount'] += $amount;
+            $seriesRanks[$seriesKey]['items'][$displaySku]['pings'] += $pings;
+            $seriesRanks[$seriesKey]['items'][$displaySku]['amount'] += $amount;
             if ($customer !== '未知客戶') {
-                if (!isset($seriesRanks[$seriesKey]['items'][$sku]['customers'][$customer])) {
-                    $seriesRanks[$seriesKey]['items'][$sku]['customers'][$customer] = [
+                if (!isset($seriesRanks[$seriesKey]['items'][$displaySku]['customers'][$customer])) {
+                    $seriesRanks[$seriesKey]['items'][$displaySku]['customers'][$customer] = [
                         'name' => $customer,
                         'amount' => 0,
                         'pings' => 0
                     ];
                 }
-                $seriesRanks[$seriesKey]['items'][$sku]['customers'][$customer]['amount'] += $amount;
-                $seriesRanks[$seriesKey]['items'][$sku]['customers'][$customer]['pings'] += $pings;
+                $seriesRanks[$seriesKey]['items'][$displaySku]['customers'][$customer]['amount'] += $amount;
+                $seriesRanks[$seriesKey]['items'][$displaySku]['customers'][$customer]['pings'] += $pings;
             }
 
             $category = trim($profile['category'] ?? '') ?: '期貨/外調';

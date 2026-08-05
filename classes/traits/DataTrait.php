@@ -379,9 +379,10 @@ trait DataTrait
         $map = [];
         for ($i = 1; $i < count($data); $i++) {
             $row = $data[$i];
-            $sku = $this->cleanSku($this->getVal($row, $idxCode));
+            $rawCode = trim($this->getVal($row, $idxCode));
+            $sku = $this->cleanSku($rawCode);
             if (!$sku) continue;
-            $map[$sku] = [
+            $profile = [
                 'series' => $idxSeries !== -1 ? trim($this->getVal($row, $idxSeries)) : '',
                 'seriesCn' => $idxSeriesCn !== -1 ? trim($this->getVal($row, $idxSeriesCn)) : '',
                 'perPing' => $idxPerPing !== -1 ? ($this->optFloat($this->getVal($row, $idxPerPing)) ?: 36) : 36,
@@ -394,8 +395,14 @@ trait DataTrait
                 'isSleeper' => $idxSleeper !== -1 && trim($this->getVal($row, $idxSleeper)) !== '',
                 'isDiscontinued' => $idxDisc !== -1 && trim($this->getVal($row, $idxDisc)) !== '',
                 'firstInDate' => $idxFirstIn !== -1 ? trim($this->getVal($row, $idxFirstIn)) : '',
-                'latestInDate' => $idxLatestIn !== -1 ? trim($this->getVal($row, $idxLatestIn)) : ''
+                'latestInDate' => $idxLatestIn !== -1 ? trim($this->getVal($row, $idxLatestIn)) : '',
+                'canonicalSku' => $rawCode ?: $sku,
             ];
+            $map[$sku] = $profile;
+            $normKey = preg_replace('/[\s\-_]+/u', '', $sku);
+            if ($normKey !== '' && !isset($map[$normKey])) {
+                $map[$normKey] = $profile;
+            }
         }
 
         // 睡美人清單以「睡美人」工作表(SLEEPER_SHEET)為準，跟獎金試算(getSleeperConfig)用同一套判斷，
