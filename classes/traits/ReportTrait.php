@@ -1686,13 +1686,20 @@ trait ReportTrait
                 $pBrand = $this->findHeader($pH, ['廠牌', '品牌']);
                 $pCat = $this->findHeader($pH, ['產品大類', '大類']);
                 for ($i = 1; $i < count($priceData); $i++) {
-                    $sku = $this->cleanSku($this->getVal($priceData[$i], $pCode));
+                    $rawCode = trim($this->getVal($priceData[$i], $pCode));
+                    $sku = $this->cleanSku($rawCode);
                     if (!$sku) continue;
-                    $metaMap[$sku] = [
+                    $itemMeta = [
                         'size' => $pSize !== -1 ? $this->normalizeSizeLabel($this->getVal($priceData[$i], $pSize)) : '未標尺寸',
                         'brand' => $pBrand !== -1 ? $this->normalizeBrand($this->getVal($priceData[$i], $pBrand)) : '期貨/外調',
                         'category' => $pCat !== -1 ? trim($this->getVal($priceData[$i], $pCat)) : '期貨/外調',
+                        'canonicalSku' => $rawCode ?: $sku,
                     ];
+                    $metaMap[$sku] = $itemMeta;
+                    $normKey = preg_replace('/[\s\-_]+/u', '', $sku);
+                    if ($normKey !== '' && !isset($metaMap[$normKey])) {
+                        $metaMap[$normKey] = $itemMeta;
+                    }
                 }
             }
 
@@ -1709,10 +1716,12 @@ trait ReportTrait
 
                 $amount = $this->optFloat($this->getVal($row, $idx['amount']));
                 $pings = $idx['pings'] !== -1 ? $this->optFloat($this->getVal($row, $idx['pings'])) : 0;
-                $sku = $idx['sku'] !== -1 ? $this->cleanSku($this->getVal($row, $idx['sku'])) : '';
+                $rawSku = $idx['sku'] !== -1 ? trim($this->getVal($row, $idx['sku'])) : '';
+                $sku = $this->cleanSku($rawSku);
                 $projectName = $idx['project'] !== -1 ? trim($this->getVal($row, $idx['project'])) : '';
                 $isProject = $projectName !== '';
-                $meta = $metaMap[$sku] ?? ['size' => '未標尺寸', 'brand' => '期貨/外調', 'category' => '期貨/外調'];
+                $normKey = preg_replace('/[\s\-_]+/u', '', $sku);
+                $meta = $metaMap[$sku] ?? ($normKey !== '' ? ($metaMap[$normKey] ?? []) : []) ?: ['size' => '未標尺寸', 'brand' => '期貨/外調', 'category' => '期貨/外調'];
 
                 $size = $meta['size'] ?: '未標尺寸';
                 $brand = $meta['brand'] ?: '期貨/外調';
@@ -2037,16 +2046,23 @@ trait ReportTrait
                 
                 for ($i = 1; $i < count($priceData); $i++) {
                     $row = $priceData[$i];
-                    $sku = $this->cleanSku($this->getVal($row, $idxCode));
+                    $rawCode = trim($this->getVal($row, $idxCode));
+                    $sku = $this->cleanSku($rawCode);
                     if (!$sku) continue;
-                    $profiles[$sku] = [
+                    $itemProfile = [
                         'series' => $idxSeries !== -1 ? trim($this->getVal($row, $idxSeries)) : '',
                         'seriesCn' => $idxSeriesCn !== -1 ? trim($this->getVal($row, $idxSeriesCn)) : '',
                         'productName' => $idxProduct !== -1 ? trim($this->getVal($row, $idxProduct)) : '',
                         'size' => $idxSize !== -1 ? $this->normalizeSizeLabel($this->getVal($row, $idxSize)) : '',
                         'category' => $idxCategory !== -1 ? trim($this->getVal($row, $idxCategory)) : '',
                         'imageUrl' => $idxImage !== -1 ? trim($this->getVal($row, $idxImage)) : '',
+                        'canonicalSku' => $rawCode ?: $sku,
                     ];
+                    $profiles[$sku] = $itemProfile;
+                    $normKey = preg_replace('/[\s\-_]+/u', '', $sku);
+                    if ($normKey !== '' && !isset($profiles[$normKey])) {
+                        $profiles[$normKey] = $itemProfile;
+                    }
                 }
             }
 
@@ -2057,18 +2073,21 @@ trait ReportTrait
                 $rowMonth = (int)$this->getVal($row, $idx['month']);
                 if ($rowYear !== $year || $rowMonth !== $month) continue;
 
-                $sku = $idx['sku'] !== -1 ? $this->cleanSku($this->getVal($row, $idx['sku'])) : '';
+                $rawSku = $idx['sku'] !== -1 ? trim($this->getVal($row, $idx['sku'])) : '';
+                $sku = $this->cleanSku($rawSku);
                 if ($sku === '') continue;
 
                 $amount = $this->optFloat($this->getVal($row, $idx['amount']));
                 $pings = $idx['pings'] !== -1 ? $this->optFloat($this->getVal($row, $idx['pings'])) : 0;
                 $txCount = $idx['count'] !== -1 ? (int)$this->getVal($row, $idx['count']) : 0;
                 
-                $profile = $profiles[$sku] ?? [];
+                $normKey = preg_replace('/[\s\-_]+/u', '', $sku);
+                $profile = $profiles[$sku] ?? ($normKey !== '' ? ($profiles[$normKey] ?? []) : []);
+                $displaySku = !empty($profile['canonicalSku']) ? $profile['canonicalSku'] : ($rawSku ?: $sku);
 
-                if (!isset($topProducts[$sku])) {
-                    $topProducts[$sku] = [
-                        'sku' => $sku,
+                if (!isset($topProducts[$displaySku])) {
+                    $topProducts[$displaySku] = [
+                        'sku' => $displaySku,
                         'name' => trim($profile['productName'] ?? ''),
                         'series' => trim(($profile['seriesCn'] ?? '') ?: ($profile['series'] ?? '')),
                         'category' => trim($profile['category'] ?? ''),
@@ -2121,16 +2140,23 @@ trait ReportTrait
                 $pSize = $this->findHeader($pH, ['尺寸(cm)','尺寸']);
                 $pImage = $this->findHeader($pH, ['單片連結網址','單片圖','圖片網址']);
                 for ($i = 1; $i < count($priceData); $i++) {
-                    $sku = $this->cleanSku($this->getVal($priceData[$i], $pCode));
+                    $rawCode = trim($this->getVal($priceData[$i], $pCode));
+                    $sku = $this->cleanSku($rawCode);
                     if (!$sku) continue;
-                    $profiles[$sku] = [
+                    $itemProfile = [
                         'series' => $pSeries !== -1 ? trim($this->getVal($priceData[$i], $pSeries)) : '',
                         'seriesCn' => $pSeriesCn !== -1 ? trim($this->getVal($priceData[$i], $pSeriesCn)) : '',
                         'brand' => $pBrand !== -1 ? $this->normalizeBrand($this->getVal($priceData[$i], $pBrand)) : '',
                         'productName' => $pProduct !== -1 ? trim($this->getVal($priceData[$i], $pProduct)) : '',
                         'size' => $pSize !== -1 ? $this->normalizeSizeLabel($this->getVal($priceData[$i], $pSize)) : '',
                         'imageUrl' => $pImage !== -1 ? trim($this->getVal($priceData[$i], $pImage)) : '',
+                        'canonicalSku' => $rawCode ?: $sku,
                     ];
+                    $profiles[$sku] = $itemProfile;
+                    $normKey = preg_replace('/[\s\-_]+/u', '', $sku);
+                    if ($normKey !== '' && !isset($profiles[$normKey])) {
+                        $profiles[$normKey] = $itemProfile;
+                    }
                 }
             }
 
@@ -2140,12 +2166,16 @@ trait ReportTrait
                 $ry = (int)$this->getVal($row, $idxYear);
                 $rm = (int)$this->getVal($row, $idxMonth);
                 if ($ry !== $year || $rm !== $month) continue;
-                $sku = $this->cleanSku($this->getVal($row, $idxSku));
+                $rawSku = $this->getVal($row, $idxSku);
+                $sku = $this->cleanSku($rawSku);
                 if (!$sku) continue;
                 $amt = $this->optFloat($this->getVal($row, $idxAmt));
                 $ping = $idxPing !== -1 ? $this->optFloat($this->getVal($row, $idxPing)) : 0;
                 $cust = $idxCust !== -1 ? $this->displayCustomerName($this->getVal($row, $idxCust)) : '';
-                $p = $profiles[$sku] ?? [];
+                $normKey = preg_replace('/[\s\-_]+/u', '', $sku);
+                $p = $profiles[$sku] ?? ($normKey !== '' ? ($profiles[$normKey] ?? []) : []);
+                $displaySku = !empty($p['canonicalSku']) ? $p['canonicalSku'] : ($rawSku ?: $sku);
+
                 $seriesKey = ($p['seriesCn'] ?? '') ?: ($p['series'] ?? '') ?: '期貨/外調';
                 if (!isset($seriesMap[$seriesKey])) {
                     $seriesMap[$seriesKey] = [
@@ -2158,9 +2188,9 @@ trait ReportTrait
                 }
                 $seriesMap[$seriesKey]['totalPings'] += $ping;
                 $seriesMap[$seriesKey]['totalAmount'] += $amt;
-                if (!isset($seriesMap[$seriesKey]['items'][$sku])) {
-                    $seriesMap[$seriesKey]['items'][$sku] = [
-                        'sku' => $sku,
+                if (!isset($seriesMap[$seriesKey]['items'][$displaySku])) {
+                    $seriesMap[$seriesKey]['items'][$displaySku] = [
+                        'sku' => $displaySku,
                         'name' => trim(($p['productName'] ?? '') . ' ' . ($p['size'] ?? '')),
                         'pings' => 0, 'amount' => 0,
                         'imageUrl' => $p['imageUrl'] ?? '',
@@ -2343,15 +2373,26 @@ trait ReportTrait
                 $pPerPing = $this->findHeader($pH, ['片/坪']);
                 $pCost = $this->findHeader($pH, ['成本', '單片成本', '成本價']);
                 for ($i = 1; $i < count($priceData); $i++) {
-                    $sku = $this->cleanSku($this->getVal($priceData[$i], $pCode));
+                    $rawCode = trim($this->getVal($priceData[$i], $pCode));
+                    $sku = $this->cleanSku($rawCode);
                     if (!$sku) continue;
                     $isSleeper = $pSleeper !== -1 && trim($this->getVal($priceData[$i], $pSleeper)) !== '';
                     $isDisc = $pDisc !== -1 && trim($this->getVal($priceData[$i], $pDisc)) !== '';
                     $type = $isDisc ? 'discontinued' : ($isSleeper ? 'sleeper' : 'normal');
                     $perPing = $pPerPing !== -1 ? ($this->optFloat($this->getVal($priceData[$i], $pPerPing)) ?: 36) : 36;
                     $cost = $pCost !== -1 ? $this->optFloat($this->getVal($priceData[$i], $pCost)) : 0;
-                    $metaMap[$sku] = ['type' => $type, 'perPing' => $perPing];
-                    if ($cost > 0) $costMap[$sku] = $cost;
+                    $itemMeta = ['type' => $type, 'perPing' => $perPing];
+                    $metaMap[$sku] = $itemMeta;
+                    $normKey = preg_replace('/[\s\-_]+/u', '', $sku);
+                    if ($normKey !== '' && !isset($metaMap[$normKey])) {
+                        $metaMap[$normKey] = $itemMeta;
+                    }
+                    if ($cost > 0) {
+                        $costMap[$sku] = $cost;
+                        if ($normKey !== '' && !isset($costMap[$normKey])) {
+                            $costMap[$normKey] = $cost;
+                        }
+                    }
                 }
             }
 
@@ -2363,10 +2404,17 @@ trait ReportTrait
                     $sCost = $this->findHeader($sH, ['成本', '單片成本', '成本價']);
                     if ($sSku !== -1 && $sCost !== -1) {
                         for ($i = 1; $i < count($sleeperData); $i++) {
-                            $sku = $this->cleanSku($this->getVal($sleeperData[$i], $sSku));
+                            $rawCode = trim($this->getVal($sleeperData[$i], $sSku));
+                            $sku = $this->cleanSku($rawCode);
                             if (!$sku) continue;
                             $c = $this->optFloat($this->getVal($sleeperData[$i], $sCost));
-                            if ($c > 0) $costMap[$sku] = $c;
+                            if ($c > 0) {
+                                $costMap[$sku] = $c;
+                                $normKey = preg_replace('/[\s\-_]+/u', '', $sku);
+                                if ($normKey !== '' && !isset($costMap[$normKey])) {
+                                    $costMap[$normKey] = $c;
+                                }
+                            }
                         }
                     }
                 }
@@ -2388,13 +2436,15 @@ trait ReportTrait
 
             $seen = [];
             for ($i = 1; $i < count($stockData); $i++) {
-                $sku = $this->cleanSku($this->getVal($stockData[$i], $sCode));
+                $rawSku = trim($this->getVal($stockData[$i], $sCode));
+                $sku = $this->cleanSku($rawSku);
                 if (!$sku) continue;
                 $ping = $sPing !== -1 ? $this->optFloat($this->getVal($stockData[$i], $sPing)) : 0;
                 if ($ping <= 0) continue;
 
-                $meta = $metaMap[$sku] ?? ['type' => 'normal', 'perPing' => 36];
-                $cost = $costMap[$sku] ?? 0;
+                $normKey = preg_replace('/[\s\-_]+/u', '', $sku);
+                $meta = $metaMap[$sku] ?? ($normKey !== '' ? ($metaMap[$normKey] ?? []) : []) ?: ['type' => 'normal', 'perPing' => 36];
+                $cost = $costMap[$sku] ?? ($normKey !== '' ? ($costMap[$normKey] ?? 0) : 0);
                 $costPerPing = $cost * $meta['perPing'];
                 $totalCost = $ping * $costPerPing;
                 $type = $meta['type'];
