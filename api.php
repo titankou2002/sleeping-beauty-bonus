@@ -84,6 +84,16 @@ try {
             }
             break;
 
+        case 'discontinued-year-summary':
+            try {
+                $year  = (int)($_GET['year'] ?? date('Y'));
+                $res = $svc->getDiscontinuedYearSummary($year);
+                echo json_encode($res);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'msg' => 'discontinued-year-summary 錯誤: ' . $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
+            }
+            break;
+
         case 'strategy-report':
             try {
                 $year = (int)($_GET['year'] ?? date('Y'));

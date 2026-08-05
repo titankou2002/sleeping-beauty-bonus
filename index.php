@@ -1297,34 +1297,101 @@ function loadDashboard() {
 
 function loadDiscontinuedTab() {
   var container = document.getElementById('bonus-sub-content');
-  if (window._disconProducts && window._disconProducts.length) { renderDiscontinued(); return; }
   if (container) container.innerHTML = '<div class="welcome"><p>載入中...</p></div>';
+  var pending = 2;
+  var done = function() { pending--; if (pending === 0) renderDiscontinued(); };
+  apiGet('discontinued-year-summary', { year: currentYear }, function(res) {
+    if (res.success) window._disconYearSummary = res.data;
+    done();
+  });
   apiGet('discontinued-products', {}, function(res) {
-    if (res.success) {
-      window._disconProducts = res.data;
-      renderDiscontinued();
-    } else if (container) {
-      container.innerHTML = '<div class="welcome"><p style="color:var(--red)">❌ ' + res.msg + '</p></div>';
-    }
+    if (res.success) window._disconProducts = res.data;
+    done();
   });
 }
 
 function renderDiscontinued() {
+  var d = window._disconYearSummary;
   var list = window._disconProducts || [];
-  if (!list.length) {
+  if (!d && !list.length) {
     document.getElementById('bonus-sub-content').innerHTML = '<div class="welcome"><h2>暫無不續辦商品</h2></div>';
     return;
   }
   var totalCost = list.reduce(function(s, p) { return s + p.inventoryCost; }, 0);
-  var totalPings = list.reduce(function(s, p) { return s + p.totalPings; }, 0);
   var neverSold = list.filter(function(p) { return p.daysSinceLastSale === null; }).length;
-  var html = '<div class="dash-section" id="discon-section"><div class="dash-title">不續辦產品 — 銷售狀況</div>' +
-    '<div class="kpi-row" style="margin-bottom:16px">' +
-    '<div class="kpi-card kpi-blue"><div class="label">產品數</div><div class="value">' + list.length + '</div><div class="sub">支 SKU</div></div>' +
-    '<div class="kpi-card kpi-gold"><div class="label">庫存佔用成本</div><div class="value">' + fmt(totalCost) + '</div><div class="sub">元</div></div>' +
-    '<div class="kpi-card kpi-green"><div class="label">歷史銷售</div><div class="value">' + Math.round(totalPings) + '</div><div class="sub">坪</div></div>' +
+  var grandTotal = d ? d.grandTotal : 0;
+  var months = d ? d.months : [];
+  var peopleTotal = d ? d.peopleTotal : {};
+  var names = Object.keys(peopleTotal).sort(function(a, b) { return peopleTotal[b] - peopleTotal[a]; });
+  var colorMap = {};
+  names.forEach(function(n, i) { colorMap[n] = DASHBOARD_COLORS[i % DASHBOARD_COLORS.length]; });
+
+  var html = '<div class="kpi-row">' +
+    '<div class="kpi-card kpi-gold"><div class="label">年度銷售總計</div><div class="value">' + fmt(grandTotal) + '</div><div class="sub">元</div></div>' +
+    '<div class="kpi-card kpi-blue"><div class="label">已過月數</div><div class="value">' + (months.length ? months[months.length - 1].month : '-') + '</div><div class="sub">月份</div></div>' +
+    '<div class="kpi-card kpi-red"><div class="label">庫存佔用成本</div><div class="value">' + fmt(totalCost) + '</div><div class="sub">元</div></div>' +
     '<div class="kpi-card" style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;text-align:center"><div class="label" style="font-size:11px;color:var(--text2);font-weight:700;margin-bottom:6px">從未銷售</div><div class="value" style="font-size:26px;font-weight:900;color:var(--red)">' + neverSold + '</div><div class="sub" style="font-size:11px;color:var(--text2);margin-top:4px">支</div></div>' +
-    '</div><div class="product-list">';
+    '</div>';
+
+  if (months.length) {
+    var maxTotal = d.maxMonthTotal || 1;
+    html += '<div class="dash-section"><div class="dash-title">逐月業績長條圖</div><div class="bar-chart"><div class="bar-y-axis">';
+    var ySteps = [0, 25, 50, 75, 100];
+    for (var yi = ySteps.length - 1; yi >= 0; yi--) {
+      html += '<div class="bar-y-label">' + fmtNum(Math.round(maxTotal * ySteps[yi] / 100)) + '</div>';
+    }
+    html += '</div><div class="bar-area"><div class="bar-baseline"></div>';
+    months.forEach(function(m) {
+      var barH = m.total > 0 ? Math.max(m.total / maxTotal * 100, 3) : 0;
+      html += '<div class="bar-col"><div class="bar-stack" style="height:' + barH + '%">';
+      var sortedPeople = Object.keys(m.people).sort(function(a, b) { return m.people[b] - m.people[a]; });
+      var cumPct = 0;
+      sortedPeople.forEach(function(n) {
+        var segPct = m.total > 0 ? m.people[n] / m.total * 100 : 0;
+        html += '<div class="bar-seg" style="height:' + segPct + '%;bottom:' + cumPct + '%;background:' + colorMap[n] + '" title="' + n + ': ' + fmt(m.people[n]) + '"></div>';
+        cumPct += segPct;
+      });
+      html += '</div><div class="bar-label">' + m.month + '月</div></div>';
+    });
+    html += '</div></div></div>';
+  }
+
+  if (names.length) {
+    html += '<div class="dash-section"><div class="dash-title">業務佔比</div><div class="person-grid">';
+    names.forEach(function(n) {
+      var amt = peopleTotal[n];
+      var pct = grandTotal > 0 ? Math.round(amt / grandTotal * 10000) / 100 : 0;
+      var barW = grandTotal > 0 ? Math.round(amt / grandTotal * 100) : 0;
+      html += '<div class="person-card">' +
+        '<div class="pc-name"><span class="pc-dot" style="background:' + colorMap[n] + '"></span>' + n + '</div>' +
+        '<div class="pc-bar-wrap"><div class="pc-bar" style="width:' + barW + '%;background:' + colorMap[n] + '"></div></div>' +
+        '<div class="pc-nums"><span class="pc-amt">' + fmt(amt) + '</span><span class="pc-pct">' + pct + '%</span></div>' +
+      '</div>';
+    });
+    html += '</div></div>';
+  }
+
+  if (d && d.topCustomers && d.topCustomers.length) {
+    html += '<div class="dash-section"><div class="dash-title">前 10 大客戶（銷售金額）</div><div class="rank-list">';
+    d.topCustomers.forEach(function(c, i) {
+      html += '<div class="rank-row" style="cursor:pointer" onclick="showCustomerDetail(\'' + c.fullName.replace(/'/g, "\\'") + '\')"><span class="rank-num">' + (i + 1) + '</span><span class="rank-name">' + c.name + ' <span style="font-size:11px;color:var(--purple)">' + c.series + '</span></span><span class="rank-amt">' + c.totalWan + '萬 <span style="font-size:11px;color:var(--gold)">' + c.pct + '%</span></span></div>';
+    });
+    html += '</div></div>';
+  }
+
+  if (d && d.topProducts && d.topProducts.length) {
+    html += '<div class="dash-section"><div class="dash-title">前 10 大產品（系列 + 編號 + 金額）</div><div class="rank-list">';
+    d.topProducts.forEach(function(p, i) {
+      html += '<div class="rank-row"><span class="rank-num">' + (i + 1) + '</span><span class="rank-name">' + p.series + ' <span class="text-purple" style="font-size:11px">' + p.sku + '</span></span><span class="rank-amt">' + fmt(Math.round(p.amt)) + '</span></div>';
+    });
+    html += '</div></div>';
+  }
+
+  if (!list.length) {
+    document.getElementById('bonus-sub-content').innerHTML = html;
+    return;
+  }
+  html += '<div class="dash-section" id="discon-section"><div class="dash-title">不續辦產品 — 庫存明細</div><div class="product-list">';
   list.forEach(function(p) {
     var frozenClass, frozenText;
     if (p.daysSinceLastSale === null) {

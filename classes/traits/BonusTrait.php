@@ -511,6 +511,119 @@ trait BonusTrait
         ];
     }
 
+    // 不續辦版的年度銷售統計，版面比照 getYearSummary()（睡美人），但直接從產品年度銷售快取抓不續辦SKU的實際銷售，
+    // 沒有試算表也沒有獎金倍數（不續辦不算獎金），單純呈現銷售金額/業務佔比/客戶排行
+    public function getDiscontinuedYearSummary($year)
+    {
+        $currentMonth = (int)date('n');
+        $profiles = $this->getProductProfileMap();
+        $data = $this->gs->readSheet(CACHE_SHEET);
+
+        $months = [];
+        $grandTotal = 0;
+        $peopleTotal = [];
+        $custData = [];
+        $prodTotals = [];
+        $totalAmt = 0;
+
+        if (count($data) > 1) {
+            $h = $data[0];
+            $idx = [
+                'year' => $this->findHeader($h, ['年度']),
+                'month' => $this->findHeader($h, ['月份']),
+                'sales' => $this->findHeader($h, ['負責業務', '業務']),
+                'cust' => $this->findHeader($h, ['客戶名稱', '客戶']),
+                'code' => $this->findHeader($h, ['產品編號']),
+                'amt' => $this->findHeader($h, ['銷售金額']),
+            ];
+            $monthMap = [];
+            for ($i = 1; $i < count($data); $i++) {
+                $r = $data[$i];
+                $rowYear = (int)$this->getVal($r, $idx['year']);
+                if ($rowYear !== (int)$year) continue;
+                $sku = $this->cleanSku($this->getVal($r, $idx['code']));
+                $profile = $profiles[$sku] ?? [];
+                if (empty($profile['isDiscontinued'])) continue;
+
+                $mNum = (int)$this->getVal($r, $idx['month']);
+                $salesRaw = trim($this->getVal($r, $idx['sales']));
+                $sales = self::$salesMerge[$salesRaw] ?? $salesRaw;
+                $cust = $this->displayCustomerName($this->getVal($r, $idx['cust']));
+                $series = trim(($profile['seriesCn'] ?? '') ?: ($profile['series'] ?? '')) ?: '未分類';
+                $amt = $this->optFloat($this->getVal($r, $idx['amt']));
+
+                if (!isset($monthMap[$mNum])) $monthMap[$mNum] = ['total' => 0, 'people' => []];
+                $monthMap[$mNum]['total'] += $amt;
+                if ($sales) {
+                    if (!isset($monthMap[$mNum]['people'][$sales])) $monthMap[$mNum]['people'][$sales] = 0;
+                    $monthMap[$mNum]['people'][$sales] += $amt;
+                    if (!isset($peopleTotal[$sales])) $peopleTotal[$sales] = 0;
+                    $peopleTotal[$sales] += $amt;
+                }
+                $grandTotal += $amt;
+
+                if ($cust && $cust !== '未知客戶' && $amt) {
+                    if (!isset($custData[$cust])) $custData[$cust] = ['total' => 0, 'series' => []];
+                    $custData[$cust]['total'] += abs($amt);
+                    if (!isset($custData[$cust]['series'][$series])) $custData[$cust]['series'][$series] = 0;
+                    $custData[$cust]['series'][$series] += abs($amt);
+                    $totalAmt += abs($amt);
+                }
+                if ($sku && $amt) {
+                    $key = $sku . '|' . $series;
+                    if (!isset($prodTotals[$key])) $prodTotals[$key] = ['sku' => $sku, 'series' => $series, 'amt' => 0];
+                    $prodTotals[$key]['amt'] += abs($amt);
+                }
+            }
+            for ($m = 1; $m <= $currentMonth; $m++) {
+                $md = $monthMap[$m] ?? ['total' => 0, 'people' => []];
+                $months[] = ['month' => $m, 'total' => $md['total'], 'people' => $md['people']];
+            }
+        } else {
+            for ($m = 1; $m <= $currentMonth; $m++) {
+                $months[] = ['month' => $m, 'total' => 0, 'people' => []];
+            }
+        }
+
+        $maxMonthTotal = 0;
+        foreach ($months as $m) {
+            if ($m['total'] > $maxMonthTotal) $maxMonthTotal = $m['total'];
+        }
+
+        uasort($custData, function ($a, $b) { return $b['total'] <=> $a['total']; });
+        $top10cust = [];
+        $ci = 0;
+        foreach ($custData as $name => $cd) {
+            if ($ci++ >= 10) break;
+            arsort($cd['series']);
+            $topSeries = key($cd['series']);
+            $top10cust[] = [
+                'name' => mb_substr($name, 0, 2, 'UTF-8'),
+                'fullName' => $name,
+                'series' => $topSeries ?: '',
+                'totalWan' => round($cd['total'] / 10000, 1),
+                'pct' => $totalAmt > 0 ? round($cd['total'] / $totalAmt * 100, 1) : 0,
+            ];
+        }
+
+        usort($prodTotals, function ($a, $b) { return $b['amt'] <=> $a['amt']; });
+        $top10prod = array_slice(array_values($prodTotals), 0, 10);
+
+        return [
+            'success' => true,
+            'data' => [
+                'year' => $year,
+                'currentMonth' => $currentMonth,
+                'months' => $months,
+                'grandTotal' => $grandTotal,
+                'peopleTotal' => $peopleTotal,
+                'maxMonthTotal' => $maxMonthTotal,
+                'topCustomers' => $top10cust,
+                'topProducts' => $top10prod,
+            ]
+        ];
+    }
+
     private function ensureTrialSheet()
     {
         $data = $this->gs->readSheet(TRIAL_SHEET);
