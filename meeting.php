@@ -1463,28 +1463,33 @@
               ${buildDonutCard('依銷售佔比', salesDonutRows, totalSales, '依銷售金額')}
             </div>
             <div class="chart-card wide">
-              <div class="hint" style="margin-bottom:12px">家數 / 佔比 / 拜訪效率 / 單次拜訪產值</div>
-              <div class="item-list">
-                ${buckets.map(row => `
-                  <details class="expander">
-                    <summary>
-                      <div>
-                        <div class="bucket-title">${escapeHtml(row.name)}</div>
-                        <div class="bucket-meta">家數 <span class="meta-num">${fmtInt(row.count)}</span> / 家數佔比 <span class="meta-num share">${fmtPct(row.customerSharePct)}</span> / 業績佔比 <span class="meta-num share">${fmtPct(row.salesSharePct)}</span> / 平均拜訪 <span class="meta-num">${fmtInt(row.avgVisitsPerCustomer || 0)}</span> 次 / 單次拜訪產值 <span class="meta-num">${fmtWan(row.salesPerVisit || 0)}</span></div>
-                        <div class="click-badge">點家數看客戶 <span class="expander-icon">▾</span></div>
-                      </div>
-                      <div class="bucket-badge">${fmtWan(row.amount)}</div>
-                    </summary>
-                    <div class="expander-body">
-                      <div class="short-chip-list">
-                        ${(row.customers || []).map(c => `
-                          <span class="short-chip">${escapeHtml(((c.shortName || c.name || '').slice(0, 2) || c.name || '客戶'))} <strong>${fmtWan(c.amount)}</strong> ${fmtInt(c.visits || 0)}次</span>
-                        `).join('') || '<span class="hint">本級距無客戶</span>'}
-                      </div>
-                    </div>
-                  </details>
-                `).join('')}
-              </div>
+              ${(() => {
+                const label = (buckets[0] && buckets[0].metricLabel) ? buckets[0].metricLabel : '出貨';
+                return `
+                  <div class="hint" style="margin-bottom:12px">家數 / 佔比 / ${label}效率 / 單次${label}產值</div>
+                  <div class="item-list">
+                    ${buckets.map(row => `
+                      <details class="expander">
+                        <summary>
+                          <div>
+                            <div class="bucket-title">${escapeHtml(row.name)}</div>
+                            <div class="bucket-meta">家數 <span class="meta-num">${fmtInt(row.count)}</span> / 家數佔比 <span class="meta-num share">${fmtPct(row.customerSharePct)}</span> / 業績佔比 <span class="meta-num share">${fmtPct(row.salesSharePct)}</span> / 平均${label} <span class="meta-num">${fmtInt(row.avgVisitsPerCustomer || 0)}</span> 次 / 單次${label}產值 <span class="meta-num">${fmtWan(row.salesPerVisit || 0)}</span></div>
+                            <div class="click-badge">點家數看客戶 <span class="expander-icon">▾</span></div>
+                          </div>
+                          <div class="bucket-badge">${fmtWan(row.amount)}</div>
+                        </summary>
+                        <div class="expander-body">
+                          <div class="short-chip-list">
+                            ${(row.customers || []).map(c => `
+                              <span class="short-chip">${escapeHtml(((c.shortName || c.name || '').slice(0, 2) || c.name || '客戶'))} <strong>${fmtWan(c.amount)}</strong> ${fmtInt(c.visits || 0)}次</span>
+                            `).join('') || '<span class="hint">本級距無客戶</span>'}
+                          </div>
+                        </div>
+                      </details>
+                    `).join('')}
+                  </div>
+                `;
+              })()}
             </div>
           </div>
           <details class="expander section-pad">

@@ -802,6 +802,7 @@ trait ReportTrait
         $meetingProjectTotal = 0;
         $sleeperSeriesBreakdown = [];
         $currentCustomerAmounts = [];
+        $currentCustomerTxCounts = [];
         $countryRanks = [];
         $customerDetails = [];
         $salesCustomerBreakdown = [];
@@ -853,8 +854,12 @@ trait ReportTrait
             $meetingCurrentPings += $pings;
             $meetingCurrentTxCount += $txCount;
             if ($customer !== '未知客戶') {
-                if (!isset($currentCustomerAmounts[$customer])) $currentCustomerAmounts[$customer] = 0;
+                if (!isset($currentCustomerAmounts[$customer])) {
+                    $currentCustomerAmounts[$customer] = 0;
+                    $currentCustomerTxCounts[$customer] = 0;
+                }
                 $currentCustomerAmounts[$customer] += $amount;
+                $currentCustomerTxCounts[$customer] += max(1, $txCount);
                 if (!isset($customerDetails[$customer])) {
                     $customerDetails[$customer] = ['name' => $customer, 'items' => []];
                 }
@@ -1235,7 +1240,9 @@ trait ReportTrait
         foreach ($shipmentBuckets as &$bucket) {
             $bucket['customers'] = [];
         }
+        $hasVisitData = count($visitMap) > 0;
         foreach ($currentCustomerAmounts as $customerName => $amount) {
+            $txCnt = $currentCustomerTxCounts[$customerName] ?? 1;
             foreach ($shipmentBuckets as &$bucket) {
                 $hit = $bucket['max'] === null
                     ? ($amount >= $bucket['min'])
@@ -1246,7 +1253,7 @@ trait ReportTrait
                         'name' => $customerName,
                         'shortName' => mb_substr($customerName, 0, 2, 'UTF-8'),
                         'amount' => $amount,
-                        'visits' => $visitRow['visits'] ?? 0,
+                        'visits' => $hasVisitData ? ($visitRow['visits'] ?? 0) : $txCnt,
                         'visitDays' => $visitRow['visitDays'] ?? 0
                     ];
                     break;
@@ -1266,6 +1273,7 @@ trait ReportTrait
             $bucket['salesPerVisit'] = $visitTotal > 0
                 ? round($bucket['amount'] / $visitTotal)
                 : 0;
+            $bucket['metricLabel'] = $hasVisitData ? '拜訪' : '出貨';
         }
         unset($bucket);
 
