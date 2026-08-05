@@ -903,7 +903,7 @@ trait ReportTrait
             if ($projectName !== '') {
                 $meetingProjectTotal += $amount;
             }
-            $country = trim($profile['country'] ?? '') ?: '未分類';
+            $country = $this->normalizeCountry(trim($profile['country'] ?? '')) ?: '未分類';
             if (!isset($countryRanks[$country])) {
                 $countryRanks[$country] = ['name' => $country, 'amount' => 0, 'pings' => 0, 'count' => 0];
             }
@@ -1273,7 +1273,7 @@ trait ReportTrait
             'spain' => ['name' => '西班牙', 'amount' => 0],
         ];
         foreach ($countryRanks as $row) {
-            $countryName = trim((string)$row['name']);
+            $countryName = $this->normalizeCountry(trim((string)$row['name']));
             if ($countryName === '義大利') $brandSales['italy']['amount'] += $row['amount'];
             if ($countryName === '西班牙') $brandSales['spain']['amount'] += $row['amount'];
         }

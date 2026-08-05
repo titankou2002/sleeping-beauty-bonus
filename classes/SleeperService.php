@@ -315,6 +315,36 @@ class SleeperService
         return self::$brandMerge[$b] ?? $b;
     }
 
+    public function normalizeCountry($country)
+    {
+        $c = strtoupper(trim((string)$country));
+        if ($c === '') return '';
+
+        static $countryMap = [
+            'SPAIN' => '西班牙',
+            'ITALY' => '義大利',
+            'THAILAND' => '泰國',
+            'INDIA' => '印度',
+            'INDONESIA' => '印尼',
+            'MALAYSIA' => '馬來西亞',
+            'CHINA' => '中國',
+            'VIETNAM' => '越南',
+            'TURKEY' => '土耳其',
+            'TÜRKIYE' => '土耳其',
+            'TURKIYE' => '土耳其',
+            'GERMANY' => '德國',
+            'PORTUGAL' => '葡萄牙',
+            'JAPAN' => '日本',
+            'KOREA' => '韓國',
+            'SOUTH KOREA' => '韓國',
+            'TAIWAN' => '台灣',
+            'BRAZIL' => '巴西',
+            'EGYPT' => '埃及'
+        ];
+
+        return $countryMap[$c] ?? trim((string)$country);
+    }
+
     private function normalizeSalesRep($v)
     {
         $name = trim((string)$v);
