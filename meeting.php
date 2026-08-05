@@ -2082,14 +2082,14 @@
               ])
             })}
             ${miniDrillCard({
-              title: '③實際消化合約金' + qm('合約還沒消化完的客戶（正常/觀察/警示/掛點，不含待續約），本月實際買了多少，視為消化掉的合約金額估算值。改用本月即時銷貨資料計算，不再依賴人工更新的月結餘額欄位，數字不會delay。新簽 ' + fmtWan(nc.total) + '（' + nc.count + '家），淨變化 ' + (netChange >= 0 ? '+' : '') + fmtWan(netChange) + '。'),
+              title: '③實際消化合約金' + qm('統計合約表本月實際沖帳扣抵的合約金總額。新簽 ' + fmtWan(nc.total) + '（' + nc.count + '家），淨變化 ' + (netChange >= 0 ? '+' : '') + fmtWan(netChange) + '。'),
               value: fmtWan(consumed),
               valueStyle: 'color:var(--gold)',
-              note: '合約還沒消化完的客戶本月實際買了多少，用即時銷貨資料估算，不再依賴人工月結餘額欄位。',
+              note: '本月合約客戶實際沖帳扣抵的金額。',
               judge: '愈高愈好',
               body: miniDrillTable(consumingSales, [
                 { label: '客戶', get: r => escapeHtml(r.name) },
-                { label: '本月購買金額', get: r => fmtWan(r.amount), num: true }
+                { label: '本月沖帳金額', get: r => fmtWan(r.amount), num: true }
               ])
             })}
             ${miniDrillCard({

@@ -1194,22 +1194,13 @@ trait ReportTrait
         $signedTarget = $contractSummary['summary']['signedMonthlyTarget'] ?? 0;
         $signedHealthPct = $signedTarget > 0 ? ($signedStoreSales / $signedTarget * 100) : 0;
 
-        // ③實際消化合約金改用本月即時銷貨資料估算，避免依賴人工月結餘額欄位造成delay：
-        // 合約還沒消化完的客戶（排除待續約）本月實際買了多少，視為本月消化掉的合約金額
-        $consumingCustomerLookup = [];
-        foreach (($contractSummary['consumingCustomers'] ?? []) as $cust) {
-            $consumingCustomerLookup[$cust] = true;
-        }
-        $consumedRealtime = 0;
         $consumingCustomerSales = [];
-        foreach ($currentCustomerAmounts as $cust => $amount) {
-            if (isset($consumingCustomerLookup[$cust])) {
-                $consumedRealtime += $amount;
-                $consumingCustomerSales[] = ['name' => $cust, 'amount' => round($amount)];
+        foreach (($contractSummary['contractDetail'] ?? []) as $cd) {
+            if (($cd['consumption'] ?? 0) > 0) {
+                $consumingCustomerSales[] = ['name' => $cd['name'], 'amount' => round($cd['consumption'])];
             }
         }
         usort($consumingCustomerSales, function ($a, $b) { return $b['amount'] <=> $a['amount']; });
-        $contractSummary['consumedThisMonth'] = round($consumedRealtime);
         $contractSummary['consumingCustomerSales'] = $consumingCustomerSales;
 
         $shipmentBuckets = [
@@ -1779,6 +1770,7 @@ trait ReportTrait
             $idxSales = $this->findHeader($h, ['業務']);
 
             $balanceCols = [];
+            $offsetCols = [];
             foreach ($h as $i => $col) {
                 $c = trim((string)$col);
                 if (mb_strpos($c, '餘額') !== false) {
@@ -1790,6 +1782,15 @@ trait ReportTrait
                     }
                     $balanceCols[] = ['idx' => $i, 'date' => $dateInfo];
                 }
+                if (mb_strpos($c, '沖帳金額') !== false) {
+                    $dateInfo = ['rocY' => null, 'm' => null];
+                    if (preg_match('/(\d{2,4})[\/年](\d{1,2})月/u', $c, $m)) {
+                        $y = (int)$m[1];
+                        if ($y < 100) $y += 1911;
+                        $dateInfo = ['rocY' => $y, 'm' => (int)$m[2]];
+                    }
+                    $offsetCols[] = ['idx' => $i, 'date' => $dateInfo];
+                }
             }
             usort($balanceCols, function ($a, $b) {
                 if ($a['date']['rocY'] === null && $b['date']['rocY'] === null) return 0;
@@ -1798,8 +1799,16 @@ trait ReportTrait
                 if ($a['date']['rocY'] !== $b['date']['rocY']) return $a['date']['rocY'] - $b['date']['rocY'];
                 return $a['date']['m'] - $b['date']['m'];
             });
+            usort($offsetCols, function ($a, $b) {
+                if ($a['date']['rocY'] === null && $b['date']['rocY'] === null) return 0;
+                if ($a['date']['rocY'] === null) return 1;
+                if ($b['date']['rocY'] === null) return -1;
+                if ($a['date']['rocY'] !== $b['date']['rocY']) return $a['date']['rocY'] - $b['date']['rocY'];
+                return $a['date']['m'] - $b['date']['m'];
+            });
             $idxBalance = count($balanceCols) > 0 ? $balanceCols[count($balanceCols) - 1]['idx'] : -1;
             $idxPrevBalance = count($balanceCols) > 1 ? $balanceCols[count($balanceCols) - 2]['idx'] : -1;
+            $idxOffset = count($offsetCols) > 0 ? $offsetCols[count($offsetCols) - 1]['idx'] : -1;
 
             $healthCounts = [];
             $customers = [];
@@ -1834,7 +1843,10 @@ trait ReportTrait
 
                 $bal = $idxBalance !== -1 ? $this->optFloat($this->getVal($row, $idxBalance)) : 0;
                 $prevBal = $idxPrevBalance !== -1 ? $this->optFloat($this->getVal($row, $idxPrevBalance)) : null;
-                $consumption = ($prevBal !== null && $prevBal > $bal) ? ($prevBal - $bal) : 0;
+                $offsetVal = $idxOffset !== -1 ? $this->optFloat($this->getVal($row, $idxOffset)) : null;
+                $consumption = ($offsetVal !== null && $offsetVal > 0)
+                    ? $offsetVal
+                    : (($prevBal !== null && $prevBal > $bal) ? ($prevBal - $bal) : 0);
 
                 $balRatio = $totalContract > 0 ? ($bal / $totalContract) : 1;
 
