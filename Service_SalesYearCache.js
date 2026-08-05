@@ -284,5 +284,5 @@ function normalizeSalesCacheYears_(years) {
 }
 
 function normalizeSalesCacheCode_(code) {
-  return String(code || '').trim().toUpperCase().replace(/[\s\-]/g, '');
+  return String(code || '').trim().toUpperCase().replace(/\s+/g, '');
 }

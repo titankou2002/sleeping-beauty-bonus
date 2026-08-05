@@ -303,7 +303,7 @@ class SleeperService
 
     private function cleanSku($v)
     {
-        return strtoupper(preg_replace('/[\s\-]/', '', trim($v)));
+        return strtoupper(preg_replace('/\s+/u', '', trim((string)$v)));
     }
 
     private static $brandMerge = ['ALAPLANA' => 'STN', 'VITACER' => 'STN'];
