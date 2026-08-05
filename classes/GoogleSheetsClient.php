@@ -1,4 +1,8 @@
 <?php
+if (!defined('SS_ID_MAIN') && is_file(dirname(__DIR__) . '/config.php')) {
+    require_once dirname(__DIR__) . '/config.php';
+}
+
 // ====== GoogleSheetsClient ======
 class GoogleSheetsClient
 {
@@ -17,7 +21,10 @@ class GoogleSheetsClient
 
     public function __construct($ssId = null)
     {
-        $this->ssId = $ssId ?: SS_ID_MAIN;
+        if (!defined('SS_ID_MAIN') && is_file(dirname(__DIR__) . '/config.php')) {
+            require_once dirname(__DIR__) . '/config.php';
+        }
+        $this->ssId = $ssId ?: (defined('SS_ID_MAIN') ? SS_ID_MAIN : '');
         if (self::$cacheDir === null) {
             self::$cacheDir = defined('AI_ADVISOR_CACHE_DIR') ? AI_ADVISOR_CACHE_DIR . '/sheets' : (dirname(__DIR__) . '/cache/sheets');
             if (!is_dir(self::$cacheDir)) {
