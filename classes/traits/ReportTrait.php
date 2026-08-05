@@ -805,7 +805,7 @@ trait ReportTrait
         $countryRanks = [];
         $customerDetails = [];
         $salesCustomerBreakdown = [];
-        $countryBrandRanks = ['義大利' => [], '西班牙' => []];
+        $countryBrandRanks = [];
         $seriesRanks = [];
         $categoryRanks = [];
         $sizeRanks = [];
@@ -910,7 +910,9 @@ trait ReportTrait
             $countryRanks[$country]['amount'] += $amount;
             $countryRanks[$country]['pings'] += $pings;
             $countryRanks[$country]['count'] += $txCount;
-            if (isset($countryBrandRanks[$country])) {
+            if (!isset($countryBrandRanks[$country])) {
+                $countryBrandRanks[$country] = [];
+            }
                 $brand = trim($profile['brand'] ?? '') ?: '未分類廠牌';
                 $seriesName = trim(($profile['seriesCn'] ?? '') ?: ($profile['series'] ?? '')) ?: '未分類系列';
                 if (!isset($countryBrandRanks[$country][$brand])) {
@@ -1268,15 +1270,16 @@ trait ReportTrait
         }
         unset($bucket);
 
-        $brandSales = [
-            'italy' => ['name' => '義大利', 'amount' => 0],
-            'spain' => ['name' => '西班牙', 'amount' => 0],
-        ];
+        $brandSales = [];
         foreach ($countryRanks as $row) {
-            $countryName = $this->normalizeCountry(trim((string)$row['name']));
-            if ($countryName === '義大利') $brandSales['italy']['amount'] += $row['amount'];
-            if ($countryName === '西班牙') $brandSales['spain']['amount'] += $row['amount'];
+            $cName = $this->normalizeCountry(trim((string)$row['name'])) ?: '未分類';
+            if (!isset($brandSales[$cName])) {
+                $brandSales[$cName] = ['name' => $cName, 'amount' => 0];
+            }
+            $brandSales[$cName]['amount'] += $row['amount'];
         }
+        uasort($brandSales, function ($a, $b) { return $b['amount'] <=> $a['amount']; });
+        $brandSales = array_values($brandSales);
         foreach ($brandSales as &$row) {
             $row['sharePct'] = $meetingCurrentTotal > 0 ? ($row['amount'] / $meetingCurrentTotal * 100) : 0;
         }

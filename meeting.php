@@ -705,7 +705,7 @@
       gap: 12px;
     }
     .bucket-grid { grid-template-columns: 1.05fr 1.75fr; }
-    .brand-grid { grid-template-columns: 1.05fr 1fr 1fr; }
+    .brand-grid { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
     .top-grid,
     .sales-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .bucket-summary,
@@ -1515,19 +1515,19 @@
       const brandRows = d.brandSales || [];
       const total = brandRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
       const countryBrands = d.countryBrandRanking || {};
-      const countryKeys = ['義大利', '西班牙'];
+      const countryKeys = brandRows.map(r => r.name).filter(Boolean);
       const countryShareMap = Object.fromEntries(brandRows.map(r => [r.name, Number(r.sharePct || 0)]));
       return `
         <section class="sheet">
           <div class="sheet-title">國別與廠牌分析</div>
           <div class="chart-grid">
-            ${buildDonutCard('義大利 / 西班牙', brandRows.map(r => ({...r, name: r.name || '未分類'})), total, '依銷售金額')}
+            ${buildDonutCard('各國產地銷額分佈', brandRows.map(r => ({...r, name: r.name || '未分類'})), total, '依銷售金額')}
             <div class="chart-card">
               <div class="hint" style="margin-bottom:12px">國別銷售排名</div>
               <div class="rank-board">
                 ${brandRows.map(r => `
                   <div class="rank-row">
-                    <div><div class="rank-name">${escapeHtml(r.name)}廠牌</div></div>
+                    <div><div class="rank-name">${escapeHtml(r.name)}</div></div>
                     <div class="rank-track"><div class="rank-fill" style="width:${Math.max(6, Math.round(Number(r.sharePct || 0)))}%"></div></div>
                     <div class="rank-val">${fmtWan(r.amount)}/${fmtPct(r.sharePct)}</div>
                   </div>
