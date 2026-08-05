@@ -409,7 +409,14 @@ trait DataTrait
                     for ($i = 1; $i < count($sleeperData); $i++) {
                         $sku = $this->cleanSku($this->getVal($sleeperData[$i], $sSku));
                         if (!$sku) continue;
-                        if (!isset($map[$sku])) $map[$sku] = [];
+                        if (!isset($map[$sku])) {
+                            // 只在睡美人工作表、價目表沒有這個品項時，補一份預設欄位齊全的資料，避免其他呼叫端存取欄位時出現 Undefined array key
+                            $map[$sku] = [
+                                'series' => '', 'seriesCn' => '', 'perPing' => 36, 'brand' => '', 'country' => '',
+                                'productName' => '', 'size' => '', 'category' => '', 'imageUrl' => '',
+                                'isSleeper' => false, 'isDiscontinued' => false, 'firstInDate' => '', 'latestInDate' => ''
+                            ];
+                        }
                         $map[$sku]['isSleeper'] = true;
                     }
                 }
