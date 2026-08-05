@@ -567,7 +567,7 @@ input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-colo
         <h1 class="logo" onclick="switchTab('products')" style="cursor:pointer">高雅瓷戰情室</h1>
         <div class="tab-bar">
           <button class="tab-btn active" id="tab-products" onclick="switchTab('products')">每日戰報</button>
-          <button class="tab-btn" id="tab-reports" onclick="switchTab('reports')">銷售報表</button>
+          <button class="tab-btn" id="tab-reports" onclick="switchTab('reports')">圓桌月報</button>
           <button class="tab-btn" id="tab-bonus" onclick="switchTab('bonus')">睡美人銷售</button>
           <button class="tab-btn" id="tab-customers" onclick="switchTab('customers')">客戶分析</button>
           <button class="tab-btn" id="tab-analysis" onclick="switchTab('analysis')">新品分析</button>
