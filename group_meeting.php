@@ -344,7 +344,7 @@ function renderAll(d){
     html+=`<div class="cc"><div class="nm"><span class="dot" style="background:${c.color}"></span>${c.name}</div>`;
     entries.forEach(([cat,v])=>{
       const p=total>0?(v.amount/total*100).toFixed(0):0;
-      html+=`<div class="bar-row"><span class="bar-label">${cat||'未分類'}</span><div class="bar-track"><div style="width:${p}%;height:100%;background:${c.color};border-radius:3px"></div></div><span class="bar-val">${p}%</span></div>`;
+      html+=`<div class="bar-row"><span class="bar-label">${cat||'期貨/外調'}</span><div class="bar-track"><div style="width:${p}%;height:100%;background:${c.color};border-radius:3px"></div></div><span class="bar-val">${p}%</span></div>`;
     });
     html+=`<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
       <button class="detail-btn" onclick="showProductDetail('${k}','category')">種類明細</button>
@@ -370,7 +370,7 @@ function renderAll(d){
       html+=`<details style="border-bottom:1px solid rgba(255,255,255,.04)">
         <summary style="cursor:pointer;padding:8px 12px;display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;list-style:none">
           <span style="width:20px;height:20px;border-radius:50%;background:${c.color}20;color:${c.color};display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0">${si+1}</span>
-          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(s.seriesCn||s.series||'未分類')}</span>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(s.seriesCn||s.series||'期貨/外調')}</span>
           <span style="font-size:10px;color:var(--muted);white-space:nowrap">${(s.totalPings||0).toFixed(0)}坪 · ${pct}%</span>
           <span style="font-size:10px;color:${c.color}">▾</span>
         </summary>
@@ -412,7 +412,7 @@ function renderAll(d){
         const roundedPings = Math.round(row.pings);
         const cleanAmt = fmtW(row.amount).replace(/\s/g, '');
         const sizeStr = row.size ? ` (${row.size})` : '';
-        html+=`<div class="hot-prod-txt-main" style="font-size:13px;font-weight:700;margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;" title="${escapeHtml(row.sku)} ${escapeHtml(row.series || '未分類')}${escapeHtml(sizeStr)}">${escapeHtml(row.sku)} ${escapeHtml(row.series || '未分類')}${escapeHtml(sizeStr)}</div>
+        html+=`<div class="hot-prod-txt-main" style="font-size:13px;font-weight:700;margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;" title="${escapeHtml(row.sku)} ${escapeHtml(row.series || '期貨/外調')}${escapeHtml(sizeStr)}">${escapeHtml(row.sku)} ${escapeHtml(row.series || '期貨/外調')}${escapeHtml(sizeStr)}</div>
           <div class="hot-prod-txt-sub" style="font-size:12px;color:var(--muted);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;">${roundedPings}坪/${cleanAmt}</div>
         </div>`;
       } else {
@@ -982,7 +982,7 @@ function showProductDetail(companyKey, type){
   entries.forEach(([name,v])=>{
     const p=totalAmt>0?(v.amount/totalAmt*100).toFixed(1):'0';
     const w=Math.min(Number(p),100);
-    h+=`<tr><td>${name||'未分類'}</td><td class="r" style="font-weight:700">${fmtW(v.amount)}</td><td class="r">${p}%</td><td class="r">${fmtP(v.pings)}</td>
+    h+=`<tr><td>${name||'期貨/外調'}</td><td class="r" style="font-weight:700">${fmtW(v.amount)}</td><td class="r">${p}%</td><td class="r">${fmtP(v.pings)}</td>
       <td><div style="width:120px;height:14px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden"><div style="width:${w}%;height:100%;background:${c.color};border-radius:3px"></div></div></td></tr>`;
   });
   h+=`</table>`;

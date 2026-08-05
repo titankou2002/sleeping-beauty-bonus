@@ -1521,7 +1521,7 @@
         <section class="sheet">
           <div class="sheet-title">國別與廠牌分析</div>
           <div class="chart-grid">
-            ${buildDonutCard('各國產地銷額分佈', brandRows.map(r => ({...r, name: r.name === '東南亞' ? '東南亞 (泰/印/馬/斯)' : (r.name || '未分類')})), total, '依銷售金額')}
+            ${buildDonutCard('各國產地銷額分佈', brandRows.map(r => ({...r, name: r.name === '東南亞' ? '東南亞 (泰/印/馬/斯)' : (r.name || '期貨/外調')})), total, '依銷售金額')}
             <div class="chart-card">
               <div class="hint" style="margin-bottom:12px">國別銷售排名</div>
               <div class="rank-board">
@@ -1547,7 +1547,7 @@
                 cursor += pct;
                 return `${palette(idx)} ${start}% ${cursor}%`;
               }).join(', ');
-              const headTitle = country === '東南亞' ? '東南亞廠牌 <span style="font-size:11px;color:var(--text-dim);font-weight:normal">(泰/印/馬/斯)</span>' : `${escapeHtml(country)}廠牌`;
+              const headTitle = country === '東南亞' ? '東南亞廠牌 <span style="font-size:11px;color:var(--text-dim);font-weight:normal">(泰/印/馬/斯)</span>' : (country === '期貨/外調' ? '期貨/外調' : `${escapeHtml(country)}廠牌`);
               return `
                 <div class="chart-card country-brand-col">
                   <div class="country-brand-head">
@@ -1756,8 +1756,8 @@
                   <div class="series-head" style="margin:0; width:100%;">
                     <div class="series-rank">${idx + 1}</div>
                     <div>
-                      <div class="series-title">${escapeHtml(r.seriesCn || r.series || '未分類系列')} <span class="expander-icon">▾</span></div>
-                      <div class="series-meta">${escapeHtml(r.brand || '未分類廠牌')} / ${escapeHtml(r.series || '—')}</div>
+                      <div class="series-title">${escapeHtml(r.seriesCn || r.series || '期貨/外調')} <span class="expander-icon">▾</span></div>
+                      <div class="series-meta">${escapeHtml(r.brand || '期貨/外調')} / ${escapeHtml(r.series || '—')}</div>
                     </div>
                     <div class="series-kpis">
                       <div class="series-kpi"><div class="t">總坪數</div><div class="v">${fmtInt(r.totalPings)}</div></div>
@@ -2280,8 +2280,8 @@
                 <div class="product-body">
                   <div class="product-name">${escapeHtml(row.sku)}</div>
                   <div class="product-meta">
-                    <span class="pill">${escapeHtml(row.series || '未分類')}</span>
-                    <span class="pill">${escapeHtml(row.category || '未分類')}</span>
+                    <span class="pill">${escapeHtml(row.series || '期貨/外調')}</span>
+                    <span class="pill">${escapeHtml(row.category || '期貨/外調')}</span>
                     <span class="pill">${escapeHtml(row.size || '未標尺寸')}</span>
                   </div>
                   <div class="product-stats">

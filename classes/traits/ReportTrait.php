@@ -281,7 +281,7 @@ trait ReportTrait
             $txCount = $idx['count'] !== -1 ? (int)$this->getVal($row, $idx['count']) : 0;
             $productName = trim($this->getVal($row, $idx['productName']));
             $series = !empty($profile) ? trim(($profile['seriesCn'] ?? '') ?: ($profile['series'] ?? '')) : (isset($metaMap[$sku]) ? trim($metaMap[$sku]['series']) : '');
-            if ($series === '') $series = '未分類';
+            if ($series === '') $series = '期貨/外調';
 
             // 漢樺/波爾泰（僅高雅瓷）實際由三位業務均分經營，業績需三等分歸入三人，而非全數算給單一業務
             $salesReps = ($customer === '漢樺' && $this->gs->getSsId() === SS_ID_MAIN) ? self::$hanhuaSplitReps : [$sales];
@@ -863,7 +863,7 @@ trait ReportTrait
                 if (!isset($customerDetails[$customer])) {
                     $customerDetails[$customer] = ['name' => $customer, 'items' => []];
                 }
-                $seriesCn = trim(($profile['seriesCn'] ?? '') ?: ($profile['series'] ?? '')) ?: '未分類系列';
+                $seriesCn = trim(($profile['seriesCn'] ?? '') ?: ($profile['series'] ?? '')) ?: '期貨/外調';
                 $detailKey = $seriesCn . '|' . $sku;
                 if (!isset($customerDetails[$customer]['items'][$detailKey])) {
                     $customerDetails[$customer]['items'][$detailKey] = [
@@ -890,7 +890,7 @@ trait ReportTrait
             }
             if ($profile && !empty($profile['isSleeper'])) {
                 $meetingSleeperTotal += $amount;
-                $sleeperSeriesCn = trim(($profile['seriesCn'] ?? '') ?: ($profile['series'] ?? '')) ?: '未分類系列';
+                $sleeperSeriesCn = trim(($profile['seriesCn'] ?? '') ?: ($profile['series'] ?? '')) ?: '期貨/外調';
                 if (!isset($sleeperSeriesBreakdown[$sleeperSeriesCn])) {
                     $sleeperSeriesBreakdown[$sleeperSeriesCn] = ['series' => $sleeperSeriesCn, 'amount' => 0, 'skus' => []];
                 }
@@ -908,7 +908,7 @@ trait ReportTrait
             if ($projectName !== '') {
                 $meetingProjectTotal += $amount;
             }
-            $country = $this->normalizeCountry(trim($profile['country'] ?? '')) ?: '未分類';
+            $country = $this->normalizeCountry(trim($profile['country'] ?? '')) ?: '期貨/外調';
             if (!isset($countryRanks[$country])) {
                 $countryRanks[$country] = ['name' => $country, 'amount' => 0, 'pings' => 0, 'count' => 0];
             }
@@ -918,8 +918,8 @@ trait ReportTrait
             if (!isset($countryBrandRanks[$country])) {
                 $countryBrandRanks[$country] = [];
             }
-                $brand = trim($profile['brand'] ?? '') ?: '未分類廠牌';
-                $seriesName = trim(($profile['seriesCn'] ?? '') ?: ($profile['series'] ?? '')) ?: '未分類系列';
+                $brand = trim($profile['brand'] ?? '') ?: '期貨/外調';
+                $seriesName = trim(($profile['seriesCn'] ?? '') ?: ($profile['series'] ?? '')) ?: '期貨/外調';
                 if (!isset($countryBrandRanks[$country][$brand])) {
                     $countryBrandRanks[$country][$brand] = [
                         'name' => $brand,
@@ -941,9 +941,9 @@ trait ReportTrait
             $seriesKey = ($profile['brand'] ?? '') . '|' . ($profile['series'] ?? '') . '|' . ($profile['seriesCn'] ?? '');
             if (!isset($seriesRanks[$seriesKey])) {
                 $seriesRanks[$seriesKey] = [
-                    'brand' => $profile['brand'] ?? '',
-                    'series' => $profile['series'] ?? '',
-                    'seriesCn' => $profile['seriesCn'] ?? '',
+                    'brand' => trim($profile['brand'] ?? '') ?: '期貨/外調',
+                    'series' => trim($profile['series'] ?? '') ?: '期貨/外調',
+                    'seriesCn' => trim($profile['seriesCn'] ?? '') ?: '期貨/外調',
                     'totalPings' => 0,
                     'totalAmount' => 0,
                     'items' => []
@@ -975,7 +975,7 @@ trait ReportTrait
                 $seriesRanks[$seriesKey]['items'][$sku]['customers'][$customer]['pings'] += $pings;
             }
 
-            $category = trim($profile['category'] ?? '') ?: '未分類';
+            $category = trim($profile['category'] ?? '') ?: '期貨/外調';
             if (!isset($categoryRanks[$category])) {
                 $categoryRanks[$category] = ['name' => $category, 'amount' => 0, 'pings' => 0, 'count' => 0];
             }
@@ -1278,7 +1278,7 @@ trait ReportTrait
 
         $brandSales = [];
         foreach ($countryRanks as $row) {
-            $cName = $this->normalizeCountry(trim((string)$row['name'])) ?: '未分類';
+            $cName = $this->normalizeCountry(trim((string)$row['name'])) ?: '期貨/外調';
             if (!isset($brandSales[$cName])) {
                 $brandSales[$cName] = ['name' => $cName, 'amount' => 0];
             }
@@ -1699,8 +1699,8 @@ trait ReportTrait
                     if (!$sku) continue;
                     $metaMap[$sku] = [
                         'size' => $pSize !== -1 ? $this->normalizeSizeLabel($this->getVal($priceData[$i], $pSize)) : '未標尺寸',
-                        'brand' => $pBrand !== -1 ? $this->normalizeBrand($this->getVal($priceData[$i], $pBrand)) : '未知',
-                        'category' => $pCat !== -1 ? trim($this->getVal($priceData[$i], $pCat)) : '未分類',
+                        'brand' => $pBrand !== -1 ? $this->normalizeBrand($this->getVal($priceData[$i], $pBrand)) : '期貨/外調',
+                        'category' => $pCat !== -1 ? trim($this->getVal($priceData[$i], $pCat)) : '期貨/外調',
                     ];
                 }
             }
@@ -1721,11 +1721,11 @@ trait ReportTrait
                 $sku = $idx['sku'] !== -1 ? $this->cleanSku($this->getVal($row, $idx['sku'])) : '';
                 $projectName = $idx['project'] !== -1 ? trim($this->getVal($row, $idx['project'])) : '';
                 $isProject = $projectName !== '';
-                $meta = $metaMap[$sku] ?? ['size' => '未標尺寸', 'brand' => '未知', 'category' => '未分類'];
+                $meta = $metaMap[$sku] ?? ['size' => '未標尺寸', 'brand' => '期貨/外調', 'category' => '期貨/外調'];
 
                 $size = $meta['size'] ?: '未標尺寸';
-                $brand = $meta['brand'] ?: '未知';
-                $cat = $meta['category'] ?: '未分類';
+                $brand = $meta['brand'] ?: '期貨/外調';
+                $cat = $meta['category'] ?: '期貨/外調';
 
                 if (!isset($bySize[$size])) $bySize[$size] = ['amount' => 0, 'pings' => 0];
                 $bySize[$size]['amount'] += $amount;
@@ -2134,7 +2134,7 @@ trait ReportTrait
                 $ping = $idxPing !== -1 ? $this->optFloat($this->getVal($row, $idxPing)) : 0;
                 $cust = $idxCust !== -1 ? $this->displayCustomerName($this->getVal($row, $idxCust)) : '';
                 $p = $profiles[$sku] ?? [];
-                $seriesKey = ($p['seriesCn'] ?? '') ?: ($p['series'] ?? '') ?: '未分類';
+                $seriesKey = ($p['seriesCn'] ?? '') ?: ($p['series'] ?? '') ?: '期貨/外調';
                 if (!isset($seriesMap[$seriesKey])) {
                     $seriesMap[$seriesKey] = [
                         'seriesCn' => $p['seriesCn'] ?? '',
@@ -2478,7 +2478,7 @@ trait ReportTrait
         $groupSeriesRanks = [];
         foreach ($companyIds as $key => $info) {
             foreach ($allSeriesRanks[$key] as $s) {
-                $sk = ($s['seriesCn'] ?: $s['series']) ?: '未分類';
+                $sk = ($s['seriesCn'] ?: $s['series']) ?: '期貨/外調';
                 if (!isset($groupSeriesRanks[$sk])) {
                     $groupSeriesRanks[$sk] = $s + ['companies' => [$info['name']], 'items' => []];
                 } else {
