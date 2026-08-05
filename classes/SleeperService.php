@@ -370,9 +370,20 @@ class SleeperService
     private function optFloat($v)
     {
         if ($v instanceof DateTime) return 0;
-        $s = preg_replace('/[^0-9.\-]/', '', (string)$v);
+        if (is_numeric($v)) return (float)$v;
+        $str = trim((string)$v);
+        if ($str === '') return 0;
+
+        $isNegative = false;
+        if (preg_match('/^\s*\(.*?\)\s*$/', $str) || strpos($str, '-') !== false) {
+            $isNegative = true;
+        }
+
+        $s = preg_replace('/[^0-9.]/', '', $str);
+        if ($s === '') return 0;
         $n = (float)$s;
-        return is_finite($n) ? $n : 0;
+        if (!is_finite($n)) return 0;
+        return $isNegative ? -$n : $n;
     }
 
     public function parseDate($v)
