@@ -398,6 +398,25 @@ trait DataTrait
             ];
         }
 
+        // 睡美人清單以「睡美人」工作表(SLEEPER_SHEET)為準，跟獎金試算(getSleeperConfig)用同一套判斷，
+        // 避免價目表勾選欄位漏勾造成兩邊數字對不起來
+        try {
+            $sleeperData = $gs->readSheet(SLEEPER_SHEET);
+            if (count($sleeperData) >= 2) {
+                $sH = $sleeperData[0];
+                $sSku = $this->findHeader($sH, ['編號', '產品編號', '品號']);
+                if ($sSku !== -1) {
+                    for ($i = 1; $i < count($sleeperData); $i++) {
+                        $sku = $this->cleanSku($this->getVal($sleeperData[$i], $sSku));
+                        if (!$sku) continue;
+                        if (!isset($map[$sku])) $map[$sku] = [];
+                        $map[$sku]['isSleeper'] = true;
+                    }
+                }
+            }
+        } catch (Exception $e) {
+        }
+
         return $map;
     }
 
