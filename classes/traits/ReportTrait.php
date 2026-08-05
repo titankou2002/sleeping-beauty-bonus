@@ -1240,7 +1240,6 @@ trait ReportTrait
         foreach ($shipmentBuckets as &$bucket) {
             $bucket['customers'] = [];
         }
-        $hasVisitData = count($visitMap) > 0;
         foreach ($currentCustomerAmounts as $customerName => $amount) {
             $txCnt = $currentCustomerTxCounts[$customerName] ?? 1;
             foreach ($shipmentBuckets as &$bucket) {
@@ -1253,7 +1252,7 @@ trait ReportTrait
                         'name' => $customerName,
                         'shortName' => mb_substr($customerName, 0, 2, 'UTF-8'),
                         'amount' => $amount,
-                        'visits' => $hasVisitData ? ($visitRow['visits'] ?? 0) : $txCnt,
+                        'visits' => $txCnt,
                         'visitDays' => $visitRow['visitDays'] ?? 0
                     ];
                     break;
@@ -1273,7 +1272,7 @@ trait ReportTrait
             $bucket['salesPerVisit'] = $visitTotal > 0
                 ? round($bucket['amount'] / $visitTotal)
                 : 0;
-            $bucket['metricLabel'] = $hasVisitData ? '拜訪' : '出貨';
+            $bucket['metricLabel'] = '出貨';
         }
         unset($bucket);
 
