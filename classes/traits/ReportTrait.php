@@ -1023,15 +1023,15 @@ trait ReportTrait
             }
             unset($skuRow);
             usort($rank['items'], function ($a, $b) {
-                return ($b['amount'] <=> $a['amount']) ?: ($b['pings'] <=> $a['pings']);
+                return ($b['pings'] <=> $a['pings']) ?: ($b['amount'] <=> $a['amount']);
             });
             $rank['sharePct'] = ($strategy['summary']['total'] ?? 0) > 0 ? ($rank['totalAmount'] / $strategy['summary']['total'] * 100) : 0;
         }
         unset($rank);
         usort($seriesRanks, function ($a, $b) {
-            return ($b['totalAmount'] <=> $a['totalAmount']) ?: ($b['totalPings'] <=> $a['totalPings']);
+            return ($b['totalPings'] <=> $a['totalPings']) ?: ($b['totalAmount'] <=> $a['totalAmount']);
         });
-        $seriesRanks = array_slice(array_values($seriesRanks), 0, 12);
+        $seriesRanks = array_slice(array_values($seriesRanks), 0, 20);
         usort($categoryRanks, function ($a, $b) {
             return $b['amount'] <=> $a['amount'];
         });
@@ -2186,10 +2186,10 @@ trait ReportTrait
                     $item['customers'] = array_values($item['customers']);
                     usort($item['customers'], function ($a, $b) { return $b['amount'] <=> $a['amount']; });
                 }
-                usort($s['items'], function ($a, $b) { return ($b['amount'] <=> $a['amount']) ?: ($b['pings'] <=> $a['pings']); });
+                usort($s['items'], function ($a, $b) { return ($b['pings'] <=> $a['pings']) ?: ($b['amount'] <=> $a['amount']); });
             }
-            usort($seriesMap, function ($a, $b) { return ($b['totalAmount'] <=> $a['totalAmount']) ?: ($b['totalPings'] <=> $a['totalPings']); });
-            return array_slice(array_values($seriesMap), 0, 12);
+            usort($seriesMap, function ($a, $b) { return ($b['totalPings'] <=> $a['totalPings']) ?: ($b['totalAmount'] <=> $a['totalAmount']); });
+            return array_slice(array_values($seriesMap), 0, 20);
         } catch (Exception $e) {
             return [];
         }
@@ -2504,8 +2504,8 @@ trait ReportTrait
         foreach ($groupSeriesRanks as &$s) {
             $s['sharePct'] = $gTotalAmt > 0 ? round($s['totalAmount'] / $gTotalAmt * 100, 1) : 0;
         }
-        usort($groupSeriesRanks, function ($a, $b) { return ($b['totalAmount'] <=> $a['totalAmount']) ?: ($b['totalPings'] <=> $a['totalPings']); });
-        $groupSeriesRanks = array_slice(array_values($groupSeriesRanks), 0, 12);
+        usort($groupSeriesRanks, function ($a, $b) { return ($b['totalPings'] <=> $a['totalPings']) ?: ($b['totalAmount'] <=> $a['totalAmount']); });
+        $groupSeriesRanks = array_slice(array_values($groupSeriesRanks), 0, 20);
 
         $groupKpis = ['sales' => 0, 'salesYoyBase' => 0, 'pings' => 0, 'ytdSales' => 0, 'ytdPrevSales' => 0];
         $groupMonthlySales = array_fill(1, 12, 0);

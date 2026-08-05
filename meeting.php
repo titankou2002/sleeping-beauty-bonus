@@ -1741,61 +1741,111 @@
       return { cls: '', text: `80% 業績來自 ${fmtInt(c)} 客` };
     }
 
+    function renderSeriesCardsHtml(rows) {
+      return rows.map((r, idx) => `
+        <details class="series-card expander">
+          <summary>
+            <div class="series-head" style="margin:0; width:100%;">
+              <div class="series-rank">${idx + 1}</div>
+              <div>
+                <div class="series-title">${escapeHtml(r.seriesCn || r.series || '期貨/外調')} <span class="expander-icon">▾</span></div>
+                <div class="series-meta">${escapeHtml(r.brand || '期貨/外調')} / ${escapeHtml(r.series || '—')}</div>
+              </div>
+              <div class="series-kpis">
+                <div class="series-kpi"><div class="t">總坪數</div><div class="v">${fmtInt(r.totalPings)}</div></div>
+                <div class="series-kpi"><div class="t">銷售金額</div><div class="v">${fmtWan(r.totalAmount)}</div></div>
+                <div class="series-kpi"><div class="t">本月佔比</div><div class="v">${fmtPct(r.sharePct)}</div></div>
+              </div>
+            </div>
+          </summary>
+          <div class="expander-body">
+            <div class="item-list">
+              ${(r.items || []).slice(0, 8).map(item => `
+                <details class="expander">
+                  <summary>
+                    <div class="sku-item-line" style="border:none; background:transparent; padding:0; width:100%;">
+                      <div class="item-main">${escapeHtml(item.sku)} <span class="expander-icon">▾</span></div>
+                      <div class="metric">${fmtInt(item.pings)}</div>
+                      <div class="metric">${fmtWan(item.amount)}</div>
+                      <div class="metric">${fmtPct((r.totalAmount || 0) > 0 ? (item.amount || 0) / r.totalAmount * 100 : 0)}</div>
+                    </div>
+                  </summary>
+                  <div class="expander-body">
+                    <div class="item-list">
+                      ${(item.customers || []).map(c => `
+                        <div class="sku-customer-line">
+                          <div class="item-main">${escapeHtml(c.name)}</div>
+                          <div class="metric">${fmtInt(c.pings)}</div>
+                          <div class="metric">${fmtWan(c.amount)}</div>
+                          <div class="metric">${fmtPct(c.sharePct || 0)}</div>
+                        </div>
+                      `).join('') || '<div class="hint">此 SKU 本期無客戶明細</div>'}
+                    </div>
+                  </div>
+                </details>
+              `).join('')}
+            </div>
+          </div>
+        </details>
+      `).join('');
+    }
+
+    let currentSeriesSortMode = 'pings';
+    function toggleSeriesSort(mode) {
+      currentSeriesSortMode = mode;
+      const btnPings = document.getElementById('btn-sort-pings');
+      const btnAmount = document.getElementById('btn-sort-amount');
+      const container = document.getElementById('series-card-list-wrap');
+      if (!container || !window.currentMeetingReportData) return;
+
+      if (btnPings && btnAmount) {
+        if (mode === 'pings') {
+          btnPings.style.background = 'var(--gold, #c29d66)';
+          btnPings.style.color = '#111';
+          btnAmount.style.background = 'transparent';
+          btnAmount.style.color = 'var(--text-dim, #888)';
+        } else {
+          btnAmount.style.background = 'var(--gold, #c29d66)';
+          btnAmount.style.color = '#111';
+          btnPings.style.background = 'transparent';
+          btnPings.style.color = 'var(--text-dim, #888)';
+        }
+      }
+
+      const rows = [...(window.currentMeetingReportData.seriesRanking || [])];
+      if (mode === 'pings') {
+        rows.sort((a, b) => (Number(b.totalPings || 0) - Number(a.totalPings || 0)) || (Number(b.totalAmount || 0) - Number(a.totalAmount || 0)));
+      } else {
+        rows.sort((a, b) => (Number(b.totalAmount || 0) - Number(a.totalAmount || 0)) || (Number(b.totalPings || 0) - Number(a.totalPings || 0)));
+      }
+
+      container.innerHTML = renderSeriesCardsHtml(rows);
+    }
+
     function buildSeriesSheet(d) {
-      const rows = d.seriesRanking || [];
+      const rows = [...(d.seriesRanking || [])];
+      if (currentSeriesSortMode === 'pings') {
+        rows.sort((a, b) => (Number(b.totalPings || 0) - Number(a.totalPings || 0)) || (Number(b.totalAmount || 0) - Number(a.totalAmount || 0)));
+      } else {
+        rows.sort((a, b) => (Number(b.totalAmount || 0) - Number(a.totalAmount || 0)) || (Number(b.totalPings || 0) - Number(a.totalPings || 0)));
+      }
+
+      const isPingsActive = currentSeriesSortMode === 'pings';
+      const btnPingsStyle = isPingsActive ? 'background:var(--gold,#c29d66);color:#111;' : 'background:transparent;color:var(--text-dim,#888);';
+      const btnAmountStyle = !isPingsActive ? 'background:var(--gold,#c29d66);color:#111;' : 'background:transparent;color:var(--text-dim,#888);';
+
       return `
         <section class="sheet">
           <div class="sheet-title">${d.year}.${d.month} 熱銷系列分析</div>
-          <div class="section-pad">
-            <div class="hint" style="margin-bottom:12px">點系列名稱看 SKU 明細，再點 SKU 看客戶銷售明細。</div>
+          <div class="section-pad" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:12px;">
+            <div class="hint">點系列名稱看 SKU 明細，再點 SKU 看客戶銷售明細。</div>
+            <div style="display:inline-flex; gap:6px; background:rgba(255,255,255,0.05); padding:4px; border-radius:8px; border:1px solid rgba(255,255,255,0.1);">
+              <button id="btn-sort-pings" onclick="toggleSeriesSort('pings')" style="padding:5px 14px; font-size:12px; font-weight:700; border-radius:6px; border:none; cursor:pointer; transition:all 0.2s; ${btnPingsStyle}">依銷售坪數 (預設)</button>
+              <button id="btn-sort-amount" onclick="toggleSeriesSort('amount')" style="padding:5px 14px; font-size:12px; font-weight:700; border-radius:6px; border:none; cursor:pointer; transition:all 0.2s; ${btnAmountStyle}">依銷售金額</button>
+            </div>
           </div>
-          <div class="series-card-list">
-            ${rows.map((r, idx) => `
-              <details class="series-card expander">
-                <summary>
-                  <div class="series-head" style="margin:0; width:100%;">
-                    <div class="series-rank">${idx + 1}</div>
-                    <div>
-                      <div class="series-title">${escapeHtml(r.seriesCn || r.series || '期貨/外調')} <span class="expander-icon">▾</span></div>
-                      <div class="series-meta">${escapeHtml(r.brand || '期貨/外調')} / ${escapeHtml(r.series || '—')}</div>
-                    </div>
-                    <div class="series-kpis">
-                      <div class="series-kpi"><div class="t">總坪數</div><div class="v">${fmtInt(r.totalPings)}</div></div>
-                      <div class="series-kpi"><div class="t">銷售金額</div><div class="v">${fmtWan(r.totalAmount)}</div></div>
-                      <div class="series-kpi"><div class="t">本月佔比</div><div class="v">${fmtPct(r.sharePct)}</div></div>
-                    </div>
-                  </div>
-                </summary>
-                <div class="expander-body">
-                  <div class="item-list">
-                    ${(r.items || []).slice(0, 8).map(item => `
-                      <details class="expander">
-                        <summary>
-                          <div class="sku-item-line" style="border:none; background:transparent; padding:0; width:100%;">
-                            <div class="item-main">${escapeHtml(item.sku)} <span class="expander-icon">▾</span></div>
-                            <div class="metric">${fmtInt(item.pings)}</div>
-                            <div class="metric">${fmtWan(item.amount)}</div>
-                            <div class="metric">${fmtPct((r.totalAmount || 0) > 0 ? (item.amount || 0) / r.totalAmount * 100 : 0)}</div>
-                          </div>
-                        </summary>
-                        <div class="expander-body">
-                          <div class="item-list">
-                            ${(item.customers || []).map(c => `
-                              <div class="sku-customer-line">
-                                <div class="item-main">${escapeHtml(c.name)}</div>
-                                <div class="metric">${fmtInt(c.pings)}</div>
-                                <div class="metric">${fmtWan(c.amount)}</div>
-                                <div class="metric">${fmtPct(c.sharePct || 0)}</div>
-                              </div>
-                            `).join('') || '<div class="hint">此 SKU 本期無客戶明細</div>'}
-                          </div>
-                        </div>
-                      </details>
-                    `).join('')}
-                  </div>
-                </div>
-              </details>
-            `).join('')}
+          <div class="series-card-list" id="series-card-list-wrap">
+            ${renderSeriesCardsHtml(rows)}
           </div>
         </section>
       `;
@@ -2313,6 +2363,7 @@
     }
 
     function render(d) {
+      window.currentMeetingReportData = d;
       const monthlyView =
         buildKpiSheet(d) +
         buildHealthShipmentSheet(d) +
