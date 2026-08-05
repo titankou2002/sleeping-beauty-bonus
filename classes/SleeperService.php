@@ -317,18 +317,24 @@ class SleeperService
 
     public function normalizeCountry($country)
     {
-        $c = strtoupper(trim((string)$country));
+        $raw = trim((string)$country);
+        $c = strtoupper($raw);
         if ($c === '') return '';
+
+        static $seaCountries = [
+            'THAILAND', 'INDONESIA', 'MALAYSIA', 'SRI LANKA', 'SRILANKA', 'VIETNAM',
+            '泰國', '印尼', '印度尼西亞', '馬來西亞', '斯里蘭卡', '越南', '東南亞'
+        ];
+
+        if (in_array($c, $seaCountries, true) || in_array($raw, $seaCountries, true)) {
+            return '東南亞';
+        }
 
         static $countryMap = [
             'SPAIN' => '西班牙',
             'ITALY' => '義大利',
-            'THAILAND' => '泰國',
             'INDIA' => '印度',
-            'INDONESIA' => '印尼',
-            'MALAYSIA' => '馬來西亞',
             'CHINA' => '中國',
-            'VIETNAM' => '越南',
             'TURKEY' => '土耳其',
             'TÜRKIYE' => '土耳其',
             'TURKIYE' => '土耳其',
@@ -342,7 +348,7 @@ class SleeperService
             'EGYPT' => '埃及'
         ];
 
-        return $countryMap[$c] ?? trim((string)$country);
+        return $countryMap[$c] ?? $raw;
     }
 
     private function normalizeSalesRep($v)

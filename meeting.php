@@ -1521,13 +1521,13 @@
         <section class="sheet">
           <div class="sheet-title">國別與廠牌分析</div>
           <div class="chart-grid">
-            ${buildDonutCard('各國產地銷額分佈', brandRows.map(r => ({...r, name: r.name || '未分類'})), total, '依銷售金額')}
+            ${buildDonutCard('各國產地銷額分佈', brandRows.map(r => ({...r, name: r.name === '東南亞' ? '東南亞 (泰/印/馬/斯)' : (r.name || '未分類')})), total, '依銷售金額')}
             <div class="chart-card">
               <div class="hint" style="margin-bottom:12px">國別銷售排名</div>
               <div class="rank-board">
                 ${brandRows.map(r => `
                   <div class="rank-row">
-                    <div><div class="rank-name">${escapeHtml(r.name)}</div></div>
+                    <div><div class="rank-name">${r.name === '東南亞' ? '東南亞 <span style="font-size:11px;color:var(--text-dim);font-weight:normal">(泰/印/馬/斯)</span>' : escapeHtml(r.name)}</div></div>
                     <div class="rank-track"><div class="rank-fill" style="width:${Math.max(6, Math.round(Number(r.sharePct || 0)))}%"></div></div>
                     <div class="rank-val">${fmtWan(r.amount)}/${fmtPct(r.sharePct)}</div>
                   </div>
@@ -1547,11 +1547,12 @@
                 cursor += pct;
                 return `${palette(idx)} ${start}% ${cursor}%`;
               }).join(', ');
+              const headTitle = country === '東南亞' ? '東南亞廠牌 <span style="font-size:11px;color:var(--text-dim);font-weight:normal">(泰/印/馬/斯)</span>' : `${escapeHtml(country)}廠牌`;
               return `
                 <div class="chart-card country-brand-col">
                   <div class="country-brand-head">
                     <div>
-                      <div class="k">${country}廠牌</div>
+                      <div class="k">${headTitle}</div>
                       <div class="country-brand-total">${fmtWan(countryTotal)}/${fmtPct(countryShare)}</div>
                     </div>
                   </div>
