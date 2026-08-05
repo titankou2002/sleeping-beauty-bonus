@@ -626,24 +626,6 @@ input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-colo
       <button class="btn btn-ghost" id="btn-restock-advisor" style="display:none" onclick="loadRestockAdvisor()">🤖 補貨建議</button>
     </div>
 
-    <div class="ctrl-bar hidden" id="ctrl-reports">
-      <div class="mode-tabs">
-        <button class="mode-tab active" id="mode-month" onclick="setReportMode('month')">月</button>
-        <button class="mode-tab" id="mode-quarter" onclick="setReportMode('quarter')">季</button>
-        <button class="mode-tab" id="mode-half" onclick="setReportMode('half')">半年</button>
-        <button class="mode-tab" id="mode-year" onclick="setReportMode('year')">年</button>
-      </div>
-      <select id="report-year">
-        <option value="2026">2026 年</option>
-        <option value="2025">2025 年</option>
-      </select>
-      <select id="report-period"></select>
-      <button class="btn btn-primary" onclick="loadStrategyReport()">載入報表</button>
-      <button class="btn btn-accent" onclick="rebuildCache()">🔄 同步快取</button>
-      <span id="cache-info-reports" style="font-size:11px;color:var(--text2);margin-left:4px"></span>
-      <button class="btn btn-ghost" onclick="window.open('meeting.php', '_blank')">月會模式</button>
-      <button class="btn btn-ghost" style="color:var(--gold);" onclick="window.open('group_meeting.php', '_blank')">集團比較</button>
-    </div>
 
 
     <div id="loading" class="loading hidden">
@@ -670,12 +652,9 @@ const API_BASE = 'api.php';
 var currentMonth = new Date().getMonth();
 var currentYear = new Date().getFullYear();
 var DASHBOARD_COLORS = ['#c29d66','#22c55e','#3b82f6','#ef4444','#a855f7','#f97316','#ec4899','#14b8a6'];
-var reportMode = 'month';
 
 document.getElementById('filter-month').value = currentMonth;
 document.getElementById('filter-year').value = currentYear;
-document.getElementById('report-year').value = currentYear;
-updateReportPeriodOptions();
 
 function showLoading(show) {
   document.getElementById('loading').classList.toggle('hidden', !show);
@@ -944,7 +923,6 @@ function fmtNum(n) { if (isNaN(n)) return '0萬'; var wan = n / 10000; return (n
 var currentTab = 'products';
 var currentProdTab = 'normal';
 var sortDir = -1;
-window._strategyReport = null;
 function toggleSortDir() {
   sortDir = sortDir === -1 ? 1 : -1;
   document.getElementById('sort-dir-btn').textContent = sortDir === -1 ? '↓' : '↑';
@@ -1058,15 +1036,16 @@ function switchTab(tab) {
   document.getElementById('tab-mgr').classList.toggle('active', tab === 'mgr');
   document.getElementById('ctrl-bonus').classList.toggle('hidden', tab !== 'bonus');
   document.getElementById('ctrl-products').classList.add('hidden');
-  document.getElementById('ctrl-reports').classList.toggle('hidden', tab !== 'reports');
   if (tab === 'products') {
     var c = document.getElementById('main-content');
     if (!c.querySelector('iframe[data-tab=daily]')) {
       c.innerHTML = '<iframe data-tab="daily" src="daily.php" style="width:100%;border:none;background:var(--bg);min-height:calc(100vh - 120px)"></iframe>';
     }
   } else if (tab === 'reports') {
-    if (!window._strategyReport) loadStrategyReport();
-    else renderStrategyReport(window._strategyReport);
+    var c = document.getElementById('main-content');
+    if (!c.querySelector('iframe[data-tab=reports]')) {
+      c.innerHTML = '<iframe data-tab="reports" src="meeting.php" style="width:100%;border:none;background:var(--bg);min-height:calc(100vh - 120px)"></iframe>';
+    }
   } else if (tab === 'bonus') {
     renderBonusSubTabBar();
     loadSalesList();
@@ -1090,38 +1069,6 @@ function switchTab(tab) {
   }
 }
 
-function updateReportPeriodOptions() {
-  var sel = document.getElementById('report-period');
-  var html = '';
-  var defaultValue = '1';
-  if (reportMode === 'month') {
-    for (var m = 1; m <= 12; m++) html += '<option value="' + m + '">' + m + ' 月</option>';
-    defaultValue = String(currentMonth + 1);
-    sel.style.display = '';
-  } else if (reportMode === 'quarter') {
-    for (var q = 1; q <= 4; q++) html += '<option value="' + q + '">Q' + q + '</option>';
-    defaultValue = String(Math.floor(currentMonth / 3) + 1);
-    sel.style.display = '';
-  } else if (reportMode === 'half') {
-    html = '<option value="1">H1</option><option value="2">H2</option>';
-    defaultValue = currentMonth < 6 ? '1' : '2';
-    sel.style.display = '';
-  } else {
-    html = '<option value="1">全年</option>';
-    defaultValue = '1';
-    sel.style.display = 'none';
-  }
-  sel.innerHTML = html;
-  sel.value = defaultValue;
-}
-
-function setReportMode(mode) {
-  reportMode = mode;
-  ['month', 'quarter', 'half', 'year'].forEach(function(key) {
-    document.getElementById('mode-' + key).classList.toggle('active', key === mode);
-  });
-  updateReportPeriodOptions();
-}
 function switchProdTab(tab) {
   currentProdTab = tab;
   document.getElementById('sub-sleeper').classList.toggle('active', tab === 'sleeper');
@@ -1516,295 +1463,6 @@ function renderDashboard(d) {
   document.getElementById('bonus-sub-content').innerHTML = html;
 }
 
-function loadStrategyReport() {
-  var year = parseInt(document.getElementById('report-year').value, 10);
-  var period = parseInt(document.getElementById('report-period').value || '1', 10);
-  showLoading(true);
-  apiGet('strategy-report', { year: year, mode: reportMode, period: period }, function(res) {
-    showLoading(false);
-    if (!res.success) {
-      toast(res.msg || '載入報表失敗', true);
-      return;
-    }
-    window._strategyReport = res.data;
-    renderStrategyReport(res.data);
-  }, function(err) {
-    showLoading(false);
-    toast('載入報表失敗: ' + err, true);
-  });
-}
-
-function fmtPct(n) {
-  return (Math.round((n || 0) * 10) / 10).toFixed(1) + '%';
-}
-
-function fmtDeltaPct(n) {
-  var num = truncNum(n || 0);
-  return (num > 0 ? '+' : '') + num + '%';
-}
-
-function deltaClass(n) {
-  return n > 0 ? 'delta-up' : (n < 0 ? 'delta-down' : 'delta-flat');
-}
-
-function truncNum(n) {
-  n = Number(n || 0);
-  return n < 0 ? Math.ceil(n) : Math.floor(n);
-}
-
-function fmtReportWan(n) {
-  n = Number(n || 0) / 10000;
-  return truncNum(n) + '萬';
-}
-
-function fmtReportInt(n) {
-  return String(truncNum(n || 0));
-}
-
-function fmtReportPct(n) {
-  return truncNum(n || 0) + '%';
-}
-
-function ellipsis(s, n) {
-  s = String(s || '');
-  return s.length > n ? s.slice(0, n) + '…' : s;
-}
-
-function buildBarRows(items, key, valueFormatter) {
-  if (!items || !items.length) return '<div class="chart-sub">本月尚無資料</div>';
-  var max = items[0].amount || 1;
-  return '<div class="bar-list">' + items.map(function(item) {
-    var width = max > 0 ? Math.max(6, Math.round((item.amount || 0) / max * 100)) : 0;
-    return '<div class="bar-row">' +
-      '<div class="bar-label">' + ellipsis(item[key], 12) + '</div>' +
-      '<div class="bar-track"><div class="bar-fill" style="width:' + width + '%"></div></div>' +
-      '<div class="bar-value">' + valueFormatter(item.amount || 0) + '</div>' +
-      '</div>';
-  }).join('') + '</div>';
-}
-
-function buildDeltaRows(items, key) {
-  if (!items || !items.length) return '<div class="chart-sub">與上期相比沒有明顯變化</div>';
-  var max = 1;
-  items.forEach(function(item) { max = Math.max(max, Math.abs(item.delta || 0)); });
-  return '<div class="bar-list">' + items.map(function(item) {
-    var width = Math.max(6, Math.round(Math.abs(item.delta || 0) / max * 100));
-    var cls = item.delta >= 0 ? 'pos' : 'neg';
-    var sign = item.delta >= 0 ? '+' : '';
-    return '<div class="bar-row delta">' +
-      '<div class="bar-label">' + ellipsis(item[key], 14) + '</div>' +
-      '<div class="bar-track"><div class="bar-fill ' + cls + '" style="width:' + width + '%"></div></div>' +
-      '<div class="bar-value ' + deltaClass(item.delta) + '">' + sign + fmtReportWan(Math.abs(item.delta || 0) * (item.delta < 0 ? -1 : 1)) + '</div>' +
-      '</div>';
-  }).join('') + '</div>';
-}
-
-function buildVisitRows(items, key, valueKey, valueFormatter, subFormatter) {
-  if (!items || !items.length) return '<div class="chart-sub">本期尚無資料</div>';
-  var max = 1;
-  items.forEach(function(item) { max = Math.max(max, item[valueKey] || 0); });
-  return '<div class="bar-list">' + items.map(function(item) {
-    var width = Math.max(6, Math.round(((item[valueKey] || 0) / max) * 100));
-    return '<div class="bar-row">' +
-      '<div class="bar-label">' + ellipsis(item[key], 12) + '</div>' +
-      '<div class="bar-track"><div class="bar-fill" style="width:' + width + '%"></div></div>' +
-      '<div class="bar-value">' + valueFormatter(item[valueKey] || 0) + (subFormatter ? '<div class="chart-sub" style="margin:4px 0 0">' + subFormatter(item) + '</div>' : '') + '</div>' +
-      '</div>';
-  }).join('') + '</div>';
-}
-
-function buildRepRows(items) {
-  if (!items || !items.length) return '<div class="chart-sub">本期尚無外勤資料</div>';
-  var max = 1;
-  items.forEach(function(item) { max = Math.max(max, item.salesAmount || 0); });
-  return '<div class="bar-list">' + items.map(function(item) {
-    var width = Math.max(6, Math.round(((item.salesAmount || 0) / max) * 100));
-    return '<div class="bar-row">' +
-      '<div class="bar-label">' + ellipsis(item.name, 10) + '</div>' +
-      '<div class="bar-track"><div class="bar-fill" style="width:' + width + '%"></div></div>' +
-      '<div class="bar-value">' + fmtReportWan(item.salesAmount || 0) +
-        '<div class="chart-sub" style="margin:4px 0 0">拜訪 ' + fmtReportInt(item.visits || 0) + ' 次 / ' +
-        fmtReportInt(item.customerCount || 0) + ' 客 / ' +
-        fmtReportInt(item.km || 0) + ' km</div>' +
-      '</div>' +
-      '</div>';
-  }).join('') + '</div>';
-}
-
-function buildDonutCard(title, items, key, centerLabel) {
-  if (!items || !items.length) {
-    return '<div class="chart-card"><div class="chart-title">' + title + '</div><div class="chart-sub">本月尚無資料</div></div>';
-  }
-  var total = items.reduce(function(sum, item) { return sum + (item.amount || 0); }, 0) || 1;
-  var start = 0;
-  var gradients = [];
-  var legends = [];
-  items.forEach(function(item, idx) {
-    var pct = (item.amount || 0) / total * 100;
-    var end = start + pct;
-    var color = DASHBOARD_COLORS[idx % DASHBOARD_COLORS.length];
-    gradients.push(color + ' ' + start.toFixed(2) + '% ' + end.toFixed(2) + '%');
-    legends.push(
-      '<div class="legend-row">' +
-      '<span class="legend-dot" style="background:' + color + '"></span>' +
-      '<span class="legend-name">' + ellipsis(item[key], 16) + '</span>' +
-      '<span class="legend-val">' + fmtReportPct(pct) + '</span>' +
-      '</div>'
-    );
-    start = end;
-  });
-  return '<div class="chart-card">' +
-    '<div class="chart-title">' + title + '</div>' +
-    '<div class="donut-grid">' +
-      '<div class="donut-wrap"><div class="donut" data-center="' + centerLabel.replace(/\n/g, '&#10;') + '" style="background:conic-gradient(' + gradients.join(',') + ')"></div></div>' +
-      '<div class="legend-list">' + legends.join('') + '</div>' +
-    '</div>' +
-  '</div>';
-}
-
-function buildTrendChart(monthTrend, activeMonth) {
-  var max = 1;
-  for (var i = 1; i <= 12; i++) max = Math.max(max, monthTrend[i] || 0);
-  var html = '<div class="trend-wrap">';
-  for (var m = 1; m <= 12; m++) {
-    var val = monthTrend[m] || 0;
-    var h = Math.max(8, Math.round(val / max * 150));
-    html += '<div class="trend-col' + (m === activeMonth ? ' active' : '') + '">' +
-      '<div class="trend-value">' + (val > 0 ? fmtReportWan(val) : '0萬') + '</div>' +
-      '<div class="trend-bar" style="height:' + h + 'px"></div>' +
-      '<div class="trend-label">' + m + '月</div>' +
-      '</div>';
-  }
-  html += '</div>';
-  return html;
-}
-
-function buildTrailingTrendChart(rows) {
-  rows = rows || [];
-  if (!rows.length) return '<div class="chart-sub">本期尚無資料</div>';
-  var max = 1;
-  rows.forEach(function(row) {
-    max = Math.max(max, row.current || 0, row.previous || 0);
-  });
-  return '<div class="trend-wrap">' + rows.map(function(row) {
-    var curr = row.current || 0;
-    var prev = row.previous || 0;
-    var currH = Math.max(8, Math.round(curr / max * 150));
-    var prevH = Math.max(8, Math.round(prev / max * 150));
-    return '<div class="trend-col">' +
-      '<div style="display:flex;gap:6px;align-items:flex-end;height:170px">' +
-      '<div style="flex:1;text-align:center"><div class="trend-value">' + (prev > 0 ? fmtReportWan(prev) : '0萬') + '</div><div class="trend-bar" style="height:' + prevH + 'px;background:#4a4a4a"></div></div>' +
-      '<div style="flex:1;text-align:center"><div class="trend-value">' + (curr > 0 ? fmtReportWan(curr) : '0萬') + '</div><div class="trend-bar" style="height:' + currH + 'px"></div></div>' +
-      '</div>' +
-      '<div class="trend-label">' + row.label + '</div>' +
-      '</div>';
-  }).join('') + '</div>';
-}
-
-function buildCompareCard(label, currentValue, previousLabel, previousValue, yoyLabel, yoyValue, primaryPct, yoyPct) {
-  return '<div class="compare-card">' +
-    '<div class="compare-label">' + label + '</div>' +
-    '<div class="compare-value">' + currentValue + '</div>' +
-    '<div class="compare-sub">' + previousLabel + ' ' + previousValue + ' ・ <span class="' + deltaClass(primaryPct) + '">' + fmtDeltaPct(primaryPct || 0) + '</span></div>' +
-    '<div class="compare-sub">' + yoyLabel + ' ' + yoyValue + ' ・ <span class="' + deltaClass(yoyPct) + '">' + fmtDeltaPct(yoyPct || 0) + '</span></div>' +
-    '</div>';
-}
-
-function renderStrategyReport(d) {
-  var s = d.summary || {};
-  var bases = d.bases || {};
-  var basePrev = bases.previous || {};
-  var baseYoy = bases.yoy || {};
-  var c = d.comparisons || {};
-  var primary = c.primary || {};
-  var yoy = c.yoy || {};
-  var topSales = d.topSales || [];
-  var topCustomers = d.topCustomers || [];
-  var topProjects = d.topProjects || [];
-  var topProducts = d.topProducts || [];
-  var topSeries = d.topSeries || [];
-  var trailingTrend = d.trailingTrend || [];
-  var growthSales = d.growthSales || [];
-  var growthCustomers = d.growthCustomers || [];
-  var growthProjects = d.growthProjects || [];
-  var growthProducts = d.growthProducts || [];
-  var fieldActivity = d.fieldActivity || {};
-  var fieldBases = d.fieldBases || {};
-  var fieldBasePrev = fieldBases.previous || {};
-  var fieldBaseYoy = fieldBases.yoy || {};
-  var fieldComparisons = d.fieldComparisons || {};
-  var fieldPrimary = fieldComparisons.primary || {};
-  var fieldYoy = fieldComparisons.yoy || {};
-  var fieldSummary = fieldActivity.summary || {};
-  var topVisitedCustomers = fieldActivity.topVisitedCustomers || [];
-  var underVisitedCustomers = fieldActivity.underVisitedCustomers || [];
-  var highVisitLowSalesCustomers = fieldActivity.highVisitLowSalesCustomers || [];
-  var repEfficiency = fieldActivity.repEfficiency || [];
-  var taskMix = fieldActivity.taskMix || [];
-  var topSalesDonut = topSales.slice(0, 5);
-  if (topSales.length > 5) {
-    var otherAmt = topSales.slice(5).reduce(function(sum, item) { return sum + (item.amount || 0); }, 0);
-    if (otherAmt > 0) topSalesDonut.push({ name: '其他', amount: otherAmt });
-  }
-
-  var html = '<div class="kpi-row">' +
-    '<div class="kpi-card kpi-gold"><div class="label">本期銷售額</div><div class="value">' + fmtReportWan(s.total || 0) + '</div><div class="sub">' + d.label + '</div></div>' +
-    '<div class="kpi-card"><div class="label">睡美人業績</div><div class="value">' + fmtReportWan(s.sleeperSales || 0) + '</div><div class="sub">佔比 ' + fmtReportPct(s.sleeperPct || 0) + '</div></div>' +
-    '<div class="kpi-card kpi-green"><div class="label">銷售坪數 / 交易筆數</div><div class="value">' + fmtReportInt(s.pings || 0) + ' / ' + fmtReportInt(s.txCount || 0) + '</div><div class="sub">坪 / 筆</div></div>' +
-    '<div class="kpi-card kpi-blue"><div class="label">去年同期</div><div class="value">' + fmtReportWan(baseYoy.total || 0) + '</div><div class="sub">YOY ' + fmtDeltaPct(yoy.totalPct || 0) + '</div></div>' +
-    '</div>';
-
-  html += '<div class="compare-strip">' +
-    '<details class="chart-card full-span" open><summary style="cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center"><div><div class="chart-title">MOM</div><div class="chart-sub">點開看今年 1 月起，和去年同期同月的雙柱比較。</div></div><div class="' + deltaClass(primary.totalPct) + '">' + fmtDeltaPct(primary.totalPct || 0) + '</div></summary><div style="padding-top:12px">' +
-      '<div class="compare-sub">' + d.previousLabel + ' ' + fmtReportWan(basePrev.total || 0) + ' ・ <span class="' + deltaClass(primary.totalPct) + '">' + fmtDeltaPct(primary.totalPct || 0) + '</span></div>' +
-      '<div class="compare-sub">' + d.yoyLabel + ' ' + fmtReportWan(baseYoy.total || 0) + ' ・ <span class="' + deltaClass(yoy.totalPct) + '">' + fmtDeltaPct(yoy.totalPct || 0) + '</span></div>' +
-      buildTrailingTrendChart(trailingTrend) +
-    '</div></details>' +
-    '</div>';
-
-  html += '<div class="kpi-row">' +
-    '<div class="kpi-card"><div class="label">客戶到訪次數</div><div class="value">' + fmtReportInt(fieldSummary.totalVisits || 0) + '</div><div class="sub">' + d.label + '</div></div>' +
-    '<div class="kpi-card"><div class="label">到訪客戶數</div><div class="value">' + fmtReportInt(fieldSummary.visitedCustomers || 0) + '</div><div class="sub">已拜訪客戶</div></div>' +
-    '<div class="kpi-card"><div class="label">外勤公里數</div><div class="value">' + fmtReportInt(fieldSummary.totalKm || 0) + '</div><div class="sub">km</div></div>' +
-    '<div class="kpi-card"><div class="label">油資</div><div class="value">' + fmtReportWan(fieldSummary.fuelAmount || 0) + '</div><div class="sub">本期油資</div></div>' +
-    '</div>';
-
-  html += '<div class="compare-strip">' +
-    buildCompareCard(fieldPrimary.label || '前期比較', fmtReportInt(fieldSummary.totalVisits || 0), d.previousLabel || '前期', fmtReportInt(fieldBasePrev.totalVisits || 0), d.yoyLabel || '去年同期', fmtReportInt(fieldBaseYoy.totalVisits || 0), fieldPrimary.totalVisitsPct, fieldYoy.totalVisitsPct) +
-    buildCompareCard('拜訪客戶數', fmtReportInt(fieldSummary.visitedCustomers || 0), d.previousLabel || '前期', fmtReportInt(fieldBasePrev.visitedCustomers || 0), d.yoyLabel || '去年同期', fmtReportInt(fieldBaseYoy.visitedCustomers || 0), fieldPrimary.visitedCustomersPct, fieldYoy.visitedCustomersPct) +
-    buildCompareCard('外勤公里數', fmtReportInt(fieldSummary.totalKm || 0), d.previousLabel || '前期', fmtReportInt(fieldBasePrev.totalKm || 0), d.yoyLabel || '去年同期', fmtReportInt(fieldBaseYoy.totalKm || 0), fieldPrimary.totalKmPct, fieldYoy.totalKmPct) +
-    '</div>';
-
-  html += '<div class="report-grid">';
-  html += '<div class="chart-card"><div class="chart-title">業務排行</div><div class="chart-sub">看誰真的在出貨，不看感覺。</div>' + buildBarRows(topSales, 'name', fmtReportWan) + '</div>';
-  html += buildDonutCard('業務占比', topSalesDonut, 'name', '本期占比\n' + fmtReportWan(s.total || 0));
-  html += '<div class="chart-card"><div class="chart-title">前 10 大客戶</div><div class="chart-sub">只看客戶，不把專案混進來。</div>' + buildBarRows(topCustomers, 'name', fmtReportWan) + '</div>';
-  html += '<div class="chart-card"><div class="chart-title">前 10 大專案</div><div class="chart-sub">專案另外統計，避免客戶失真。</div>' + buildBarRows(topProjects, 'name', fmtReportWan) + '</div>';
-  html += '<div class="chart-card"><div class="chart-title">前 10 大產品</div><div class="chart-sub">看哪個 SKU 在拉動銷售。</div>' + buildBarRows(topProducts.map(function(item) {
-    return { name: item.sku, amount: item.amount };
-  }), 'name', fmtReportWan) + '</div>';
-  html += buildDonutCard('系列占比', topSeries, 'name', '系列結構\n' + topSeries.length + ' 類');
-  html += '<div class="chart-card"><div class="chart-title">年度月趨勢</div><div class="chart-sub">判斷這期是在高峰、平穩，還是掉速。</div>' + buildTrendChart(d.monthTrend || {}, d.months ? d.months[0] : 0) + '</div>';
-  html += '<div class="chart-card"><div class="chart-title">業務成長貢獻</div><div class="chart-sub">相對 ' + (d.previousLabel || '前期') + '，誰拉上來、誰掉下去。紅色代表低於比較基準。</div>' + buildDeltaRows(growthSales, 'name') + '</div>';
-  html += '<div class="chart-card"><div class="chart-title">客戶成長貢獻</div><div class="chart-sub">看成長來自哪些客戶，或少在哪些客戶。紅色代表低於 ' + (d.previousLabel || '前期') + '。</div>' + buildDeltaRows(growthCustomers, 'name') + '</div>';
-  html += '<div class="chart-card"><div class="chart-title">專案成長貢獻</div><div class="chart-sub">專案獨立看，避免混淆客戶變化。紅色代表低於 ' + (d.previousLabel || '前期') + '。</div>' + buildDeltaRows(growthProjects, 'name') + '</div>';
-  html += '<div class="chart-card full-span"><div class="chart-title">產品成長貢獻</div><div class="chart-sub">看哪個 SKU 真正在推升或拖累本期。</div>' + buildDeltaRows(growthProducts, 'name') + '</div>';
-  html += '<div class="chart-card"><div class="chart-title">客戶到訪熱度</div><div class="chart-sub">哪些客戶被拜訪最多，頻率是否合理。</div>' + buildVisitRows(topVisitedCustomers, 'name', 'visits', fmtReportInt, function(item) { return '業績 ' + fmtReportWan(item.salesAmount || 0) + ' / 最近 ' + (item.lastVisit || '無'); }) + '</div>';
-  html += '<div class="chart-card"><div class="chart-title">很少去但有業績</div><div class="chart-sub">高業績但拜訪偏少，優先補拜訪。</div>' + buildVisitRows(underVisitedCustomers, 'name', 'salesAmount', fmtReportWan, function(item) { return '拜訪 ' + fmtReportInt(item.visits || 0) + ' 次'; }) + '</div>';
-  html += '<div class="chart-card"><div class="chart-title">高拜訪低產出</div><div class="chart-sub">去很多次，但本期業績偏弱。</div>' + buildVisitRows(highVisitLowSalesCustomers, 'name', 'visits', fmtReportInt, function(item) { return '業績 ' + fmtReportWan(item.salesAmount || 0); }) + '</div>';
-  html += '<div class="chart-card"><div class="chart-title">業務外勤效率</div><div class="chart-sub">公里數、拜訪次數與產值一起看。</div>' + buildRepRows(repEfficiency) + '</div>';
-  html += buildDonutCard('工作型態占比', taskMix, 'name', '本期任務\n' + fmtReportInt(fieldSummary.totalVisits || 0));
-  html += '<div class="chart-card full-span"><div class="chart-title">管理提示</div><div class="insight-list">' +
-    '<div class="insight-item">' + (d.insights && d.insights.leader ? d.insights.leader : '本期尚無業務資料。') + '</div>' +
-    '<div class="insight-item">' + (d.insights && d.insights.concentration ? d.insights.concentration : '尚無集中度資料。') + '</div>' +
-    '<div class="insight-item">' + (d.insights && d.insights.customer ? d.insights.customer : '尚無客戶分析資料。') + '</div>' +
-    '<div class="insight-item">' + (d.insights && d.insights.product ? d.insights.product : '尚無產品分析資料。') + '</div>' +
-    '<div class="insight-item">本期外勤 ' + fmtReportInt(fieldSummary.totalVisits || 0) + ' 次、' + fmtReportInt(fieldSummary.visitedCustomers || 0) + ' 客、' + fmtReportInt(fieldSummary.totalKm || 0) + ' km，平均每次拜訪帶來 ' + fmtReportWan(fieldSummary.salesPerVisit || 0) + '。</div>' +
-    '</div></div>';
-  html += '</div>';
-
-  document.getElementById('main-content').innerHTML = html;
-}
 
 function showCustomerDetail(customer) {
   showLoading(true);
@@ -2646,12 +2304,6 @@ function buildGlobalAiContext() {
     ctx.products = (window._normalData.sleeper||[]).concat(window._normalData.normal||[]).slice(0,40).map(function(p){
       return { sku:p.sku, seriesCn:p.seriesCn||p.series||'', stockPing:p.stockPing||0, monthlySpeedPings:p.monthlySpeedPings||0, grade:p.grade||p.mosLevel||0, marginPct:p.marginPct||0 };
     });
-  } else if (tab === 'reports' && window._strategyReport) {
-    var r = window._strategyReport;
-    ctx.periodTotal = r.periodTotal||0;
-    ctx.yoyPct = r.yoyPct||null;
-    ctx.topProducts = (r.rankings||r.topProducts||[]).slice(0,15).map(function(p){ return {sku:p.sku,seriesCn:p.seriesCn||p.series||'',totalPings:p.totalPings||p.pings||0,totalAmt:p.totalAmt||p.amt||0}; });
-    ctx.trend = (r.trend||[]).map(function(m){ return {month:m.month,amt:m.amt||0,lastYearAmt:m.lastYearAmt||0}; });
   } else if (tab === 'bonus' && (window._dashboard||window._bonusData)) {
     var d = window._dashboard||{};
     ctx.thisYearAmt = d.thisYearAmt||d.totalAmt||0;
