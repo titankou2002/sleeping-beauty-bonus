@@ -44,7 +44,12 @@ trait DataTrait
 
     public function getSleeperConfig()
     {
-        $data = $this->gs->readSheet(SLEEPER_SHEET);
+        try {
+            $data = $this->gs->readSheet(SLEEPER_SHEET);
+        } catch (Exception $e) {
+            // 有些公司的試算表沒有「睡美人」這個分頁（例如尚未建立），視同無資料而非整支API掛掉
+            return ['success' => false, 'msg' => '睡美人工作表不存在或無法讀取'];
+        }
         if (count($data) < 2) return ['success' => false, 'msg' => '睡美人工作表無資料'];
 
         $h = $data[0];
@@ -436,7 +441,11 @@ trait DataTrait
 
     private function getSleeperCostMap()
     {
-        $data = $this->gs->readSheet(SLEEPER_SHEET);
+        try {
+            $data = $this->gs->readSheet(SLEEPER_SHEET);
+        } catch (Exception $e) {
+            return [];
+        }
         if (count($data) < 2) return [];
 
         $h = $data[0];
