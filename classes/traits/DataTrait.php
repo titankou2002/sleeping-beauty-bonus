@@ -293,7 +293,7 @@ trait DataTrait
 
     public function getReportHistory()
     {
-        $file = AI_ADVISOR_CACHE_DIR . '/report_history' . \$this->cacheSsSuffix() . '.json';
+        $file = AI_ADVISOR_CACHE_DIR . '/report_history' . $this->cacheSsSuffix() . '.json';
         $history = is_file($file) ? (json_decode(file_get_contents($file), true) ?: []) : [];
         return ['success' => true, 'data' => array_values($history)];
     }
@@ -303,7 +303,7 @@ trait DataTrait
         if (!is_dir(AI_ADVISOR_CACHE_DIR)) {
             @mkdir(AI_ADVISOR_CACHE_DIR, 0775, true);
         }
-        $file = AI_ADVISOR_CACHE_DIR . '/report_history' . \$this->cacheSsSuffix() . '.json';
+        $file = AI_ADVISOR_CACHE_DIR . '/report_history' . $this->cacheSsSuffix() . '.json';
         $history = is_file($file) ? (json_decode(file_get_contents($file), true) ?: []) : [];
         $key = sprintf('%d-%02d', $year, $month);
         $history[$key] = [
@@ -330,7 +330,7 @@ trait DataTrait
         if (!is_dir(AI_ADVISOR_CACHE_DIR)) {
             @mkdir(AI_ADVISOR_CACHE_DIR, 0775, true);
         }
-        $file = AI_ADVISOR_CACHE_DIR . '/inventory_history' . \$this->cacheSsSuffix() . '.json';
+        $file = AI_ADVISOR_CACHE_DIR . '/inventory_history' . $this->cacheSsSuffix() . '.json';
         $history = is_file($file) ? (json_decode(file_get_contents($file), true) ?: []) : [];
         $key = sprintf('%d-%02d', $year, $month);
         $summary = $this->getInventorySummary();
