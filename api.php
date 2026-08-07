@@ -415,7 +415,7 @@ try {
             break;
 
         case 'rep-analysis':
-            $res = $svc->getRepAnalysis();
+            $res = getCompanyService($svc)->getRepAnalysis();
             echo json_encode($res, JSON_UNESCAPED_UNICODE);
             break;
 

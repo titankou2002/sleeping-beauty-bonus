@@ -155,7 +155,7 @@ tr.selected td { background: var(--gold-soft); }
 <div class="app">
   <div class="topbar">
     <div class="topbar-inner">
-      <div class="logo">業務績效分析</div>
+      <div class="logo" id="page-logo">業務績效分析</div>
     </div>
   </div>
 
@@ -212,6 +212,9 @@ tr.selected td { background: var(--gold-soft); }
 
 <script>
 var API_BASE = 'api.php';
+var currentCompany = new URLSearchParams(location.search).get('company') || 'sleepingBeauty';
+var COMPANY_NAMES = { sleepingBeauty: '高雅瓷', andyga: '安帝嘉', xiyena: '喜悅納' };
+if (COMPANY_NAMES[currentCompany]) document.getElementById('page-logo').textContent = COMPANY_NAMES[currentCompany] + ' - 業務績效分析';
 var allData = null;
 var charts = [];
 var _sortedReps = [];
@@ -238,7 +241,7 @@ function fmtPct(n) {
 
 function loadData() {
   showLoading(true);
-  fetch(API_BASE + '?action=rep-analysis')
+  fetch(API_BASE + '?action=rep-analysis&company=' + encodeURIComponent(currentCompany))
     .then(function(r) { return r.json(); })
     .then(function(res) {
       showLoading(false);
