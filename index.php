@@ -946,11 +946,7 @@ function switchCompany(company) {
   window._disconYearSummary = null;
   if (currentTab === 'customers') loadCustomerAnalysis();
   else if (currentTab === 'bonus') { renderBonusSubTabBar(); loadSalesList(); }
-  else if (currentTab === 'analysis' || currentTab === 'reps') {
-    var c = document.getElementById('main-content');
-    var f = c.querySelector('iframe');
-    if (f) f.src = f.src.split('?')[0] + '?company=' + company;
-  }
+  else if (currentTab === 'analysis' || currentTab === 'reps') switchTab(currentTab);
 }
 function toggleSortDir() {
   sortDir = sortDir === -1 ? 1 : -1;
@@ -1082,13 +1078,21 @@ function switchTab(tab) {
     loadCustomerAnalysis();
   } else if (tab === 'analysis') {
     var c = document.getElementById('main-content');
-    if (!c.querySelector('iframe[data-tab=analysis]')) {
-      c.innerHTML = '<iframe data-tab="analysis" src="analysis.php" style="width:100%;border:none;background:var(--bg);min-height:calc(100vh - 120px)"></iframe>';
+    var f = c.querySelector('iframe[data-tab=analysis]');
+    var wantSrc = 'analysis.php?company=' + encodeURIComponent(currentCompany);
+    if (!f) {
+      c.innerHTML = '<iframe data-tab="analysis" src="' + wantSrc + '" style="width:100%;border:none;background:var(--bg);min-height:calc(100vh - 120px)"></iframe>';
+    } else if (f.src.indexOf(wantSrc) === -1) {
+      f.src = wantSrc;
     }
   } else if (tab === 'reps') {
     var c = document.getElementById('main-content');
-    if (!c.querySelector('iframe[data-tab=reps]')) {
-      c.innerHTML = '<iframe data-tab="reps" src="reps.php" style="width:100%;border:none;background:var(--bg);min-height:calc(100vh - 120px)"></iframe>';
+    var f = c.querySelector('iframe[data-tab=reps]');
+    var wantSrc = 'reps.php?company=' + encodeURIComponent(currentCompany);
+    if (!f) {
+      c.innerHTML = '<iframe data-tab="reps" src="' + wantSrc + '" style="width:100%;border:none;background:var(--bg);min-height:calc(100vh - 120px)"></iframe>';
+    } else if (f.src.indexOf(wantSrc) === -1) {
+      f.src = wantSrc;
     }
   } else if (tab === 'mgr') {
     var c = document.getElementById('main-content');
