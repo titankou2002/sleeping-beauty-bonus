@@ -568,7 +568,7 @@ try {
 
         case 'new-product-analysis':
             $cohortMonths = (int)($_GET['months'] ?? 24);
-            $res = $svc->getNewProductAnalysis($cohortMonths);
+            $res = getCompanyService($svc)->getNewProductAnalysis($cohortMonths);
             echo json_encode($res, JSON_UNESCAPED_UNICODE);
             break;
 

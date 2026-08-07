@@ -207,7 +207,7 @@ tr:hover td { background: var(--surface2); }
 <div class="app">
   <div class="topbar">
     <div class="topbar-inner">
-      <div class="logo">新品生命週期分析</div>
+      <div class="logo" id="page-logo">新品生命週期分析</div>
     </div>
   </div>
 
@@ -312,6 +312,9 @@ tr:hover td { background: var(--surface2); }
 
 <script>
 var API_BASE = 'api.php';
+var currentCompany = new URLSearchParams(location.search).get('company') || 'sleepingBeauty';
+var COMPANY_NAMES = { sleepingBeauty: '高雅瓷', andyga: '安帝嘉', xiyena: '喜悅納' };
+if (COMPANY_NAMES[currentCompany]) document.getElementById('page-logo').textContent = COMPANY_NAMES[currentCompany] + ' - 新品生命週期分析';
 var allData = null;
 var cohortChart = null;
 var individualChart = null;
@@ -350,7 +353,7 @@ function gradeClass(g) { return 'grade-' + g; }
 function loadData() {
   var months = document.getElementById('sel-months').value;
   showLoading(true);
-  fetch(API_BASE + '?action=new-product-analysis&months=' + months)
+  fetch(API_BASE + '?action=new-product-analysis&months=' + months + '&company=' + encodeURIComponent(currentCompany))
     .then(function(r) { return r.json(); })
     .then(function(res) {
       showLoading(false);
