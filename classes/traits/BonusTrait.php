@@ -10,7 +10,7 @@ trait BonusTrait
         $sleeperMap = $configRes['data'];
         $seriesMap = $this->getSeriesMap();
 
-        $raw = $this->gs->readSheet(SALES_SHEET);
+        $raw = $this->gs->readSheet($this->getSalesSheetName());
         if (count($raw) < 2) return ['success' => false, 'msg' => '經銷銷售報表無資料'];
 
         $h = $raw[0];

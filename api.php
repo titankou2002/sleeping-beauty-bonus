@@ -70,26 +70,26 @@ try {
         case 'sync':
             $year  = (int)($_POST['year'] ?? $_GET['year'] ?? 2026);
             $month = (int)($_POST['month'] ?? $_GET['month'] ?? 5);
-            $res = $svc->syncTrialSheet($year, $month);
+            $res = getCompanyService($svc)->syncTrialSheet($year, $month);
             echo json_encode($res);
             break;
 
         case 'recalc':
-            $res = $svc->recalcTrialSheet();
+            $res = getCompanyService($svc)->recalcTrialSheet();
             echo json_encode($res);
             break;
 
         case 'summary':
             $year  = isset($_GET['year'])  ? (int)$_GET['year']  : null;
             $month = isset($_GET['month']) ? (int)$_GET['month'] : null;
-            $res = $svc->getBonusSummary($year, $month);
+            $res = getCompanyService($svc)->getBonusSummary($year, $month);
             echo json_encode($res);
             break;
 
         case 'year-summary':
             try {
                 $year  = (int)($_GET['year'] ?? date('Y'));
-                $res = $svc->getYearSummary($year);
+                $res = getCompanyService($svc)->getYearSummary($year);
                 echo json_encode($res);
             } catch (Exception $e) {
                 echo json_encode(['success' => false, 'msg' => 'year-summary 錯誤: ' . $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
@@ -99,7 +99,7 @@ try {
         case 'discontinued-year-summary':
             try {
                 $year  = (int)($_GET['year'] ?? date('Y'));
-                $res = $svc->getDiscontinuedYearSummary($year);
+                $res = getCompanyService($svc)->getDiscontinuedYearSummary($year);
                 echo json_encode($res);
             } catch (Exception $e) {
                 echo json_encode(['success' => false, 'msg' => 'discontinued-year-summary 錯誤: ' . $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
@@ -250,17 +250,17 @@ try {
             break;
 
         case 'products':
-            $res = $svc->getSleeperProductOverview();
+            $res = getCompanyService($svc)->getSleeperProductOverview();
             echo json_encode($res);
             break;
 
         case 'discontinued-products':
-            $res = $svc->getDiscontinuedProductOverview();
+            $res = getCompanyService($svc)->getDiscontinuedProductOverview();
             echo json_encode($res);
             break;
 
         case 'normal-products':
-            $res = $svc->getNormalProductOverview();
+            $res = getCompanyService($svc)->getNormalProductOverview();
             echo json_encode($res);
             break;
 
