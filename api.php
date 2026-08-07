@@ -311,14 +311,14 @@ try {
 
         case 'product-lifecycle':
             $sku = $_GET['sku'] ?? '';
-            $res = $svc->getProductLifecycle($sku);
+            $res = getCompanyService($svc)->getProductLifecycle($sku);
             echo json_encode($res);
             break;
 
         case 'product-advisor':
             $tab = $_GET['tab'] ?? 'sleeper';
             $refresh = !empty($_GET['refresh']);
-            $res = $svc->getProductRestockAdvisor($tab, $refresh);
+            $res = getCompanyService($svc)->getProductRestockAdvisor($tab, $refresh);
             echo json_encode($res);
             break;
 
@@ -396,7 +396,8 @@ try {
 
         case 'cache-info':
             try {
-                $cacheRows = $gs->readSheet(CACHE_SHEET);
+                $companyGs = getCompanyService($svc)->getGsClient();
+                $cacheRows = $companyGs->readSheet(CACHE_SHEET);
                 $lastUpdate = '未知';
                 if (count($cacheRows) > 1) {
                     $h = $cacheRows[0];

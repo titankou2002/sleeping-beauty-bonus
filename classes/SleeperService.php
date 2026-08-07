@@ -34,6 +34,11 @@ class SleeperService
         $this->gs = $gs;
     }
 
+    public function getGsClient()
+    {
+        return $this->gs;
+    }
+
     private $clientsCache = [];
 
 

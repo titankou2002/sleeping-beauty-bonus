@@ -11,6 +11,14 @@ trait DataTrait
         return $this->clientsCache[$ssId];
     }
 
+    // 各種本機檔案快取（補貨建議、產品歷史、合約歷史等）用的檔名後綴，
+    // 高雅瓷維持原本無後綴的檔名（相容舊快取），其他公司加上依SsId算出的短後綴，避免三家公司互相讀到彼此的快取
+    private function cacheSsSuffix()
+    {
+        $ssId = $this->gs->getSsId();
+        return $ssId === SS_ID_MAIN ? '' : '_' . substr(md5($ssId), 0, 8);
+    }
+
     private function getSalesRepAreaMap()
     {
         if ($this->areaMap !== null) return $this->areaMap;
@@ -201,7 +209,7 @@ trait DataTrait
         if (!is_dir(AI_ADVISOR_CACHE_DIR)) {
             @mkdir(AI_ADVISOR_CACHE_DIR, 0775, true);
         }
-        $file = AI_ADVISOR_CACHE_DIR . "/product_history_{$tab}.json";
+        $file = AI_ADVISOR_CACHE_DIR . "/product_history_{$tab}" . $this->cacheSsSuffix() . ".json";
         $history = is_file($file) ? (json_decode(file_get_contents($file), true) ?: []) : [];
         $key = date('Y-m');
         $reservationMap = $this->getReservationMap();
@@ -229,7 +237,7 @@ trait DataTrait
     public function getProductHistory($tab, $sku)
     {
         $tab = in_array($tab, ['sleeper', 'normal', 'discontinued']) ? $tab : 'sleeper';
-        $file = AI_ADVISOR_CACHE_DIR . "/product_history_{$tab}.json";
+        $file = AI_ADVISOR_CACHE_DIR . "/product_history_{$tab}" . $this->cacheSsSuffix() . ".json";
         $history = is_file($file) ? (json_decode(file_get_contents($file), true) ?: []) : [];
         $rows = [];
         foreach ($history as $key => $entry) {
@@ -258,7 +266,7 @@ trait DataTrait
 
         $monthlyHistory = [];
         foreach (['sleeper', 'normal', 'discontinued'] as $tab) {
-            $file = AI_ADVISOR_CACHE_DIR . "/product_history_{$tab}.json";
+            $file = AI_ADVISOR_CACHE_DIR . "/product_history_{$tab}" . $this->cacheSsSuffix() . ".json";
             if (!is_file($file)) continue;
             $history = json_decode(file_get_contents($file), true) ?: [];
             foreach ($history as $key => $entry) {
@@ -285,7 +293,7 @@ trait DataTrait
 
     public function getReportHistory()
     {
-        $file = AI_ADVISOR_CACHE_DIR . '/report_history.json';
+        $file = AI_ADVISOR_CACHE_DIR . '/report_history' . \$this->cacheSsSuffix() . '.json';
         $history = is_file($file) ? (json_decode(file_get_contents($file), true) ?: []) : [];
         return ['success' => true, 'data' => array_values($history)];
     }
@@ -295,7 +303,7 @@ trait DataTrait
         if (!is_dir(AI_ADVISOR_CACHE_DIR)) {
             @mkdir(AI_ADVISOR_CACHE_DIR, 0775, true);
         }
-        $file = AI_ADVISOR_CACHE_DIR . '/report_history.json';
+        $file = AI_ADVISOR_CACHE_DIR . '/report_history' . \$this->cacheSsSuffix() . '.json';
         $history = is_file($file) ? (json_decode(file_get_contents($file), true) ?: []) : [];
         $key = sprintf('%d-%02d', $year, $month);
         $history[$key] = [
@@ -322,7 +330,7 @@ trait DataTrait
         if (!is_dir(AI_ADVISOR_CACHE_DIR)) {
             @mkdir(AI_ADVISOR_CACHE_DIR, 0775, true);
         }
-        $file = AI_ADVISOR_CACHE_DIR . '/inventory_history.json';
+        $file = AI_ADVISOR_CACHE_DIR . '/inventory_history' . \$this->cacheSsSuffix() . '.json';
         $history = is_file($file) ? (json_decode(file_get_contents($file), true) ?: []) : [];
         $key = sprintf('%d-%02d', $year, $month);
         $summary = $this->getInventorySummary();
@@ -552,7 +560,7 @@ trait DataTrait
             }
 
             foreach (['sleeper', 'normal', 'discontinued'] as $tab) {
-                $f = AI_ADVISOR_CACHE_DIR . "/restock_{$tab}.json";
+                $f = AI_ADVISOR_CACHE_DIR . "/restock_{$tab}" . $this->cacheSsSuffix() . ".json";
                 if (is_file($f)) @unlink($f);
             }
 

@@ -10,7 +10,7 @@ trait AiTrait
         if (!is_dir(AI_ADVISOR_CACHE_DIR)) {
             @mkdir(AI_ADVISOR_CACHE_DIR, 0775, true);
         }
-        $cacheFile = AI_ADVISOR_CACHE_DIR . "/advisor_{$year}_{$month}.json";
+        $cacheFile = AI_ADVISOR_CACHE_DIR . "/advisor_{$year}_{$month}" . $this->cacheSsSuffix() . ".json";
 
         if (!$forceRefresh && is_file($cacheFile)) {
             $cached = json_decode(file_get_contents($cacheFile), true);

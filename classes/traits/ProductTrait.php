@@ -9,7 +9,8 @@ trait ProductTrait
         if (!is_dir(AI_ADVISOR_CACHE_DIR)) {
             @mkdir(AI_ADVISOR_CACHE_DIR, 0775, true);
         }
-        $cacheFile = AI_ADVISOR_CACHE_DIR . "/restock_{$tab}.json";
+        // 快取檔名要含公司ID，否則切換公司後會誤讀到別家公司快取的補貨建議
+        $cacheFile = AI_ADVISOR_CACHE_DIR . "/restock_{$tab}" . $this->cacheSsSuffix() . ".json";
 
         if (!$forceRefresh && is_file($cacheFile)) {
             $cached = json_decode(file_get_contents($cacheFile), true);
