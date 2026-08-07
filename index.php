@@ -934,6 +934,7 @@ var COMPANY_NAMES = { sleepingBeauty: '高雅瓷', andyga: '安帝嘉', xiyena: 
 function switchCompany(company) {
   currentCompany = company;
   document.querySelector('.logo').textContent = COMPANY_NAMES[company] + '戰情室';
+  document.title = COMPANY_NAMES[company] + '戰情室';
   // 清掉已載入的分頁快取，強制用新公司重新抓資料
   window._customerData = null;
   window._customerSummary = null;
@@ -1114,6 +1115,7 @@ function switchProdTab(tab) {
     currentCompany = company;
     document.getElementById('global-company').value = company;
     document.querySelector('.logo').textContent = COMPANY_NAMES[company] + '戰情室';
+    document.title = COMPANY_NAMES[company] + '戰情室';
   }
   var tab = params.get('tab');
   var validTabs = ['products', 'reports', 'bonus', 'customers', 'analysis', 'reps', 'mgr'];
