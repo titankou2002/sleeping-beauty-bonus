@@ -37,6 +37,18 @@ try {
     $gs = new GoogleSheetsClient();
     $svc = new SleeperService($gs);
 
+    // 依 ?company= 或 POST company 參數，回傳綁定該公司Sheet的SleeperService；預設高雅瓷直接沿用上面已建立的全域 $svc
+    function getCompanyService($svc) {
+        $companyIds = [
+            'sleepingBeauty' => SS_ID_MAIN,
+            'andyga' => SS_ID_ANDYGA,
+            'xiyena' => SS_ID_XIYENA,
+        ];
+        $companyKey = $_GET['company'] ?? $_POST['company'] ?? 'sleepingBeauty';
+        $ssId = $companyIds[$companyKey] ?? SS_ID_MAIN;
+        return $ssId === SS_ID_MAIN ? $svc : new SleeperService(new GoogleSheetsClient($ssId));
+    }
+
     $action = $_GET['action'] ?? '';
     $method = $_SERVER['REQUEST_METHOD'];
 
@@ -233,7 +245,7 @@ try {
         case 'customer-detail':
             $customer = $_GET['customer'] ?? '';
             $year = isset($_GET['year']) ? (int)$_GET['year'] : null;
-            $res = $svc->getCustomerDetail($customer, $year);
+            $res = getCompanyService($svc)->getCustomerDetail($customer, $year);
             echo json_encode($res);
             break;
 
@@ -253,25 +265,25 @@ try {
             break;
 
         case 'customer-analysis':
-            $res = $svc->getCustomerAnalysis();
+            $res = getCompanyService($svc)->getCustomerAnalysis();
             echo json_encode($res);
             break;
 
         case 'customer-timeline':
             $customer = $_GET['customer'] ?? '';
-            $res = $svc->getCustomerTimeline($customer);
+            $res = getCompanyService($svc)->getCustomerTimeline($customer);
             echo json_encode($res);
             break;
 
         case 'customer-warroom':
             $customer = $_GET['customer'] ?? '';
-            $res = $svc->getCustomerWarRoom($customer);
+            $res = getCompanyService($svc)->getCustomerWarRoom($customer);
             echo json_encode($res);
             break;
 
         case 'customer-sales-breakdown':
             $customer = $_GET['customer'] ?? '';
-            $res = $svc->getCustomerSalesBreakdown($customer);
+            $res = getCompanyService($svc)->getCustomerSalesBreakdown($customer);
             echo json_encode($res);
             break;
 

@@ -574,6 +574,11 @@ input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-colo
           <button class="tab-btn" id="tab-reps" onclick="switchTab('reps')">業務分析</button>
           <button class="tab-btn" id="tab-mgr" onclick="switchTab('mgr')">主管報告</button>
         </div>
+        <select id="global-company" onchange="switchCompany(this.value)" style="margin-left:12px">
+          <option value="sleepingBeauty">高雅瓷</option>
+          <option value="andyga">安帝嘉</option>
+          <option value="xiyena">喜悅納</option>
+        </select>
       </div>
     </header>
 
@@ -671,7 +676,7 @@ var bg = isError ? '#ef4444' : '#0a0a0a';
 }
 
 function apiGet(action, params, onSuccess, onFail) {
-  var url = API_BASE + '?action=' + action;
+  var url = API_BASE + '?action=' + action + '&company=' + encodeURIComponent(currentCompany);
   if (params) {
     for (var k in params) url += '&' + k + '=' + encodeURIComponent(params[k]);
   }
@@ -689,6 +694,7 @@ function apiGet(action, params, onSuccess, onFail) {
 function apiPost(action, params, onSuccess, onFail) {
   var url = API_BASE + '?action=' + action;
   var formData = new URLSearchParams();
+  formData.append('company', currentCompany);
   if (params) {
     for (var k in params) formData.append(k, params[k]);
   }
@@ -923,6 +929,28 @@ function fmtNum(n) { if (isNaN(n)) return '0萬'; var wan = n / 10000; return (n
 var currentTab = 'products';
 var currentProdTab = 'normal';
 var sortDir = -1;
+var currentCompany = 'sleepingBeauty';
+var COMPANY_NAMES = { sleepingBeauty: '高雅瓷', andyga: '安帝嘉', xiyena: '喜悅納' };
+function switchCompany(company) {
+  currentCompany = company;
+  document.querySelector('.logo').textContent = COMPANY_NAMES[company] + '戰情室';
+  // 清掉已載入的分頁快取，強制用新公司重新抓資料
+  window._customerData = null;
+  window._customerSummary = null;
+  window._dashboard = null;
+  window._bonusData = null;
+  window._sleeperData = null;
+  window._normalData = null;
+  window._disconProducts = null;
+  window._disconYearSummary = null;
+  if (currentTab === 'customers') loadCustomerAnalysis();
+  else if (currentTab === 'bonus') { renderBonusSubTabBar(); loadSalesList(); }
+  else if (currentTab === 'analysis' || currentTab === 'reps') {
+    var c = document.getElementById('main-content');
+    var f = c.querySelector('iframe');
+    if (f) f.src = f.src.split('?')[0] + '?company=' + company;
+  }
+}
 function toggleSortDir() {
   sortDir = sortDir === -1 ? 1 : -1;
   document.getElementById('sort-dir-btn').textContent = sortDir === -1 ? '↓' : '↑';

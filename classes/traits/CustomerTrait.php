@@ -6,7 +6,7 @@ trait CustomerTrait
     public function getCustomerDetail($customer, $year = null)
     {
         $seriesMap = $this->getSeriesMap();
-        $raw = $this->gs->readSheet(SALES_SHEET);
+        $raw = $this->gs->readSheet($this->getSalesSheetName());
         if (count($raw) < 2) return ['success' => true, 'data' => []];
 
         $h = $raw[0];
@@ -155,8 +155,8 @@ trait CustomerTrait
             }
         }
 
-        // 1. 銷售
-        $raw = $this->gs->readSheet(SALES_SHEET);
+        // 1. 銷售（喜悅納的原始銷售明細分頁名稱跟其他兩家不同，見 getSalesSheetName()）
+        $raw = $this->gs->readSheet($this->getSalesSheetName());
         if (count($raw) >= 2) {
             $h = $raw[0];
             $idxDate = $this->findHeader($h, ['日期','單據日期','銷貨日期']);
@@ -483,7 +483,7 @@ trait CustomerTrait
         $timeline = [];
 
         // 銷售
-        $raw = $this->gs->readSheet(SALES_SHEET);
+        $raw = $this->gs->readSheet($this->getSalesSheetName());
         if (count($raw) >= 2) {
             $h = $raw[0];
             $idxDate = $this->findHeader($h, ['日期','單據日期','銷貨日期']);
@@ -601,7 +601,7 @@ trait CustomerTrait
         $reservedMap = $this->getReservationMap();
 
         $salesBySku = [];
-        $raw = $this->gs->readSheet(SALES_SHEET);
+        $raw = $this->gs->readSheet($this->getSalesSheetName());
         if (count($raw) >= 2) {
             $h = $raw[0];
             $idxDate = $this->findHeader($h, ['日期','單據日期','銷貨日期']);
@@ -697,7 +697,7 @@ trait CustomerTrait
         $yearEnd     = new DateTime(($now->format('Y') - 1) . '-12-31');
 
         $skuMap = [];
-        $raw = $this->gs->readSheet(SALES_SHEET);
+        $raw = $this->gs->readSheet($this->getSalesSheetName());
         if (count($raw) >= 2) {
             $h = $raw[0];
             $idxDate  = $this->findHeader($h, ['日期','單據日期','銷貨日期']);
