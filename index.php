@@ -1107,7 +1107,18 @@ function switchProdTab(tab) {
   renderProducts();
 }
 
-switchTab('products');
+(function initFromUrl() {
+  var params = new URLSearchParams(location.search);
+  var company = params.get('company');
+  if (company && COMPANY_NAMES[company]) {
+    currentCompany = company;
+    document.getElementById('global-company').value = company;
+    document.querySelector('.logo').textContent = COMPANY_NAMES[company] + '戰情室';
+  }
+  var tab = params.get('tab');
+  var validTabs = ['products', 'reports', 'bonus', 'customers', 'analysis', 'reps', 'mgr'];
+  switchTab(validTabs.indexOf(tab) !== -1 ? tab : 'products');
+})();
 
 function loadProducts() {
   showLoading(true);
