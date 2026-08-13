@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>盤前快報 2026/08/14</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📈</text></svg>">
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --card-bg: #ffffff;
+    --card-bg-2: #f0f1f4;
+    --text: #1a1d23;
+    --text-muted: #6b7280;
+    --border: #e5e7eb;
+    --accent: #dc2626;
+    --accent-soft: #fee2e2;
+    --up: #dc2626;
+    --down: #16a34a;
+    --link: #2563eb;
+    --warn-bg: #fff7ed;
+    --warn-border: #fdba74;
+    --warn-text: #9a3412;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115;
+      --card-bg: #1a1d24;
+      --card-bg-2: #20232c;
+      --text: #e8eaed;
+      --text-muted: #9aa0aa;
+      --border: #2a2d36;
+      --accent: #f87171;
+      --accent-soft: #3f1d1d;
+      --up: #f87171;
+      --down: #4ade80;
+      --link: #60a5fa;
+      --warn-bg: #2b1d10;
+      --warn-border: #92400e;
+      --warn-text: #fdba74;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1115; --card-bg: #1a1d24; --card-bg-2: #20232c; --text: #e8eaed; --text-muted: #9aa0aa; --border: #2a2d36; --accent: #f87171; --accent-soft: #3f1d1d; --up: #f87171; --down: #4ade80; --link: #60a5fa; --warn-bg: #2b1d10; --warn-border: #92400e; --warn-text: #fdba74;
+  }
+  :root[data-theme="light"] {
+    --bg: #f7f8fa; --card-bg: #ffffff; --card-bg-2: #f0f1f4; --text: #1a1d23; --text-muted: #6b7280; --border: #e5e7eb; --accent: #dc2626; --accent-soft: #fee2e2; --up: #dc2626; --down: #16a34a; --link: #2563eb; --warn-bg: #fff7ed; --warn-border: #fdba74; --warn-text: #9a3412;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Microsoft JhengHei", sans-serif;
+    padding: 32px 16px 64px;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; }
+  a { color: var(--link); }
+  h1 { font-size: 1.7rem; margin: 0 0 6px; display: flex; align-items: center; gap: 10px; }
+  .sub { color: var(--text-muted); font-size: 0.88rem; margin-bottom: 4px; }
+  .back { display: inline-block; margin-bottom: 20px; font-size: 0.85rem; color: var(--text-muted); text-decoration: none; }
+  .back:hover { color: var(--accent); }
+
+  .notice {
+    background: var(--warn-bg); border: 1px solid var(--warn-border); color: var(--warn-text);
+    border-radius: 10px; padding: 14px 18px; margin: 18px 0; font-size: 0.9rem;
+  }
+  section { margin: 34px 0; }
+  h2 { font-size: 1.25rem; margin: 0 0 14px; padding-bottom: 8px; border-bottom: 2px solid var(--border); display: flex; align-items: center; gap: 8px; }
+  h3 { font-size: 1.02rem; margin: 20px 0 10px; color: var(--accent); }
+  h4 { font-size: 0.9rem; margin: 14px 0 6px; color: var(--text); }
+
+  .card {
+    background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; margin-bottom: 14px;
+  }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .idx-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; }
+  .idx-name { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 4px; }
+  .idx-price { font-size: 1.35rem; font-weight: 700; }
+  .idx-chg { font-size: 0.92rem; font-weight: 600; margin-top: 2px; }
+  .up { color: var(--up); }
+  .down { color: var(--down); }
+  .flat { color: var(--text-muted); }
+  .idx-date { font-size: 0.75rem; color: var(--text-muted); margin-top: 6px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; margin: 10px 0; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--text-muted); font-weight: 600; font-size: 0.8rem; }
+  tr:last-child td { border-bottom: none; }
+
+  .stock-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 12px; overflow: hidden; }
+  .stock-card summary {
+    list-style: none; cursor: pointer; padding: 14px 20px; display: flex; align-items: center;
+    flex-wrap: wrap; gap: 10px; justify-content: space-between;
+  }
+  .stock-card summary::-webkit-details-marker { display: none; }
+  .stock-card summary::after {
+    content: "▾"; color: var(--text-muted); font-size: 0.8rem; margin-left: auto; transition: transform .15s ease;
+  }
+  .stock-card[open] summary::after { transform: rotate(180deg); }
+  .stock-card[open] summary { border-bottom: 1px solid var(--border); background: var(--card-bg-2); }
+  .stock-card summary:hover { background: var(--card-bg-2); }
+  .stock-summary-left { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+  .stock-name { font-weight: 700; font-size: 1.02rem; }
+  .stock-code { color: var(--text-muted); font-weight: 400; font-size: 0.82rem; }
+  .stock-price { font-weight: 700; font-size: 0.95rem; white-space: nowrap; }
+  .stock-headline { color: var(--text-muted); font-size: 0.85rem; }
+  .stock-body { padding: 16px 20px 18px; }
+  .stock-body p { margin: 4px 0 0; font-size: 0.9rem; }
+  .stock-sub { background: var(--card-bg-2); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; }
+  .stock-sub:last-child { margin-bottom: 0; }
+  .stock-sub h4 { margin: 0 0 4px; }
+  .gap { color: var(--text-muted); font-style: italic; }
+
+  .tag {
+    display: inline-block; font-size: 0.72rem; padding: 2px 8px; border-radius: 999px;
+    background: var(--card-bg-2); color: var(--text-muted); border: 1px solid var(--border); margin-left: 6px;
+  }
+  .tag.today { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+
+  .industry-block { margin-bottom: 22px; }
+  .pick { background: var(--card-bg-2); border-radius: 10px; padding: 10px 14px; margin-bottom: 8px; font-size: 0.87rem; }
+  .pick .code { font-weight: 700; }
+  .pick .reason { color: var(--text-muted); margin-top: 2px; }
+
+  .focus-item { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; margin-bottom: 10px; }
+  .focus-item .num { color: var(--accent); font-weight: 700; margin-right: 6px; }
+
+  .src { font-size: 0.78rem; color: var(--text-muted); margin-top: 6px; }
+  .src a { color: var(--text-muted); text-decoration: underline; }
+
+  .disclaimer {
+    margin-top: 40px; padding: 16px 20px; border-radius: 10px; background: var(--card-bg-2);
+    color: var(--text-muted); font-size: 0.82rem; border: 1px dashed var(--border);
+  }
+  footer { margin-top: 30px; text-align: center; color: var(--text-muted); font-size: 0.8rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="./index.html">← 返回歷史紀錄</a>
+  <h1>📈 盤前快報 2026/08/14</h1>
+  <div class="sub">睡美人戰情室 · 產生時間：台灣時間 2026/08/14（週五）盤前</div>
+
+  <div class="notice">
+    ⚠️ <strong>資料查證說明：</strong>本報告製作時間為台灣時間 2026/08/14（週五）上午盤前，台股尚未開盤，故「國際盤」「台股大盤」「自選股」「熱門產業」等區塊均以<strong>最近一個已完整收盤的交易日（2026/08/13，週四）</strong>資料為準。<br><br>
+    <strong>① 自選股清單讀取失敗：</strong>本次查證環境的網路出口代理封鎖了 <code>bigt.cc</code> 網域（連線測試回傳 403），無法透過 <code>premarket/api.php?action=list</code> 取得使用者最新自選股清單，故<strong>沿用上一份報告（2026/08/13）的自選股清單</strong>（共 9 檔），待網域恢復存取後下次報告會自動更新為最新清單。<br><br>
+    <strong>② 官方數據源同樣被封鎖：</strong>本環境對 TWSE、TPEx、Yahoo股市、鉅亨網等網域的直接 WebFetch 存取也遭封鎖（403 / EGRESS_BLOCKED），故所有台股相關數字改以 WebSearch 對多篇獨立新聞報導交叉比對取得；凡多次查詢後仍出現互相矛盾、無法核實一致的數字，一律標註「資料缺漏」，絕不採用單一來源或推測數字充數，請留意各段落標註。
+  </div>
+
+  <!-- 國際盤 -->
+  <section>
+    <h2>🌍 國際盤 <span class="tag">2026/08/13 收盤</span></h2>
+    <div class="grid">
+      <div class="idx-card">
+        <div class="idx-name">道瓊工業指數 DJIA</div>
+        <div class="idx-price">53,839.99</div>
+        <div class="idx-chg up">+69.72（+0.13%）</div>
+        <div class="idx-date">2026/08/13 美東收盤</div>
+      </div>
+      <div class="idx-card">
+        <div class="idx-name">那斯達克指數 Nasdaq</div>
+        <div class="idx-price">26,803.03</div>
+        <div class="idx-chg up">+214.54（+0.81%）</div>
+        <div class="idx-date">2026/08/13 美東收盤</div>
+      </div>
+      <div class="idx-card">
+        <div class="idx-name">日經225指數 Nikkei 225</div>
+        <div class="idx-price">68,308.59</div>
+        <div class="idx-chg up">+784.53（+1.16%）</div>
+        <div class="idx-date">2026/08/13 東京收盤</div>
+      </div>
+      <div class="idx-card">
+        <div class="idx-name">韓國 KOSPI</div>
+        <div class="idx-price">6,813.34</div>
+        <div class="idx-chg up">+234.30（+3.56%）</div>
+        <div class="idx-date">2026/08/13 首爾收盤</div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:14px;">
+      <strong>市場氣氛摘要：</strong>
+      <p style="margin:6px 0 0;font-size:0.9rem;">美國 7 月 PPI／CPI 數據溫和降溫（CPI 月增 0.1%、核心月增 0.2%、年增 3.4%，皆與市場預期一致），大幅降低聯準會 9 月升息疑慮（期貨市場「維持利率不變」機率由前一日 52% 升至 64%），推動標普 500 再創歷史新高、那斯達克在 Meta、美光、Netflix 等科技股帶動下上漲逾 0.8%；道瓊則受 Cisco 財報後重挫逾 8% 拖累，僅小漲 0.13%，Workday 傳出遭私募基金 Silver Lake 洽購暴漲 18%。日股受惠美股樂觀氣氛與費城半導體指數（SOX）大漲 2.5%，日經225 在半導體類股（Advantest、東京威力科創等）領軍下續漲逾 1%，站上 68,300 點。韓股方面，通膨數據回落激勵資金重新湧入 AI／半導體，三星電子大漲 4.89%、SK 海力士大漲 5.92%，帶動 KOSPI 單日暴漲 3.56%、連四日上漲，時隔 15 個交易日重返 6,800 點。三大市場當天共同驅動力為「美國通膨數據降溫 → 聯準會升息疑慮消退 → 資金回流科技與半導體類股」。</p>
+      <div class="src">來源：CNBC、The Motley Fool、Washington Post、日本經濟新聞、財経新聞、머니투데이、뉴스핌 等多方交叉查證</div>
+    </div>
+  </section>
+
+  <!-- 台股大盤 -->
+  <section>
+    <h2>🇹🇼 台股大盤 <span class="tag">2026/08/13 收盤</span></h2>
+    <div class="grid">
+      <div class="idx-card">
+        <div class="idx-name">加權指數 TAIEX</div>
+        <div class="idx-price">46,021.48</div>
+        <div class="idx-chg up">+503.41（+1.11%）</div>
+        <div class="idx-date">成交金額約 1 兆 498 億元；連續第 4 個交易日走高</div>
+      </div>
+      <div class="idx-card">
+        <div class="idx-name">櫃買指數 OTC</div>
+        <div class="idx-price">406.12</div>
+        <div class="idx-chg up">+4.10（+1.02%）</div>
+        <div class="idx-date">成交金額約 2,470.31 億元<span class="tag">信心度中等，見下方說明</span></div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:14px;">
+      <strong>三大法人買賣超（2026/08/13）</strong>
+      <table style="margin-top:8px;">
+        <tr><th>法人別</th><th>買賣超金額</th></tr>
+        <tr><td>外資及陸資</td><td class="up">買超約 756.95 億元（主要買盤動能）</td></tr>
+        <tr><td>投信</td><td class="flat">買超約 0.1 億元（接近中立）</td></tr>
+        <tr><td>自營商（合計）</td><td class="up">買超約 150.61 億元</td></tr>
+        <tr><td><strong>三大法人合計</strong></td><td class="up"><strong>買超約 907.56 億元</strong>（連續第 4 個交易日同步買超）</td></tr>
+      </table>
+      <p style="margin:10px 0 0;font-size:0.9rem;"><strong>大盤驅動因素：</strong>美國 7 月 CPI 通膨數據溫和降溫，市場對聯準會升息疑慮消退，帶動全球風險偏好回升；外資單日回補逾 756 億元，資金全面回流台股權值電子、記憶體與基期偏低的傳產原物料類股。同日 MSCI 明晟公布 8 月季度調整結果，台股權重同步上升，並新增南亞科、華邦電、群聯等成分股（調整將於 8/31 盤後生效），成為當日重要題材，帶動記憶體、被動元件族群走強。台積電（2330）收 2,435 元、+20 元（+0.83%），聯發科、台達電同步走揚，領軍加權指數重回 46,000 點大關。</p>
+    </div>
+    <div class="src">資料來源：中央社、鉅亨網、聯合新聞網、Newtalk新聞、芋傳媒、NOWnews、風傳媒等多方交叉查證。OTC 櫃買指數成交金額雖經 3 次獨立搜尋一致出現，但未能定位到具名新聞報導直接引用該確切數字，信心度列為中等；官方端點：<a href="https://www.twse.com.tw/zh/trading/historical/mi-index.html" target="_blank" rel="noopener">TWSE</a>、<a href="https://www.tpex.org.tw/zh-tw/index.html" target="_blank" rel="noopener">TPEx</a>（因網路政策封鎖，本次無法直接存取核對）。</div>
+  </section>
+
+  <!-- 自選股 -->
+  <section>
+    <h2>💼 自選股追蹤 <span class="tag">2026/08/13 收盤 · 沿用上次清單</span></h2>
+    <div class="notice" style="margin-top:0;">⚠️ 自選股清單管理頁面（bigt.cc）本次無法存取，以下沿用 2026/08/13 報告的 9 檔清單，非使用者今日最新設定。</div>
+
+    <details class="stock-card">
+      <summary>
+        <span class="stock-summary-left">
+          <span class="stock-name">台積電</span><span class="stock-code">2330</span>
+        </span>
+        <span class="stock-price up">2,435 元 +0.83%</span>
+        <span class="stock-headline">法說倒數，外資喊上看3800</span>
+      </summary>
+      <div class="stock-body">
+        <div class="stock-sub">
+          <h4>📰 完整新聞內容</h4>
+          <p>台積電將於 8/16（週四）召開法人說明會，法說前外資圈齊揚目標價——花旗證券由 2,875 元上修至 3,800 元（暫居法人圈最高），預估 2026-2028 年 EPS 分別達 106.15、148.69、198.42 元，毛利率估維持 67%；摩根大通同步將目標價由 2,500 元調升至 3,100 元，並將 2024-2029 年資料中心 AI 營收年複合成長率上修至 69%。此波目標價齊揚反映全球 AI 資本支出與資料中心建置需求持續強勁，是外資買盤信心與股價創高的核心動能，8/13 當日收盤 2,435 元，帶動大盤重回 46,000 點。</p>
+          <div class="src">來源：ETtoday財經雲、台視新聞、中時新聞網、NOWnews、Yahoo股市（法說相關報導）</div>
+        </div>
+        <div class="stock-sub">
+          <h4>💰 法人籌碼</h4>
+          <p><span class="gap">資料缺漏</span> —— 多次查證均未能取得台積電 8/13 當日外資／投信／自營商個別買賣超之可交叉核實數據。背景參考：當日大盤三大法人合計買超 907.56 億元、外資買超 756.95 億元（連 4 買），惟記憶體股為外資當日買超焦點，未見台積電個股確切數字。</p>
+        </div>
+        <div class="stock-sub">
+          <h4>📊 均線提示</h4>
+          <p><span class="gap">資料缺漏</span> —— 未查得可交叉核實之 5 日線／10 日線具體數值。背景參考：台積電近期連續 5 個交易日上漲（累計 +2.96%），創波段新高，技術面氛圍偏多，但無精確均線數據佐證。</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="stock-card">
+      <summary>
+        <span class="stock-summary-left">
+          <span class="stock-name">台達電</span><span class="stock-code">2308</span>
+        </span>
+        <span class="stock-price up">1,885 元 +5.31%</span>
+        <span class="stock-headline">AI電源擴產，7月營收創高</span>
+      </summary>
+      <div class="stock-body">
+        <div class="stock-sub">
+          <h4>📰 完整新聞內容</h4>
+          <p>台達電近期擴大 8kW 以上 AC/DC 電源、DC/DC Converter 與液冷散熱專案出貨，銜接新一代 GPU/ASIC 平台需求，供應範圍已從電源零組件延伸至 Power Rack、BBU、液冷與整體電力系統；AI 伺服器相關產品營收比重已超過 25%，液冷占比逾 12%。±400V 高壓直流產品已進入出貨階段，今年資本支出估達 700 億元（去年 466 億元）。7 月營收 670.73 億元，月增 2.24%、年增 47.75%，連 2 個月改寫單月新高，累計前 7 月營收 4,096.82 億元、年增 42.08%，反映全球 AI 資料中心對高效電源與液冷系統需求持續放大，8/13 股價順勢大漲 5.31%。</p>
+          <div class="src">來源：台視財經（TTV）、股市爆料同學會</div>
+        </div>
+        <div class="stock-sub">
+          <h4>💰 法人籌碼</h4>
+          <p><span class="gap">資料缺漏</span> —— 8/13 當日數據未查得可信來源；僅查得 8/11 舊數據（外資賣超 4,629 張、投信買超 1,008 張、自營商賣超 329 張），因非最近一交易日，不作為正式數字採用，僅供背景參考。</p>
+        </div>
+        <div class="stock-sub">
+          <h4>📊 均線提示</h4>
+          <p><span class="gap">資料缺漏</span> —— 台達電近一個月自高點 2,585 元一度重挫至 1,790 元（跌約 3 成），先前技術面稱「跌破週線與月線支撐」；8/13 大漲 5.31% 至 1,885 元後是否已收復 5 日／10 日均線，無法從查證來源明確判定。</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="stock-card">
+      <summary>
+        <span class="stock-summary-left">
+          <span class="stock-name">貿聯-KY</span><span class="stock-code">3665</span>
+        </span>
+        <span class="stock-price up">2,205 元 +2.32%<span class="tag">信心度稍低</span></span>
+        <span class="stock-headline">大摩喊上看3665，併購擴張</span>
+      </summary>
+      <div class="stock-body">
+        <div class="stock-sub">
+          <h4>📰 完整新聞內容</h4>
+          <p>貿聯-KY 8/13 盤中強勢上攻，AI 資料中心機架電力、高速銅纜與 CPO 生態系題材發酵，法人目標價大幅上修——大摩最新報告將目標價由 2,150 元上調至 3,665 元（調幅約 70%），市場並流傳外資 2028 年目標價上看 6,000 元。公司稍早以約新台幣 320 億元併購 Interplex ICT 部門強化 AIDC 布局，並於 NVIDIA GTC 2026 展出新世代 AI 資料中心電源與 MGX 生態系高效能伺服器連接線方案，隨全球 AI 伺服器機櫃功率跨越 100kW、資料中心電源規格由 48V 向 400V/800V HVDC 過渡，是推動貿聯 7 月合併營收年增逾 59% 與股價評價同步上修的關鍵產業趨勢。</p>
+          <div class="src">來源：CMoney、旺得富理財網 <span class="gap">（收盤價來源集中於股市資訊聚合頁面，非多家新聞媒體交叉驗證，建議發布前再以即時看盤系統覆核）</span></div>
+        </div>
+        <div class="stock-sub">
+          <h4>💰 法人籌碼</h4>
+          <p><span class="gap">資料缺漏</span> —— 8/13 當日數據未查得，搜尋僅取得極早期（1 月）舊資料，不具參考性，未列入。</p>
+        </div>
+        <div class="stock-sub">
+          <h4>📊 均線提示</h4>
+          <p><span class="gap">資料缺漏</span> —— 多篇報導形容貿聯「技術多頭格局、連接器族群強勢站上所有均線」，方向偏多，但無法取得明確逐項確認 5 日／10 日線之來源。</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="stock-card">
+      <summary>
+        <span class="stock-summary-left">
+          <span class="stock-name">帆宣</span><span class="stock-code">6196</span>
+        </span>
+        <span class="stock-price gap">資料缺漏</span>
+        <span class="stock-headline">在手訂單破千億，能見度到2027</span>
+      </summary>
+      <div class="stock-body">
+        <div class="stock-sub">
+          <h4>📰 完整新聞內容</h4>
+          <p>帆宣為半導體廠務工程／設備整合廠商，與台積電資本支出連動密切。多篇報導一致指出，截至 2026 年 3 月底在手訂單金額約達新台幣 1,080 億元，營運能見度已延伸至 2027 年之後；首季 EPS 衝上 5.08 元創高。此波動能主要來自全球半導體與 AI 資料中心建設持續擴張，帶動廠務工程需求維持高檔，與國際 AI 資本支出熱潮直接掛鉤。8/13 當日台股受 MSCI 季度調整、記憶體與半導體供應鏈類股全面活絡氛圍激勵，同族群資金動能同步升溫。</p>
+          <div class="src">來源：工商時報、經濟日報、優分析 UAnalyze、財報狗、PressPlay Academy</div>
+        </div>
+        <div class="stock-sub">
+          <h4>💰 法人籌碼</h4>
+          <p><span class="gap">資料缺漏</span> —— 查無可信賴的 8/13 當日外資／投信買賣超數字。</p>
+        </div>
+        <div class="stock-sub">
+          <h4>📊 均線提示</h4>
+          <p><span class="gap">資料缺漏</span> —— 查無可信來源之 5 日線／10 日線具體數值。</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="stock-card">
+      <summary>
+        <span class="stock-summary-left">
+          <span class="stock-name">是方</span><span class="stock-code">6561</span>
+        </span>
+        <span class="stock-price gap">資料缺漏</span>
+        <span class="stock-headline">AI資料中心需求旺，獲利創高</span>
+      </summary>
+      <div class="stock-body">
+        <div class="stock-sub">
+          <h4>📰 完整新聞內容</h4>
+          <p>是方電訊主要經營 IDC 資料中心、資料網路、雲端應用及語音通訊服務，正受惠 AI 浪潮下客戶對「AI-Ready IDC」的需求，公司規劃全面升級為智慧資料中心（AIDC），推動 AI、AIDC 與高效能運算（HPC）應用整合。第四棟 IDC 大樓 LY2 供電量約 20MW，較既有三棟合計 15MW 大幅提升逾 130%，可支援 HPC 伺服器規格，加速進駐可望推升全年營運再創新高（上半年獲利 5.85 億元、EPS 7.57 元）。此成長動能與全球資料中心建設熱潮、AI 算力需求擴張直接相關。</p>
+          <div class="src">來源：CMoney投資網誌、鉅亨網 <span class="gap">（部分獲利數字對應年度未能完全核實為2026年度，引用時請留意時效性）</span></div>
+        </div>
+        <div class="stock-sub">
+          <h4>💰 法人籌碼</h4>
+          <p><span class="gap">資料缺漏</span> —— 未查得可核實之 8/13 三大法人買賣超數字。</p>
+        </div>
+        <div class="stock-sub">
+          <h4>📊 均線提示</h4>
+          <p><span class="gap">資料缺漏</span> —— 未能取得 6561 當日 MA5／MA10 具體數值。</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="stock-card">
+      <summary>
+        <span class="stock-summary-left">
+          <span class="stock-name">華邦電</span><span class="stock-code">2344</span>
+        </span>
+        <span class="stock-price gap">資料缺漏</span>
+        <span class="stock-headline">獲MSCI納入，DRAM漲價潮</span>
+      </summary>
+      <div class="stock-body">
+        <div class="stock-sub">
+          <h4>📰 完整新聞內容</h4>
+          <p>華邦電為台灣主要利基型記憶體廠商（Specialty DRAM、Mobile DRAM、NOR/SLC NAND），受惠本輪記憶體超級循環，8/13 獲 MSCI 明晟 8 月季度調整納入成分股（8/31 盤後生效）。2 月法說會公布 1 月營收 117.78 億元創歷史新高，2025 全年轉盈，車用市場需求自低谷反彈；工商時報 8/4 報導指出法說會前股價連飆三根漲停。DDR4 8Gb DRAM 合約價 7 月已升至 24 美元，創 2016 年統計以來新高，此波漲勢與 AI 裝置記憶體搭載量倍增、HBM 排擠一般型記憶體產能等全球 AI 供應鏈趨勢直接相關。</p>
+          <div class="src">來源：中時新聞網／時報資訊、口袋學堂、鉅亨網、ETtoday財經雲（MSCI納入報導）</div>
+        </div>
+        <div class="stock-sub">
+          <h4>💰 法人籌碼</h4>
+          <p><span class="gap">資料缺漏</span> —— 搜尋出現「8/13 外資買超約 1.2 萬張」等說法，但無法找到第二個獨立來源交叉核實，故不採用具體數字。</p>
+        </div>
+        <div class="stock-sub">
+          <h4>📊 均線提示</h4>
+          <p><span class="gap">資料缺漏</span> —— 搜尋結果僅取得「5日均線、月線、季線、半年線、年線全部向上」的片段敘述，缺乏第二來源佐證與具體數值，故不採信。</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="stock-card">
+      <summary>
+        <span class="stock-summary-left">
+          <span class="stock-name">亞翔</span><span class="stock-code">6139</span>
+        </span>
+        <span class="stock-price gap">資料缺漏</span>
+        <span class="stock-headline">半導體建廠潮，訂單創高</span>
+      </summary>
+      <div class="stock-body">
+        <div class="stock-sub">
+          <h4>📰 完整新聞內容</h4>
+          <p>亞翔 2026 上半年新增合約約新台幣 303.7 億元，在手未完工訂單達 440.07 億元，雙創歷史新高，主要受惠東南亞客戶半導體廠務工程需求；上半年合併營收年增 69.88%，展望未來三年營運步步高。8/13 當日台股受 MSCI 季度調整（記憶體三雄入列）激勵，記憶體與半導體供應鏈類股全面活絡，此氛圍與亞翔所屬的半導體廠務／無塵室工程概念股資金動能相呼應，反映全球半導體資本支出（先進封裝、記憶體新廠、海外建廠）持續擴張的產業趨勢。</p>
+          <div class="src">來源：工商時報、經濟日報</div>
+        </div>
+        <div class="stock-sub">
+          <h4>💰 法人籌碼</h4>
+          <p><span class="gap">資料缺漏</span> —— 查無可信賴的 8/13 當日外資／投信買賣超數字。</p>
+        </div>
+        <div class="stock-sub">
+          <h4>📊 均線提示</h4>
+          <p><span class="gap">資料缺漏</span> —— 查無可信來源之 5 日線／10 日線數據。</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="stock-card">
+      <summary>
+        <span class="stock-summary-left">
+          <span class="stock-name">國泰永續高股息</span><span class="stock-code">00878</span>
+        </span>
+        <span class="stock-price gap">資料缺漏</span>
+        <span class="stock-headline">配息1.01元，首度破1元</span>
+      </summary>
+      <div class="stock-body">
+        <div class="stock-sub">
+          <h4>📰 完整新聞內容</h4>
+          <p>國泰永續高股息公告最新一季配息每受益權單位 1.01 元，較上季 0.66 元大增約 53%，為掛牌以來單季配息首度突破 1 元、寫下新高，除息日 8/18、最後買進日 8/17、發放日 9/11；規模達 6,124.54 億元、受益人數逾 160 萬人。此波配息創高與台股 8 月大盤同步走強、企業獲利與現金水位提升的大環境相呼應，也反映高股息 ETF 在資金持續匯入下市場熱度不減。</p>
+          <div class="src">來源：數位時代／BusinessNext、聯合新聞網、Yahoo股市</div>
+        </div>
+        <div class="stock-sub">
+          <h4>💰 法人籌碼</h4>
+          <p><span class="gap">資料缺漏</span> —— 僅查得 7/21 舊資料（外資買超 2,755 張、投信 0 張、自營賣超 197 張），非 8/13 當日數據，且無第二來源交叉驗證，不採用。</p>
+        </div>
+        <div class="stock-sub">
+          <h4>📊 均線提示</h4>
+          <p><span class="gap">資料缺漏</span> —— 未查得可交叉核實之均線數據。</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="stock-card">
+      <summary>
+        <span class="stock-summary-left">
+          <span class="stock-name">群益台灣精選高息</span><span class="stock-code">00919</span>
+        </span>
+        <span class="stock-price gap">資料缺漏</span>
+        <span class="stock-headline">配息近180億元，創紀錄</span>
+      </summary>
+      <div class="stock-body">
+        <div class="stock-sub">
+          <h4>📰 完整新聞內容</h4>
+          <p>群益台灣精選高息今年配發約新台幣 179.91 億元現金股利，為台股高息 ETF 中配發總額最高者，受惠逾 133.6 萬名受益人；6 月曾宣布單季配息達 1 元創掛牌新高。此反映今年以來台股高息 ETF 資金熱潮及上市企業獲利／現金水位提升，與 8/13 大盤走強、電子權值股表現同步，顯示市場資金持續往高股息題材及台股整體多頭氛圍靠攏。</p>
+          <div class="src">來源：聯合新聞網、ETtoday財經雲</div>
+        </div>
+        <div class="stock-sub">
+          <h4>💰 法人籌碼</h4>
+          <p><span class="gap">資料缺漏</span> —— 僅查得 7/30 舊資料（外資賣超約 9,457 張、自營賣超 14,119 張、投信 0），非 8/13 當日，且未能交叉驗證，不採用。</p>
+        </div>
+        <div class="stock-sub">
+          <h4>📊 均線提示</h4>
+          <p><span class="gap">資料缺漏</span> —— 未查得可交叉核實之均線數據。</p>
+        </div>
+      </div>
+    </details>
+
+    <div class="src">資料來源：中央社、鉅亨網、聯合新聞網、ETtoday財經雲、中時新聞網、工商時報、經濟日報、台視新聞、優分析、財報狗、CMoney、旺得富、數位時代等多方交叉查證。收盤數字凡無法用兩個以上獨立來源相互核對者，一律標註「資料缺漏」。</div>
+  </section>
+
+  <!-- 熱門產業推薦股 -->
+  <section>
+    <h2>🔥 熱門產業推薦股 <span class="tag">2026/08/13 前後</span></h2>
+    <div class="notice" style="margin-top:0;">⚠️ 以下個股僅為當日／近期消息面整理，<strong>非投資建議，請投資人自行判斷風險</strong>。標註「近期關注」者為查無 8/13 當日具體單一消息，改列近一週內法人／市場關注度較高之代表股；部分數字經 WebSearch 多次查證仍有分歧，已於理由中註明。</div>
+
+    <div class="industry-block">
+      <h3>① AI伺服器／資料中心組裝</h3>
+      <div class="pick"><span class="code">2317 鴻海</span><span class="tag today">當日消息</span><div class="reason">老AI伺服器族群補漲領頭羊，外資籌碼近兩日明顯回補。收 262.00 元 +8.00（+2.96%）。</div></div>
+      <div class="pick"><span class="code">2382 廣達</span><span class="tag today">當日消息</span><div class="reason">ODM老AI雙雄之一，大和資本／大摩目標價喊上 370 元。收 325.00 元。</div></div>
+      <div class="pick"><span class="code">3231 緯創</span><span class="tag today">當日消息</span><div class="reason">大摩目標價 205～220 元，首季 AI 伺服器出貨優於大和資本預估達 124%。收 197.00 元 +1.81%。</div></div>
+      <div class="pick"><span class="code">2376 技嘉</span><span class="tag today">當日消息</span><div class="reason">AI伺服器主機板供應鏈受惠股，本益比 17.54 倍。收 390.5 元 +3.99%（漲幅數字待覆核）。</div></div>
+    </div>
+
+    <div class="industry-block">
+      <h3>② 記憶體</h3>
+      <div class="pick"><span class="code">2408 南亞科</span><span class="tag today">當日消息</span><div class="reason">MSCI明晟 8/13 清晨公布季度調整，正式納入成分股；盤中一度亮燈漲停衝上 530 元歷史新高，8月以來累計上漲近34%。</div></div>
+      <div class="pick"><span class="code">2344 華邦電</span><span class="tag today">當日消息</span><div class="reason">同獲 MSCI 8/13 納入，股價 180 元附近多空拉鋸，8月以來累計約漲36%（詳見上方自選股區）。</div></div>
+      <div class="pick"><span class="code">8299 群聯</span><span class="tag today">當日消息</span><div class="reason">同獲 MSCI 8/13 季調納入，開高一度翻黑後買盤承接，8月以來累計約漲35%，股價約 2,175 元附近。</div></div>
+      <div class="pick"><span class="code">3260 威剛</span><span class="tag">近期關注</span><div class="reason">7月營收183.8億元創新高，月增25.4%、年增331.3%；公司預期Q3 DRAM合約價續漲逾20%、NAND漲35～40%。</div></div>
+    </div>
+
+    <div class="industry-block">
+      <h3>③ IC設計／ASIC</h3>
+      <div class="pick"><span class="code">2454 聯發科</span><span class="tag">近期關注</span><div class="reason">法說會將2026年AI ASIC營收展望翻倍上修，從原估10億美元上看突破20億美元，主因拿下Google TPU設計合約，Q1毛利率46.3%。</div></div>
+      <div class="pick"><span class="code">3443 創意</span><span class="tag">近期關注</span><div class="reason">受惠Google CPU及特斯拉AI5兩大專案，法人目標價從3600元大幅上調至5000元，明年EPS上修36%。</div></div>
+      <div class="pick"><span class="code">3661 世芯-KY</span><span class="tag">近期關注</span><div class="reason">評價基準轉向2027年，接AWS Trainium後端訂單；不同法人目標價區間分歧大（3590～6200元不等），需留意時間戳記。</div></div>
+    </div>
+
+    <div class="industry-block">
+      <h3>④ 半導體封測</h3>
+      <div class="pick"><span class="code">3711 日月光投控</span><span class="tag today">當日消息</span><div class="reason">法說會釋出強勁展望，LEAP先進封裝2026年營收估倍增至32億美元、FoCoS成長3倍，法人目標價喊上600元。收 626.00 元 +0.81%。</div></div>
+      <div class="pick"><span class="code">2449 京元電子</span><span class="tag today">當日消息</span><div class="reason">三大法人8/13賣超約1萬張（短線漲多獲利了結），但公司2026年資本支出上修至500億元（年增57.6%）因應先進封裝測試需求，法人目標價330元。</div></div>
+      <div class="pick"><span class="code">8150 南茂</span><span class="tag today">當日消息</span><div class="reason">記憶體與驅動IC封測落後補漲題材，三大法人8/13買超約1.1萬張。</div></div>
+      <div class="pick"><span class="code">6239 力成</span><span class="tag">近期關注</span><div class="reason">封測三雄之一，法人目標價400元，同步擴大先進封裝資本支出。</div></div>
+    </div>
+
+    <div class="industry-block">
+      <h3>⑤ PCB／ABF載板</h3>
+      <div class="pick"><span class="code">3037 欣興</span><span class="tag">近期關注</span><div class="reason">載板三雄之一，外資（高盛）目標價喊上最高1,575元，Agentic AI需求蔓延至CPU，ABF供需缺口2028年恐達35%。</div></div>
+      <div class="pick"><span class="code">8046 南電</span><span class="tag">近期消息（8/12）</span><div class="reason">8/12盤中亮燈漲停收1,265元，外資目標價上看2,310元，受惠AI伺服器與高階運算需求（非8/13當日數據）。</div></div>
+      <div class="pick"><span class="code">3044 健鼎／8358 金居／5475 德宏</span><span class="tag">近期消息（8/12）</span><div class="reason">8/12三檔同步漲停，PCB族群受惠AI伺服器、光通訊、高階運算需求全面湧入；德宏7月營收年增264.03%（非8/13當日數據）。</div></div>
+      <div class="pick"><span class="code">4958 臻鼎-KY</span><span class="tag">近期關注</span><div class="reason">公布上半年財報：營收891.59億元年增13.9%，稅後純益57.74億元、母公司淨利年增139.3%。</div></div>
+    </div>
+
+    <div class="industry-block">
+      <h3>⑥ 散熱</h3>
+      <div class="pick"><span class="code">3017 奇鋐</span><span class="tag today">當日消息</span><div class="reason">AI伺服器液冷需求爆發，GB200/GB300水冷板市占約40～50%，8/13攻上漲停創歷史新高，收3,200元。</div></div>
+      <div class="pick"><span class="code">8996 高力</span><span class="tag today">當日消息</span><div class="reason">液冷散熱題材帶動電機機械類股走強，8/13盤中大漲逾5%（另有來源指漲停收1,285元，數字待覆核）。</div></div>
+      <div class="pick"><span class="code">3324 雙鴻</span><span class="tag">近期關注</span><div class="reason">打入Meta、AWS、微軟液冷供應鏈，AI晶片熱設計功耗已飆至1,200～2,700W遠超氣冷上限，2026H2 Vera Rubin平台放量帶動散熱需求延伸至整機系統。</div></div>
+      <div class="pick"><span class="code">3013 晟銘電</span><span class="tag">近期關注</span><div class="reason">與奇鋐、雙鴻、台達電同被法人列為「散熱獲利主升段」指標股，受惠液冷滲透率衝上76%。</div></div>
+    </div>
+
+    <div class="industry-block">
+      <h3>⑦ CPO／矽光子／光通訊</h3>
+      <div class="pick"><span class="code">3363 上詮</span><span class="tag today">當日消息</span><div class="reason">矽光封裝整合全力推進，3項產品可對應1.6T或逾6.4T應用、部分已進入試產。收 600 元 +4.76%。</div></div>
+      <div class="pick"><span class="code">3450 聯鈞</span><span class="tag today">當日消息</span><div class="reason">CPO／矽光子概念股同步走強，法人視為技術領先族群之一。收 527 元 +3.94%。</div></div>
+      <div class="pick"><span class="code">3163 波若威</span><span class="tag today">當日消息</span><div class="reason">光通訊元件供應鏈受惠AI資料中心升級需求。收 717 元 +0.14%。</div></div>
+      <div class="pick"><span class="code">3081 聯亞</span><span class="tag">近期消息（8/12）</span><div class="reason">磷化銦磊晶暨連續波雷射龍頭，受惠美系基板大廠AXT財測強勁及法說會激勵，攻上漲停2,535元；法人預估2026年EPS上看近20元。</div></div>
+    </div>
+
+    <div class="industry-block">
+      <h3>⑧ 電源供應鏈</h3>
+      <div class="pick"><span class="code">2301 光寶科</span><span class="tag today">當日消息</span><div class="reason">AI伺服器電源＋散熱雙題材發酵，8/13攻上漲停創掛牌以來新天價，盤中買單排隊逾1.8萬張。收 271.5 元。</div></div>
+      <div class="pick"><span class="code">2308 台達電</span><span class="tag today">當日消息</span><div class="reason">AI伺服器電源龍頭，市占約60%，8/13同步走揚（+5.31%，詳見上方自選股區）；外資將目標價上調至2,600～2,750元區間。</div></div>
+      <div class="pick"><span class="code">6412 群電</span><span class="tag">近期關注</span><div class="reason">電源模組廠受惠AI伺服器電供需求，被納入散熱／電源供應鏈觀察名單（8/13單日走弱 -0.67%，僅作族群關注參考）。</div></div>
+    </div>
+
+    <div class="industry-block">
+      <h3>⑨ 高股息ETF／存股</h3>
+      <div class="pick"><span class="code">00878 國泰永續高股息</span><span class="tag today">當日消息</span><div class="reason">配息1.01元創新高、首度突破1元，年化配息率約12%，8/18除息、8/17最後買進日（詳見上方自選股區）。</div></div>
+      <div class="pick"><span class="code">00929 復華台灣科技優息</span><span class="tag">近期關注</span><div class="reason">維持配息0.38元，8/19除息，是8月除息ETF隊列中受矚目的一檔。</div></div>
+      <div class="pick"><span class="code">00919 群益台灣精選高息</span><span class="tag">近期關注</span><div class="reason">今年配發約179.91億元現金股利創紀錄，殖利率話題度高（詳見上方自選股區）。</div></div>
+      <div class="pick"><span class="code">0056 元大高股息</span><span class="tag">近期關注</span><div class="reason">8月除息潮下存股族熱門標的之一，與00878、00919同列比較焦點。</div></div>
+    </div>
+
+    <div class="industry-block">
+      <h3>⑩ 航運／原物料</h3>
+      <div class="pick"><span class="code">2609 陽明</span><span class="tag today">當日消息</span><div class="reason">SCFI運價指數連九週上漲、四大航線齊揚，加上多檔ETF換股納入陽明成分股帶動買盤，8/13盤中漲逾4%；6月營收年增66.76%創20個月新高。</div></div>
+      <div class="pick"><span class="code">2615 萬海</span><span class="tag today">當日消息</span><div class="reason">同受SCFI連九漲、油價回落帶動，8/13盤中漲逾2%。</div></div>
+      <div class="pick"><span class="code">2603 長榮</span><span class="tag today">當日消息</span><div class="reason">貨櫃三雄齊揚，8/13盤中漲幅逾2%；同日為2026Q2合併財報董事會召開日，市場關注財報表現。</div></div>
+      <div class="pick"><span class="code">6505 台塑化</span><span class="tag">近期消息（8/11）</span><div class="reason">荷姆茲海峽地緣政治風險推升油價成為利多，第2季EPS優於預期，三大法人連續9天買超；8/11收71.1元+3.04%（非8/13當日數據）。</div></div>
+    </div>
+
+    <div class="src">資料來源：鉅亨網、中時新聞網、蕃新聞、stock.may.tw法人買賣超彙整、聯合新聞網、經濟日報、工商時報、Yahoo股市、自由財經、幸福熟齡、豐雲學堂、旺得富等多方查證。</div>
+  </section>
+
+  <!-- 重點關注 -->
+  <section>
+    <h2>📌 重點關注</h2>
+    <div class="focus-item"><span class="num">1</span><strong>Fed 政策路線大反轉：從「降息」辯論轉為「升息」防線，新主席 Warsh 首秀考驗信譽。</strong> 聯準會 7/29 FOMC 會議以 9 比 3 表決維持利率於 3.50%–3.75% 區間不變，三位地區聯準銀行總裁（Cleveland的Hammack、Minneapolis的Kashkari、Dallas的Logan）罕見投下「主張升息」反對票。這是新任主席 Kevin Warsh（5/22就職接替Powell）上任後首次會議，市場原解讀其偏鴿，但發言實質透露升息可能性，6月會議紀要已顯示多數委員對2026年底前再升息一碼表達傾向。（來源：CNBC 7/29、7/31）</div>
+    <div class="focus-item"><span class="num">2</span><strong>7月CPI符合預期，市場鬆一口氣，9月升息機率降溫。</strong> 美國勞工部8/12公布7月CPI：月增0.1%、核心月增0.2%，年增率分別為3.4%（前值3.5%）與2.5%，皆與市場共識一致。數據公布後那斯達克上漲0.9%、標普500上漲0.5%；期貨市場對9月會議「維持利率不變」的機率由前一日52%升至64%。（來源：CNBC 8/12）</div>
+    <div class="focus-item"><span class="num">3</span><strong>台股連日反彈至波段高點，外資回補力道強勁，新台幣同步走升。</strong> 台股8/13收漲503.41點（+1.11%），收46,021.48點，成交量1兆498億元；三大法人合計買超907.56億元，其中外資買超756.95億元。受外資回補台股激勵，新台幣同步升值7.8分，收32.168元兌1美元。（來源：聯合新聞網、壹蘋新聞網）</div>
+    <div class="focus-item"><span class="num">4</span><strong>AI資本支出續飆升，四大雲端巨頭2026年合計逼近7,250億美元。</strong> Amazon、Google、Meta、Microsoft四大雲端服務商2026年資本支出計畫合計約7,250億美元，較2025年約4,100億美元大增約77%，資金主要投向AI資料中心、Nvidia GPU、自研晶片與電力基礎設施。Nvidia資料中心營收FY27第一季創單季紀錄752億美元，年增92%，顯示AI資本支出循環尚未降溫，持續是台股電子權值股走強的主要動能。（來源：ValueAddVC、Futurum Group）</div>
+    <div class="focus-item"><span class="num">5</span><strong>地緣政治風險未見降溫，持續為避險資產提供支撐。</strong> 以色列與哈瑪斯間川普和平理事會提出的「15點路線圖」遭以色列總理內唐亞胡8/9公開拒絕，加薩空襲持續；俄烏方面截至8/9一週內俄軍仍對烏克蘭發射61枚飛彈、1,560架無人機，澤倫斯基8/5改口稱領土問題只能與普丁直接談，戰場衝突未降溫。（來源：Newtalk、世界新聞網）</div>
+  </section>
+
+  <!-- 市場預測 -->
+  <section>
+    <h2>🔮 市場預測</h2>
+
+    <h3>黃金價格預測</h3>
+    <table>
+      <tr><th>機構</th><th>最新目標價／預測</th><th>備註</th></tr>
+      <tr><td>高盛 Goldman Sachs</td><td>上修至 5,400 美元（2026年底）</td><td>另有報導指原估4,900美元，若Fed重啟升息恐回落至4,440美元</td></tr>
+      <tr><td>摩根大通 JPMorgan</td><td>6,300 美元（2026年底）</td><td>邏輯：央行年購金量上看800噸、ETF資金持續流入</td></tr>
+      <tr><td>瑞銀 UBS</td><td>上修至6,200美元（3、6、9月目標），年底回落至5,900美元</td><td>牛市情境7,200美元／熊市情境4,600美元</td></tr>
+      <tr><td>美銀 BofA</td><td>6,000 美元</td><td>黃金牛市週期歷史漲幅可觀</td></tr>
+      <tr><td>花旗 Citi</td><td>約4,500美元</td><td>各投行中最保守</td></tr>
+    </table>
+    <p style="font-size:0.85rem;color:var(--text-muted);">註：各機構預測值落差極大（4,500～6,300美元），且部分機構（如高盛）同時存在上修/下修不同版本報導，無法確認何者為最新，引用時請以投行官方最新報告為準。</p>
+
+    <h3>白銀價格預測</h3>
+    <table>
+      <tr><th>機構</th><th>最新目標價／預測</th><th>備註</th></tr>
+      <tr><td>摩根大通 JPMorgan</td><td>2026全年均價估81美元（Q4看85美元）</td><td>分季預測：Q1 84／Q2 75／Q3 80／Q4 85</td></tr>
+      <tr><td>美銀 BofA</td><td>2026年高點約65美元，均價約56.25美元</td><td>邏輯：工業需求強勁</td></tr>
+      <tr><td>TD Securities</td><td>均價65.50美元，高點上看118美元</td><td>波動區間極寬</td></tr>
+      <tr><td>路透社分析師調查中位數</td><td>79.50美元</td><td>綜合多家機構共識</td></tr>
+    </table>
+    <p style="font-size:0.85rem;color:var(--text-muted);">註：花旗曾於2026年1月喊出三個月內上看150美元，距今已逾半年，非近期新發布預測，故不列入上表。</p>
+
+    <h3>台灣房市預測</h3>
+    <ul style="font-size:0.9rem;">
+      <li><strong>央行信用管制動向：</strong>央行2026年第2季維持政策利率連續第9季不變，未鬆綁不動產選擇性信用管制；今年3月僅將第二戶房貸成數上限鬆綁至6成，其餘管制措施維持不變。</li>
+      <li><strong>成交量現況：</strong>自2024年6月第七波信用管制實施以來，房貸成數限制多屋族貸款，一般房貸利率升至約2.32%（近年高點），加上預售屋禁止換約規定，投資性需求近乎退場，成交量明顯萎縮。</li>
+      <li><strong>下半年展望：</strong>市場普遍預期2026下半年房市呈現「價穩量增」格局，新青安等政策性房貸、股市財富效應及銀行放款能量回升為支撐買氣回溫主因；業界估計信用管制最快下半年出現「局部鬆綁」機會。</li>
+    </ul>
+    <div class="src">來源：Yahoo香港財經、BigGo、gold-tw.com、TheStreet、Canadian Mining Report、住展雜誌、央行2026上半年信用管制執行情形報告、TechNews</div>
+  </section>
+
+  <div class="disclaimer">
+    ⚠️ 本報告所有個股、產業與市場資訊僅為當日消息面整理與資料查證彙整，<strong>不構成任何投資建議，請投資人自行判斷風險，並於實際交易前以官方（證交所／櫃買中心）或看盤軟體核實即時報價</strong>。本次查證環境的網路出口代理封鎖了 bigt.cc（自選股清單管理頁）以及 TWSE／TPEx／Yahoo股市／鉅亨網等網域的直接存取，數據改以新聞報導交叉比對取得，非直接讀取交易所原始資料，敬請留意標註「資料缺漏」與「信心度」之項目。
+  </div>
+
+  <footer>睡美人戰情室 · 台股盤前快報 · 2026/08/14</footer>
+</div>
+</body>
+</html>
