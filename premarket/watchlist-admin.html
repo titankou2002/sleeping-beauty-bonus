@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>追蹤清單管理</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚙️</text></svg>">
+<style>
+  :root {
+    --bg: #f7f8fa; --card-bg: #ffffff; --card-bg-2: #f0f1f4; --text: #1a1d23; --text-muted: #6b7280;
+    --border: #e5e7eb; --accent: #dc2626; --accent-soft: #fee2e2; --link: #2563eb;
+    --ok: #16a34a; --ok-soft: #dcfce7; --warn-bg: #fff7ed; --warn-border: #fdba74; --warn-text: #9a3412;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115; --card-bg: #1a1d24; --card-bg-2: #20232c; --text: #e8eaed; --text-muted: #9aa0aa;
+      --border: #2a2d36; --accent: #f87171; --accent-soft: #3f1d1d; --link: #60a5fa;
+      --ok: #4ade80; --ok-soft: #10321f; --warn-bg: #2b1d10; --warn-border: #92400e; --warn-text: #fdba74;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1115; --card-bg: #1a1d24; --card-bg-2: #20232c; --text: #e8eaed; --text-muted: #9aa0aa;
+    --border: #2a2d36; --accent: #f87171; --accent-soft: #3f1d1d; --link: #60a5fa;
+    --ok: #4ade80; --ok-soft: #10321f; --warn-bg: #2b1d10; --warn-border: #92400e; --warn-text: #fdba74;
+  }
+  :root[data-theme="light"] {
+    --bg: #f7f8fa; --card-bg: #ffffff; --card-bg-2: #f0f1f4; --text: #1a1d23; --text-muted: #6b7280;
+    --border: #e5e7eb; --accent: #dc2626; --accent-soft: #fee2e2; --link: #2563eb;
+    --ok: #16a34a; --ok-soft: #dcfce7; --warn-bg: #fff7ed; --warn-border: #fdba74; --warn-text: #9a3412;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Microsoft JhengHei", sans-serif;
+    padding: 32px 16px 64px; line-height: 1.6;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  a { color: var(--link); }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; display: flex; align-items: center; gap: 10px; }
+  .sub { color: var(--text-muted); font-size: 0.88rem; margin-bottom: 20px; }
+  .back { display: inline-block; margin-bottom: 16px; font-size: 0.85rem; color: var(--text-muted); text-decoration: none; }
+  .back:hover { color: var(--accent); }
+
+  .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; margin-bottom: 18px; }
+  h2 { font-size: 1.05rem; margin: 0 0 12px; }
+
+  label { display: block; font-size: 0.85rem; color: var(--text-muted); margin: 10px 0 4px; }
+  input, select {
+    width: 100%; padding: 9px 12px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--card-bg-2); color: var(--text); font-size: 0.95rem;
+  }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  button {
+    cursor: pointer; border: none; border-radius: 8px; padding: 10px 16px;
+    font-size: 0.9rem; font-weight: 600; font-family: inherit;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-ghost { background: var(--card-bg-2); color: var(--text); border: 1px solid var(--border); }
+  .btn-danger { background: transparent; color: var(--accent); border: 1px solid var(--accent-soft); padding: 4px 10px; font-size: 0.78rem; }
+  .row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin-top: 12px; }
+  .row > div { flex: 1; min-width: 120px; }
+
+  .stock-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 4px; border-bottom: 1px solid var(--border); font-size: 0.92rem;
+  }
+  .stock-row:last-child { border-bottom: none; }
+  .stock-code { font-weight: 700; margin-right: 8px; }
+  .stock-name { color: var(--text-muted); }
+  .market-tag {
+    display: inline-block; font-size: 0.7rem; padding: 1px 7px; border-radius: 999px;
+    background: var(--card-bg-2); color: var(--text-muted); border: 1px solid var(--border); margin-right: 8px;
+  }
+  .market-tag.us { color: var(--link); }
+
+  .status { margin-top: 12px; font-size: 0.85rem; padding: 10px 14px; border-radius: 8px; display: none; }
+  .status.show { display: block; }
+  .status.info { background: var(--card-bg-2); color: var(--text-muted); }
+  .status.ok { background: var(--ok-soft); color: var(--ok); }
+  .status.warn { background: var(--warn-bg); color: var(--warn-text); border: 1px solid var(--warn-border); }
+  .status.err { background: var(--accent-soft); color: var(--accent); }
+
+  .token-setup { font-size: 0.85rem; color: var(--text-muted); }
+  .token-setup ol { padding-left: 20px; }
+  .token-setup code { background: var(--card-bg-2); padding: 1px 6px; border-radius: 4px; font-size: 0.85em; }
+  .connected { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; color: var(--ok); }
+  .empty-hint { color: var(--text-muted); font-size: 0.85rem; padding: 8px 0; }
+  .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="./index.html">← 返回歷史紀錄</a>
+  <h1>⚙️ 追蹤清單管理</h1>
+  <div class="sub">新增／刪除盤前快報固定追蹤的台股與美股標的，直接寫回 GitHub repo，明天報告自動套用。</div>
+
+  <!-- Token setup -->
+  <div class="card" id="tokenCard">
+    <h2>🔑 GitHub 連線</h2>
+    <div id="tokenSetup" class="token-setup">
+      <p>需要一組 <strong>Fine-grained Personal Access Token</strong>，只給這個 repo 的「Contents: Read and write」權限即可，不要給其他權限。Token 只會存在你這台裝置的瀏覽器（localStorage），不會出現在網頁原始碼或其他地方。</p>
+      <ol>
+        <li>開啟 <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com/settings/personal-access-tokens/new</a></li>
+        <li>Repository access 選「Only select repositories」→ 勾選 <code>titankou2002/sleeping-beauty-bonus</code></li>
+        <li>Permissions → Repository permissions → <strong>Contents</strong> 設為 <strong>Read and write</strong>（其他保持 No access）</li>
+        <li>Generate token，複製後貼到下面</li>
+      </ol>
+      <label for="tokenInput">Personal Access Token</label>
+      <input id="tokenInput" type="password" placeholder="github_pat_xxxxxxxxxxxx" autocomplete="off">
+      <div class="row"><button class="btn-primary" onclick="saveToken()">儲存並連線</button></div>
+    </div>
+    <div id="tokenConnected" style="display:none;" class="connected">
+      <span>✅ 已連線</span>
+      <button class="btn-ghost" onclick="clearToken()">清除 token（登出）</button>
+    </div>
+  </div>
+
+  <!-- Current list -->
+  <div class="card">
+    <h2>目前追蹤清單 <button class="btn-ghost" style="float:right;font-size:0.78rem;padding:4px 10px;" onclick="loadList()">🔄 重新整理</button></h2>
+    <div id="listArea"><div class="empty-hint">尚未連線</div></div>
+  </div>
+
+  <!-- Add form -->
+  <div class="card">
+    <h2>➕ 新增標的</h2>
+    <div class="row">
+      <div>
+        <label for="marketSelect">市場</label>
+        <select id="marketSelect">
+          <option value="TW">台股（上市，.TW）</option>
+          <option value="TWO">台股（上櫃，.TWO）</option>
+          <option value="US">美股</option>
+        </select>
+      </div>
+      <div>
+        <label for="codeInput">代號</label>
+        <input id="codeInput" type="text" placeholder="例如 2330 或 AAPL" autocomplete="off">
+      </div>
+      <div>
+        <label for="nameInput">名稱（選填，驗證成功會自動帶入）</label>
+        <input id="nameInput" type="text" placeholder="例如 台積電">
+      </div>
+    </div>
+    <div class="row">
+      <button class="btn-primary" id="addBtn" onclick="addStock()">驗證並新增</button>
+    </div>
+    <div id="addStatus" class="status"></div>
+  </div>
+
+  <div class="sub" style="font-size:0.78rem;">
+    ⚠️ 「驗證」是嘗試即時查價確認代號可被抓到，會透過瀏覽器直接呼叫公開報價 API，可能因為跨網域限制（CORS）而驗證失敗——失敗不代表代號一定錯，仍可選擇直接新增，正式報告產生當天會再次確認，若真的抓不到會在報告中標示「資料缺漏」。
+  </div>
+</div>
+
+<script>
+const OWNER = 'titankou2002';
+const REPO = 'sleeping-beauty-bonus';
+const PATH = 'premarket/watchlist.json';
+const BRANCH = 'main';
+const TOKEN_KEY = 'wl_admin_gh_token';
+
+function getToken() { return localStorage.getItem(TOKEN_KEY) || ''; }
+function saveToken() {
+  const t = document.getElementById('tokenInput').value.trim();
+  if (!t) return;
+  localStorage.setItem(TOKEN_KEY, t);
+  refreshTokenUI();
+  loadList();
+}
+function clearToken() {
+  localStorage.removeItem(TOKEN_KEY);
+  refreshTokenUI();
+  document.getElementById('listArea').innerHTML = '<div class="empty-hint">尚未連線</div>';
+}
+function refreshTokenUI() {
+  const has = !!getToken();
+  document.getElementById('tokenSetup').style.display = has ? 'none' : 'block';
+  document.getElementById('tokenConnected').style.display = has ? 'flex' : 'none';
+}
+
+// UTF-8 safe base64 helpers
+function b64encode(str) {
+  return btoa(String.fromCharCode(...new TextEncoder().encode(str)));
+}
+function b64decode(b64) {
+  return new TextDecoder().decode(Uint8Array.from(atob(b64.replace(/\n/g,'')), c => c.charCodeAt(0)));
+}
+
+function setStatus(el, type, html) {
+  el.className = 'status show ' + type;
+  el.innerHTML = html;
+}
+
+async function ghGet() {
+  const res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents/${PATH}?ref=${BRANCH}`, {
+    headers: { 'Authorization': `Bearer ${getToken()}`, 'Accept': 'application/vnd.github+json' }
+  });
+  if (!res.ok) throw new Error(`讀取失敗 (HTTP ${res.status})：${res.status === 401 ? 'token 無效或已過期' : res.status === 404 ? '找不到檔案' : '請確認 token 權限'}`);
+  const data = await res.json();
+  const json = JSON.parse(b64decode(data.content));
+  return { json, sha: data.sha };
+}
+
+async function ghPut(json, sha, message) {
+  json.updated_at = new Date().toISOString();
+  const body = {
+    message,
+    content: b64encode(JSON.stringify(json, null, 2) + '\n'),
+    sha,
+    branch: BRANCH
+  };
+  const res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents/${PATH}`, {
+    method: 'PUT',
+    headers: { 'Authorization': `Bearer ${getToken()}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(()=>'');
+    throw new Error(`寫入失敗 (HTTP ${res.status})：${t.slice(0,200)}`);
+  }
+  return res.json();
+}
+
+function marketLabel(m) {
+  return m === 'US' ? '美股' : (m === 'TWO' ? '台股·上櫃' : '台股·上市');
+}
+
+async function loadList() {
+  const area = document.getElementById('listArea');
+  if (!getToken()) { area.innerHTML = '<div class="empty-hint">尚未連線</div>'; return; }
+  area.innerHTML = '<div class="empty-hint"><span class="spinner"></span>載入中…</div>';
+  try {
+    const { json } = await ghGet();
+    renderList(json);
+  } catch (e) {
+    area.innerHTML = `<div class="empty-hint" style="color:var(--accent);">${e.message}</div>`;
+  }
+}
+
+function renderList(json) {
+  const area = document.getElementById('listArea');
+  const stocks = (json.stocks || []).slice().sort((a,b) => {
+    if (a.market !== b.market) return a.market === 'US' ? 1 : -1;
+    return a.code.localeCompare(b.code);
+  });
+  if (!stocks.length) { area.innerHTML = '<div class="empty-hint">目前沒有追蹤任何標的</div>'; return; }
+  area.innerHTML = stocks.map(s => `
+    <div class="stock-row">
+      <div>
+        <span class="market-tag ${s.market === 'US' ? 'us' : ''}">${marketLabel(s.market)}</span>
+        <span class="stock-code">${escapeHtml(s.code)}</span>
+        <span class="stock-name">${escapeHtml(s.name || '')}</span>
+      </div>
+      <button class="btn-danger" onclick="removeStock('${s.market}', '${escapeAttr(s.code)}')">刪除</button>
+    </div>
+  `).join('');
+}
+
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function escapeAttr(s) { return String(s).replace(/'/g, "\\'"); }
+
+async function validateTicker(market, code) {
+  let symbol = code;
+  if (market === 'TW') symbol = `${code}.TW`;
+  else if (market === 'TWO') symbol = `${code}.TWO`;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 6000);
+    const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}`, { signal: controller.signal });
+    clearTimeout(timer);
+    if (!res.ok) return { ok: false, reason: `HTTP ${res.status}` };
+    const data = await res.json();
+    const result = data && data.chart && data.chart.result && data.chart.result[0];
+    if (!result) return { ok: false, reason: '查無資料' };
+    return { ok: true, name: result.meta.longName || result.meta.shortName || '', price: result.meta.regularMarketPrice };
+  } catch (e) {
+    return { ok: false, reason: e.name === 'AbortError' ? '逾時' : (e.message || 'CORS/網路限制') };
+  }
+}
+
+async function addStock() {
+  const statusEl = document.getElementById('addStatus');
+  if (!getToken()) { setStatus(statusEl, 'err', '請先連線 GitHub token'); return; }
+  const market = document.getElementById('marketSelect').value;
+  const code = document.getElementById('codeInput').value.trim().toUpperCase();
+  let name = document.getElementById('nameInput').value.trim();
+  if (!code) { setStatus(statusEl, 'err', '請輸入股票代號'); return; }
+
+  const btn = document.getElementById('addBtn');
+  btn.disabled = true;
+  setStatus(statusEl, 'info', '<span class="spinner"></span>驗證代號中…');
+
+  const v = await validateTicker(market, code);
+  if (v.ok) {
+    if (!name && v.name) name = v.name;
+    setStatus(statusEl, 'ok', `✅ 驗證成功${v.price ? '，最新價 ' + v.price : ''}${v.name ? '（' + v.name + '）' : ''}，寫入中…`);
+  } else {
+    setStatus(statusEl, 'warn', `⚠️ 無法即時驗證（${v.reason}），仍會新增，正式報告產生時會再次確認。寫入中…`);
+  }
+
+  try {
+    const { json, sha } = await ghGet();
+    json.stocks = json.stocks || [];
+    if (json.stocks.some(s => s.market === (market === 'TWO' ? 'TW' : market) && s.code === code)) {
+      setStatus(statusEl, 'warn', '⚠️ 這個代號已經在清單中了');
+      btn.disabled = false;
+      return;
+    }
+    json.stocks.push({ market: market === 'TWO' ? 'TW' : market, sub_market: market === 'TWO' ? 'OTC' : undefined, code, name });
+    const commitMsg = `watchlist: 新增 ${marketLabel(market)} ${code}${name ? ' ' + name : ''}`;
+    await ghPut(json, sha, commitMsg);
+    setStatus(statusEl, 'ok', `✅ 已新增 ${code}${name ? '（' + name + '）' : ''}，已寫入 GitHub`);
+    document.getElementById('codeInput').value = '';
+    document.getElementById('nameInput').value = '';
+    loadList();
+  } catch (e) {
+    setStatus(statusEl, 'err', '❌ ' + e.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function removeStock(market, code) {
+  if (!confirm(`確定要刪除 ${code} 嗎？`)) return;
+  const area = document.getElementById('listArea');
+  try {
+    const { json, sha } = await ghGet();
+    const before = (json.stocks || []).length;
+    json.stocks = (json.stocks || []).filter(s => !(s.market === market && s.code === code));
+    if (json.stocks.length === before) { alert('找不到這個標的，可能已經被刪除了'); loadList(); return; }
+    await ghPut(json, sha, `watchlist: 移除 ${marketLabel(market)} ${code}`);
+    loadList();
+  } catch (e) {
+    alert('刪除失敗：' + e.message);
+  }
+}
+
+refreshTokenUI();
+if (getToken()) loadList();
+</script>
+</body>
+</html>
