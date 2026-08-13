@@ -5,3 +5,4 @@ config.local.php
 *.log
 /cache/
 *.bak
+/premarket/data/

@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>自選股管理 — 盤前快報</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📈</text></svg>">
+<style>
+  :root {
+    --bg: #f7f8fa; --card-bg: #ffffff; --text: #1a1d23; --text-muted: #6b7280;
+    --border: #e5e7eb; --accent: #dc2626; --accent-soft: #fee2e2; --green: #16a34a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f1115; --card-bg: #1a1d24; --text: #e8eaed; --text-muted: #9aa0aa; --border: #2a2d36; --accent: #f87171; --accent-soft: #3f1d1d; --green: #4ade80; }
+  }
+  :root[data-theme="dark"] { --bg: #0f1115; --card-bg: #1a1d24; --text: #e8eaed; --text-muted: #9aa0aa; --border: #2a2d36; --accent: #f87171; --accent-soft: #3f1d1d; --green: #4ade80; }
+  :root[data-theme="light"] { --bg: #f7f8fa; --card-bg: #ffffff; --text: #1a1d23; --text-muted: #6b7280; --border: #e5e7eb; --accent: #dc2626; --accent-soft: #fee2e2; --green: #16a34a; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Microsoft JhengHei", sans-serif; padding: 32px 16px 64px; }
+  .wrap { max-width: 560px; margin: 0 auto; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; display:flex; align-items:center; gap:8px; }
+  .sub { color: var(--text-muted); font-size: 0.88rem; margin-bottom: 24px; }
+  a.back { color: var(--text-muted); font-size: 0.85rem; text-decoration: none; }
+  a.back:hover { text-decoration: underline; }
+  .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+  .card h2 { font-size: 1rem; margin: 0 0 14px; }
+  ul.stocks { list-style: none; margin: 0; padding: 0; display:flex; flex-direction:column; gap:8px; }
+  ul.stocks li { display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border:1px solid var(--border); border-radius:8px; }
+  .code { font-weight:600; font-variant-numeric: tabular-nums; margin-right:8px; color: var(--accent); }
+  .del-btn { background:none; border:1px solid var(--border); color:var(--text-muted); border-radius:6px; padding:4px 10px; cursor:pointer; font-size:0.8rem; }
+  .del-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .row { display:flex; gap:8px; margin-top:14px; }
+  input { flex:1; padding:9px 12px; border:1px solid var(--border); border-radius:8px; background: var(--bg); color: var(--text); font-size:0.9rem; }
+  button.primary { background: var(--accent); color:#fff; border:none; border-radius:8px; padding:9px 18px; font-size:0.9rem; cursor:pointer; white-space:nowrap; }
+  button.primary:hover { opacity:0.9; }
+  .msg { font-size:0.85rem; margin-top:10px; min-height:1.2em; }
+  .msg.error { color: var(--accent); }
+  .msg.ok { color: var(--green); }
+  .hint { color: var(--text-muted); font-size:0.8rem; margin-top:6px; }
+  .empty { color: var(--text-muted); text-align:center; padding:16px; font-size:0.88rem; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <a class="back" href="./">← 回快報首頁</a>
+    <h1>⚙️ 自選股管理</h1>
+    <div class="sub">新增/刪除固定追蹤的股票，明天早上的盤前快報就會套用最新清單</div>
+
+    <div class="card" id="setupCard" style="display:none;">
+      <h2>🔑 第一次使用，請先設定管理密碼</h2>
+      <div class="row">
+        <input id="newPw" type="password" placeholder="設定一組密碼（至少4碼）">
+        <button class="primary" onclick="setupPassword()">設定</button>
+      </div>
+      <div class="hint">密碼只存在你自己的主機上，不會出現在 GitHub 程式碼裡。</div>
+      <div class="msg" id="setupMsg"></div>
+    </div>
+
+    <div class="card" id="mainCard" style="display:none;">
+      <h2>目前追蹤清單</h2>
+      <ul class="stocks" id="stockList"></ul>
+      <div class="row">
+        <input id="newCode" placeholder="代碼，如 2330" style="flex:0 0 110px;">
+        <input id="newName" placeholder="名稱，如 台積電">
+        <button class="primary" onclick="addStock()">新增</button>
+      </div>
+      <div class="row">
+        <input id="pwInput" type="password" placeholder="管理密碼（新增/刪除都需要）">
+      </div>
+      <div class="msg" id="mainMsg"></div>
+    </div>
+  </div>
+
+<script>
+const API = './api.php';
+let passwordSet = false;
+
+function pw() { return document.getElementById('pwInput').value; }
+
+async function refresh() {
+  const res = await fetch(API + '?action=list');
+  const data = await res.json();
+  passwordSet = !!data.password_set;
+  document.getElementById('setupCard').style.display = passwordSet ? 'none' : '';
+  document.getElementById('mainCard').style.display = passwordSet ? '' : 'none';
+  renderList(data.list || []);
+}
+
+function renderList(list) {
+  const ul = document.getElementById('stockList');
+  ul.innerHTML = '';
+  if (!list.length) {
+    ul.innerHTML = '<li class="empty" style="border:none;">目前沒有追蹤股票</li>';
+    return;
+  }
+  list.forEach(item => {
+    const li = document.createElement('li');
+    li.innerHTML = `<span><span class="code">${item.code}</span>${item.name}</span>`;
+    const btn = document.createElement('button');
+    btn.className = 'del-btn';
+    btn.textContent = '刪除';
+    btn.onclick = () => removeStock(item.code);
+    li.appendChild(btn);
+    ul.appendChild(li);
+  });
+}
+
+async function setupPassword() {
+  const p = document.getElementById('newPw').value;
+  const msg = document.getElementById('setupMsg');
+  msg.textContent = '處理中…'; msg.className = 'msg';
+  const res = await fetch(API, { method: 'POST', body: JSON.stringify({ action: 'set_password', password: p }) });
+  const data = await res.json();
+  if (data.ok) {
+    msg.textContent = '密碼設定成功！'; msg.className = 'msg ok';
+    setTimeout(refresh, 600);
+  } else {
+    msg.textContent = data.error || '設定失敗'; msg.className = 'msg error';
+  }
+}
+
+async function addStock() {
+  const code = document.getElementById('newCode').value.trim();
+  const name = document.getElementById('newName').value.trim();
+  const msg = document.getElementById('mainMsg');
+  if (!code || !name) { msg.textContent = '請輸入代碼與名稱'; msg.className = 'msg error'; return; }
+  msg.textContent = '處理中…'; msg.className = 'msg';
+  const res = await fetch(API, { method: 'POST', body: JSON.stringify({ action: 'add', code, name, password: pw() }) });
+  const data = await res.json();
+  if (data.ok) {
+    msg.textContent = `已新增 ${code} ${name}`; msg.className = 'msg ok';
+    document.getElementById('newCode').value = '';
+    document.getElementById('newName').value = '';
+    renderList(data.list);
+  } else {
+    msg.textContent = data.error || '新增失敗'; msg.className = 'msg error';
+  }
+}
+
+async function removeStock(code) {
+  const msg = document.getElementById('mainMsg');
+  if (!pw()) { msg.textContent = '請先輸入管理密碼'; msg.className = 'msg error'; return; }
+  if (!confirm(`確定要刪除 ${code} 嗎？`)) return;
+  msg.textContent = '處理中…'; msg.className = 'msg';
+  const res = await fetch(API, { method: 'POST', body: JSON.stringify({ action: 'remove', code, password: pw() }) });
+  const data = await res.json();
+  if (data.ok) {
+    msg.textContent = `已刪除 ${code}`; msg.className = 'msg ok';
+    renderList(data.list);
+  } else {
+    msg.textContent = data.error || '刪除失敗'; msg.className = 'msg error';
+  }
+}
+
+refresh();
+</script>
+</body>
+</html>
