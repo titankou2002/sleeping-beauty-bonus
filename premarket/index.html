@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>台股盤前快報 — 歷史紀錄</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📈</text></svg>">
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --card-bg: #ffffff;
+    --text: #1a1d23;
+    --text-muted: #6b7280;
+    --border: #e5e7eb;
+    --accent: #dc2626;
+    --accent-soft: #fee2e2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115;
+      --card-bg: #1a1d24;
+      --text: #e8eaed;
+      --text-muted: #9aa0aa;
+      --border: #2a2d36;
+      --accent: #f87171;
+      --accent-soft: #3f1d1d;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1115; --card-bg: #1a1d24; --text: #e8eaed; --text-muted: #9aa0aa; --border: #2a2d36; --accent: #f87171; --accent-soft: #3f1d1d;
+  }
+  :root[data-theme="light"] {
+    --bg: #f7f8fa; --card-bg: #ffffff; --text: #1a1d23; --text-muted: #6b7280; --border: #e5e7eb; --accent: #dc2626; --accent-soft: #fee2e2;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Microsoft JhengHei", sans-serif;
+    padding: 32px 16px 64px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; display: flex; align-items: center; gap: 10px; }
+  .sub { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 28px; }
+  ul.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  li a {
+    display: flex; justify-content: space-between; align-items: center;
+    background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 18px; text-decoration: none; color: var(--text);
+    transition: border-color .15s ease;
+  }
+  li a:hover { border-color: var(--accent); }
+  .date { font-weight: 600; }
+  .arrow { color: var(--text-muted); }
+  .empty {
+    background: var(--card-bg); border: 1px dashed var(--border); border-radius: 10px;
+    padding: 24px; color: var(--text-muted); text-align: center;
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>📈 台股盤前快報</h1>
+    <div class="sub">每個交易日早上自動產生，歷史紀錄保留於下方</div>
+    <ul class="list" id="list">
+      <li><div class="empty">尚無報告，第一份將於下一個交易日早上自動產生。</div></li>
+    </ul>
+  </div>
+</body>
+</html>
